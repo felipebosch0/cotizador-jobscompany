@@ -41,9 +41,11 @@ exports.handler = async function () {
     const html = await response.text();
 
     const celdas = extraerCeldas(html);
-    // celdas[0] = nombre de la fila ("Blue Promedio"), [1] = Compra, [2] = Venta.
-    const DolarCompra = limpiarNumero(celdas[1]);
-    const DolarVenta = limpiarNumero(celdas[2]);
+    // La celda del nombre ("Dolar Blue en Cordoba") NO tiene atributo
+    // data-order, asi que solo quedan 2 valores en el array: [0] = Compra,
+    // [1] = Venta (confirmado contra el HTML real de infodolar.com).
+    const DolarCompra = limpiarNumero(celdas[0]);
+    const DolarVenta = limpiarNumero(celdas[1]);
 
     return {
       statusCode: 200,
