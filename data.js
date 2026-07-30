@@ -329,7 +329,7 @@ window.COTIZADOR_DATA = {
 
   // Diagnostico es un servicio con precio fijo en ARS (no en USD, no varia
   // por modelo) -- a pedido del usuario.
-  diagnosticoPrecioArs: 50000,
+  diagnosticoPrecioArs: 35000,
 
   reparacionesPorModelo: [
     { modelo: 'iPhone X',           precios: { 'Placa': 60,  'Camara frontal': 42,  'Camara trasera': 48,  'Modulo original': null, 'Modulo premium y glass': 60,  'Cambio bateria': 29, 'Cambio tapa trasera': 48, 'Cambio chasis': null, 'Flex de carga': 26, 'Flex varios': 24, 'Face ID': 84,  'Vidrio de camara': 30 } },
