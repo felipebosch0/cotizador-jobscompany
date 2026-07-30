@@ -631,8 +631,25 @@ function TablaFinancia(value, categoria) {
   infoFinanciacion = '';
   if (!filas.length || value <= 0) { $('#tablaFinancia').removeClass('vista').addClass('oculto'); return; }
 
+  // Los medios de pago de 1 sola cuota sin recargo (Efectivo/Debito/QR/
+  // Transferencia) van todos en el mismo renglon -- a pedido del usuario,
+  // total y cuota son iguales entre ellos asi que no aporta nada mostrarlos
+  // separados.
+  const pagoUnico = filas.filter(f => f.cuotas === 1 && f.interes === 0);
+  const enCuotas = filas.filter(f => !(f.cuotas === 1 && f.interes === 0));
+
   const fragm = document.createDocumentFragment();
-  filas.forEach(f => {
+
+  if (pagoUnico.length) {
+    const totalSinRecargo = value; // interes 0, cualquiera de los planes sirve de base
+    const nombrePlanes = pagoUnico.map(f => f.plan).join(' / ');
+    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)}\n`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
+    fragm.appendChild(tr);
+  }
+
+  enCuotas.forEach(f => {
     const totalConInteres = value * (1 + f.interes);
     const cuota = totalConInteres / f.cuotas;
     infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;

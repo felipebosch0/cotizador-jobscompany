@@ -385,20 +385,38 @@ window.COTIZADOR_DATA = {
   ], // MOCK
 
   // --------------------------------------------------------------
-  // FINANCIACION: igual concepto que INTERES_DESCUENTOS del original,
-  // pero mas simple. MOCK.
-  // --------------------------------------------------------------
+  // FINANCIACION: 4 medios de pago sin recargo (precio de lista, 1 pago) +
+  // 3 promos en cuotas con recargo, a pedido del usuario. Cada 3 cuotas mas
+  // suman 10 puntos de recargo (3 cuotas = 20%, 6 = 30%, 12 = 50%).
   // Si hay algo en el carrito, la financiacion se muestra sobre el total
   // sumado del carrito (categoria "equipo"); si el carrito esta vacio, se
   // muestra sobre el producto individual que se esta viendo. Ver TablaFinancia
   // en app.js.
   financiacion: [
-    { plan: '3 cuotas sin interes', interes: 0,    cuotas: 3, categoria: 'equipo' },
-    { plan: '6 cuotas',             interes: 0.35, cuotas: 6, categoria: 'equipo' },
-    { plan: '12 cuotas',            interes: 0.65, cuotas: 12, categoria: 'equipo' },
-    { plan: '3 cuotas sin interes', interes: 0,    cuotas: 3, categoria: 'reparacion' },
-    { plan: '3 cuotas sin interes', interes: 0,    cuotas: 3, categoria: 'accesorio' }
-  ], // MOCK
+    { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'equipo' },
+    { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'equipo' },
+    { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'equipo' },
+    { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'equipo' },
+    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo' },
+    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
+    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'equipo' },
+
+    { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'reparacion' },
+    { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'reparacion' },
+    { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'reparacion' },
+    { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'reparacion' },
+    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'reparacion' },
+    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'reparacion' },
+    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'reparacion' },
+
+    { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'accesorio' },
+    { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'accesorio' },
+    { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'accesorio' },
+    { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'accesorio' },
+    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio' },
+    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'accesorio' },
+    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'accesorio' }
+  ],
 
   promociones: [] // MOCK (vacio, sin promos activas)
 };
