@@ -401,13 +401,11 @@ window.COTIZADOR_DATA = {
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
     { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'equipo' },
 
-    { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'reparacion' },
-    { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'reparacion' },
-    { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'reparacion' },
-    { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'reparacion' },
-    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'reparacion' },
-    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'reparacion' },
-    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'reparacion' },
+    // Reparacion: solo 2 opciones, ambas sin recargo -- a diferencia de
+    // Venta equipo y Accesorios, aca no se ofrecen Debito/QR/Transferencia
+    // ni 6/12 cuotas, a pedido del usuario.
+    { plan: 'Efectivo',             interes: 0, cuotas: 1, categoria: 'reparacion' },
+    { plan: '3 cuotas sin interes', interes: 0, cuotas: 3, categoria: 'reparacion' },
 
     { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'accesorio' },
