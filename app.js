@@ -400,6 +400,10 @@ function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('
 
 // ============================ VENTA ACCESORIO ============================
 
+function accesoriosSucursal() {
+  return (DATA.accesoriosPorSucursal || {})[sucursalActual] || [];
+}
+
 function PrecioAccesorio() {
   const categoria = $('#formVenta select[name="categoria"]').val();
   const modelo = $('#formVenta select[name="modeloA"]').val();
@@ -407,7 +411,7 @@ function PrecioAccesorio() {
   $('#formVenta input[name="totalAccesorio"]').val('');
 
   if (categoria && modelo && descripcion) {
-    const item = DATA.accesorios.find(a => a.categoria === categoria && a.modelo === modelo && a.descripcion === descripcion);
+    const item = accesoriosSucursal().find(a => a.categoria === categoria && a.modelo === modelo && a.descripcion === descripcion);
     if (item) {
       $('#formVenta input[name="totalAccesorio"]').val(formatNumberArg(item.precio));
       TablaFinancia(item.precio, 'accesorio');
@@ -417,7 +421,7 @@ function PrecioAccesorio() {
   if (!descripcion) {
     $('#formVenta select[name="descripcion"]').children('option:not(:first)').remove();
     const vistos = {};
-    DATA.accesorios.filter(a => a.categoria === categoria).forEach(a => {
+    accesoriosSucursal().filter(a => a.categoria === categoria).forEach(a => {
       if (!vistos[a.descripcion]) { vistos[a.descripcion] = true; $('#formVenta select[name="descripcion"]').append(new Option(a.descripcion, a.descripcion)); }
     });
   }
@@ -425,7 +429,7 @@ function PrecioAccesorio() {
   if (categoria && descripcion && !modelo) {
     $('#formVenta select[name="modeloA"]').children('option:not(:first)').remove();
     const vistos = {};
-    DATA.accesorios.filter(a => a.categoria === categoria && a.descripcion === descripcion).forEach(a => {
+    accesoriosSucursal().filter(a => a.categoria === categoria && a.descripcion === descripcion).forEach(a => {
       if (!vistos[a.modelo]) { vistos[a.modelo] = true; $('#formVenta select[name="modeloA"]').append(new Option(a.modelo, a.modelo)); }
     });
   }
@@ -757,6 +761,15 @@ function cargarSucursal(sucursal) {
   // Trade In: del iPhone 11 en adelante (no se toman modelos mas viejos).
   modelosTradeIn().forEach(m => $('#formTradeIn select[name="modeloTI"]').append(new Option(m, m)));
 
+  // Accesorios: catalogo por sucursal, se repuebla cada vez que cambia (a
+  // diferencia de modeloV/modeloTI/modeloR esto no se repoblaba antes, se
+  // llenaba una unica vez al loguearse).
+  $('#formVenta select[name="categoria"]').children('option:not(:first)').remove();
+  const categoriasVistas = {};
+  accesoriosSucursal().forEach(a => {
+    if (!categoriasVistas[a.categoria]) { categoriasVistas[a.categoria] = true; $('#formVenta select[name="categoria"]').append(new Option(a.categoria, a.categoria)); }
+  });
+
   ResetFormCotizador();
   actualizarModuloStock('');
 
@@ -811,11 +824,6 @@ function iniciarApp(sesion) {
     await actualizarStockEnVivo();
     actualizarModuloStock($('#formVenta select[name="modeloV"]').val());
   }, 2 * 60 * 1000);
-
-  const categoriasVistas = {};
-  DATA.accesorios.forEach(a => {
-    if (!categoriasVistas[a.categoria]) { categoriasVistas[a.categoria] = true; $('#formVenta select[name="categoria"]').append(new Option(a.categoria, a.categoria)); }
-  });
 
   poblarChecks('checksFallasReparacion', '#formReparacion');
   $('#formTradeIn :checkbox').on('change', CalcularTradeIn);
