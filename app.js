@@ -625,7 +625,12 @@ function PreciosRepa() {
 // "equipo" (3/6/12 cuotas) por ser los mas completos, ya que el carrito puede
 // mezclar equipos, accesorios y reparaciones bajo un solo total.
 function TablaFinancia(value, categoria) {
-  if (carrito.length) {
+  // Reparacion no tiene boton "Agregar al carrito" (es una cotizacion aparte,
+  // con su propio total y export de WhatsApp), asi que no tiene sentido que
+  // un carrito con OTRA cosa adentro (un equipo que el vendedor dejo cargado
+  // de antes, por ejemplo) le pise la financiacion sin recargo que se definio
+  // especificamente para Reparacion.
+  if (carrito.length && categoria !== 'reparacion') {
     value = totalCarrito();
     categoria = 'equipo';
   }
@@ -681,16 +686,35 @@ function promociones_disp(value) {
   $('#promo-cotizacion').removeClass('oculto');
 }
 
+// Texto a mostrar para un capacidad+condicion puntual. Independencia usa
+// "seminuevoTiers" (varios precios de Semi Nuevo segun % de bateria) en vez
+// de un unico numero como Shopping -- si hay tiers se muestra el rango
+// (precio mas bajo - precio mas alto) en vez de un solo valor.
+function textoPrecioCapacidad(capInfo, condicion) {
+  if (!capInfo) return null;
+  if (condicion === 'sellado') {
+    return capInfo.sellado != null ? formatNumberArg(capInfo.sellado * DATA.dolar.DolarVenta) : null;
+  }
+  // condicion === 'seminuevo'
+  if (capInfo.seminuevoTiers && capInfo.seminuevoTiers.length) {
+    const precios = capInfo.seminuevoTiers.map(t => t.precio);
+    const min = Math.min(...precios), max = Math.max(...precios);
+    if (min === max) return formatNumberArg(min * DATA.dolar.DolarVenta);
+    return formatNumberArg(min * DATA.dolar.DolarVenta) + ' - ' + formatNumberArg(max * DATA.dolar.DolarVenta);
+  }
+  return capInfo.seminuevo != null ? formatNumberArg(capInfo.seminuevo * DATA.dolar.DolarVenta) : null;
+}
+
 function CargarSoloPrecios() {
   const table = document.getElementById('bodyPreciosSolos');
   table.innerHTML = '';
   const fragm = document.createDocumentFragment();
+  const capacidades = ['64Gb', '128Gb', '256Gb', '512Gb', '1Tb'];
   equipos.forEach(equipo => {
     ['seminuevo', 'sellado'].forEach(condicion => {
-      const capacidades = ['128Gb', '256Gb', '512Gb', '1Tb'];
       const valores = capacidades.map(cap => {
-        const usd = equipo.capacidades[cap] ? equipo.capacidades[cap][condicion] : null;
-        return usd == null ? '-' : formatNumberArg(usd * DATA.dolar.DolarVenta);
+        const texto = textoPrecioCapacidad(equipo.capacidades[cap], condicion);
+        return texto == null ? '-' : texto;
       });
       if (valores.every(v => v === '-')) return;
       const tr = document.createElement('tr');
