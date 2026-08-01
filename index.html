@@ -5743,9 +5743,8 @@
   @media (max-width: 640px) { .login-card { padding: 32px 24px; border-radius: 24px; } }
 
   .login-logo {
-    width: 48px; height: 48px; border-radius: 16px; background: #000; color: #fff;
-    display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px;
-    margin: 0 auto 20px auto; box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    display: block; width: 180px; max-width: 60%; height: auto;
+    margin: 0 auto 20px auto;
   }
   .login-titulo { text-align: center; font-size: 30px; font-weight: 600; letter-spacing: -0.02em; margin: 0; line-height: 1.2; }
   @media (max-width: 640px) { .login-titulo { font-size: 24px; } }
@@ -5844,7 +5843,7 @@
 
     <!-- Card central -->
     <div class="login-card">
-      <div class="login-logo">J</div>
+      <img class="login-logo" src="logo-jobs-company.jpeg" alt="Jobs Company">
       <h1 class="login-titulo">Cotizador de iPhones</h1>
       <p class="login-subtitulo">Accedé para iniciar sesión y cotizar los mejores iPhones.</p>
 
@@ -5881,8 +5880,9 @@
   <!-- ============================ APP (solo autenticado) ============================ -->
   <div id="appContenido" class="oculto">
     <div class="topbar card" style="margin: 10px 20px;">
-      <div>
-        <strong>Cotizador</strong> &mdash; modo de prueba local <span class="badge-mock">SIN Apps Script</span>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <img src="logo-jobs-company.jpeg" alt="Jobs Company" style="height:32px; width:auto; border-radius:6px;">
+        <strong>Cotizador</strong>
       </div>
       <div style="display:flex; align-items:center; gap:20px;">
         <div>
