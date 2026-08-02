@@ -272,31 +272,24 @@ window.COTIZADOR_DATA = {
     { modelo: 'iPad Pro M4',       capacidades: { '11" 256GB': { seminuevo: null, sellado: 1355 } } },
     { modelo: 'iPad Pro M5',       capacidades: { '11" 256GB': { seminuevo: null, sellado: 1380 } } },
 
-    { modelo: 'MacBook Air 13" M1',  capacidades: { '8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1080 } } },
-    { modelo: 'MacBook Air 13" M5',  capacidades: {
-        '10CPU/8GPU 512GB 16GB Silver':   { seminuevo: null, sellado: 1550 },
-        '10CPU/8GPU 512GB 16GB Midnight': { seminuevo: null, sellado: 1550 },
-        '10CPU/8GPU 512GB 16GB Starlight':{ seminuevo: null, sellado: 1550 }
-      } },
-    { modelo: 'MacBook Air 15" M3',  capacidades: { '512GB 24GB RAM Plata': { seminuevo: null, sellado: 1760 } } },
-    { modelo: 'MacBook Air 15" M5',  capacidades: {
-        '512GB 16GB Silver':    { seminuevo: null, sellado: 1840 }, // ver nota de conflicto arriba (vs 1900)
-        '512GB 16GB Starlight': { seminuevo: null, sellado: 1840 },
-        '512GB 16GB Sky Blue':  { seminuevo: null, sellado: 1840 }
-      } },
-
-    { modelo: 'MacBook Pro 14" M5',      capacidades: {
-        '10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2630 },
-        '10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2630 }
-      } },
-    { modelo: 'MacBook Pro 14" M5 Pro',  capacidades: {
-        '15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2880 },
-        '15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2880 }
-      } },
-
-    { modelo: 'MacBook Neo', capacidades: {
-        '256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
-        '512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
+    // Antes eran 7 modelos separados (uno por linea/generacion de MacBook);
+    // a pedido del usuario se unificaron en un solo modelo "MacBook", con
+    // cada linea/generacion+specs como una variante (capacidad) distinta.
+    { modelo: 'MacBook', capacidades: {
+        'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1080 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1550 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1550 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1550 },
+        'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 1760 },
+        'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 1840 }, // ver nota de conflicto arriba (vs 1900)
+        'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 1840 },
+        'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 1840 },
+        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2630 },
+        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2630 },
+        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2880 },
+        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2880 },
+        'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
+        'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
       } }
   ],
 
