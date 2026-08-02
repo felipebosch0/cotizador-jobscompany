@@ -5916,6 +5916,7 @@
               <button type="button" class="btn-act" data-action="btnCTradeIn">Trade In</button>
               <button type="button" class="btn-act" data-action="btnCRepa">Reparacion</button>
               <button type="button" class="btn-act" data-action="btnCPrecios">Precios</button>
+              <button type="button" class="btn-act" data-action="btnCStock">Stock</button>
 
               <form id="formTradeIn" class="oculto">
                 <div class="form-line col-12 sp-t">
@@ -6077,6 +6078,27 @@
                       <tr><th>Modelo</th><th>Condicion</th><th>64Gb</th><th>128Gb</th><th>256Gb</th><th>512Gb</th><th>1Tb</th></tr>
                     </thead>
                     <tbody id="bodyPreciosSolos"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div id="vistaStock" class="col-12 sp-t sp-l oculto">
+                <div class="form-line col-12 sp-t">
+                  <div class="form-group-total" style="display:flex; align-items:flex-end; gap:12px;">
+                    <div style="flex:1;">
+                      <label>Modelo</label>
+                      <select id="selectStockModelo"><option value="">Todos los modelos</option></select>
+                    </div>
+                    <i class="fas fa-sync-alt" id="refrescarStockCompleto" title="Actualizar stock" style="cursor:pointer; padding-bottom:10px;"></i>
+                  </div>
+                </div>
+                <p id="stockCompletoVacio" class="sm-t oculto">Sin stock registrado.</p>
+                <div class="table-responsive">
+                  <table class="table2 table-sortable oculto" id="tablaStockCompleto">
+                    <thead>
+                      <tr><th>Modelo</th><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Sucursal</th><th>Estado</th><th>Obs.</th></tr>
+                    </thead>
+                    <tbody id="bodyStockCompleto"></tbody>
                   </table>
                 </div>
               </div>

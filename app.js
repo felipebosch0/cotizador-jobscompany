@@ -205,6 +205,65 @@ function actualizarModuloStock(modelo) {
   body.appendChild(fragm);
 }
 
+// ============================ STOCK: pestana completa ============================
+// A diferencia de actualizarModuloStock (que se filtra solo al modelo que se
+// esta cotizando en Venta > Equipo), esta pantalla es un modulo aparte para
+// ver TODO el stock de una, con un filtro de modelo opcional.
+
+function poblarSelectStockModelo() {
+  const select = $('#selectStockModelo');
+  const actual = select.val();
+  select.children('option:not(:first)').remove();
+  const vistos = {};
+  (window.STOCK_IPHONES || []).forEach(u => {
+    const clave = normalizarModelo(u.modelo);
+    if (!vistos[clave]) { vistos[clave] = true; select.append(new Option(u.modelo, u.modelo)); }
+  });
+  select.val(actual && vistos[normalizarModelo(actual)] ? actual : '');
+}
+
+function actualizarVistaStockCompleto() {
+  const tabla = document.getElementById('tablaStockCompleto');
+  const body = document.getElementById('bodyStockCompleto');
+  const vacio = document.getElementById('stockCompletoVacio');
+  const modeloFiltro = document.getElementById('selectStockModelo').value;
+
+  let stock = window.STOCK_IPHONES || [];
+  if (modeloFiltro) {
+    const buscado = normalizarModelo(modeloFiltro);
+    stock = stock.filter(u => normalizarModelo(u.modelo) === buscado);
+  }
+
+  body.innerHTML = '';
+  if (!stock.length) {
+    tabla.classList.add('oculto');
+    vacio.classList.remove('oculto');
+    return;
+  }
+
+  // Mismo criterio que el modulo de Venta: lo de la sucursal actual primero.
+  stock = stock.slice().sort((a, b) => {
+    const aPropia = grupoDeSucursal(a.sucursal) === sucursalActual ? 0 : 1;
+    const bPropia = grupoDeSucursal(b.sucursal) === sucursalActual ? 0 : 1;
+    if (aPropia !== bPropia) return aPropia - bPropia;
+    return a.modelo.localeCompare(b.modelo);
+  });
+
+  vacio.classList.add('oculto');
+  tabla.classList.remove('oculto');
+  const fragm = document.createDocumentFragment();
+  stock.forEach(u => {
+    const tr = document.createElement('tr');
+    const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
+    const grupo = grupoDeSucursal(u.sucursal);
+    const sucursalTexto = grupo ? `${u.sucursal} (${grupo})` : u.sucursal + ' (sin asignar)';
+    if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
+    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td>`;
+    fragm.appendChild(tr);
+  });
+  body.appendChild(fragm);
+}
+
 // ============================ DOLAR: auto-actualizar cada 5 min ============================
 // Fuente real: https://www.infodolar.com/cotizacion-dolar-provincia-cordoba.aspx
 // (el scraping en si corre server-side en netlify/functions/dolar.js -- el
@@ -397,6 +456,7 @@ function Venta() {
 }
 function Reparacion() { ResetFormCotizador(); $('#formReparacion').removeClass('oculto').addClass('vista'); }
 function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('oculto').addClass('vista'); CargarSoloPrecios(); }
+function Stock() { ResetFormCotizador(); $('#vistaStock').removeClass('oculto').addClass('vista'); poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
 
 // ============================ VENTA ACCESORIO ============================
 
@@ -840,6 +900,14 @@ function iniciarApp(sesion) {
     MostrarAlerta({ tipo: 'success', title: 'Stock', mnsj: 'Actualizado' });
   });
 
+  document.getElementById('refrescarStockCompleto').addEventListener('click', async () => {
+    await actualizarStockEnVivo();
+    poblarSelectStockModelo();
+    actualizarVistaStockCompleto();
+    MostrarAlerta({ tipo: 'success', title: 'Stock', mnsj: 'Actualizado' });
+  });
+  document.getElementById('selectStockModelo').addEventListener('change', actualizarVistaStockCompleto);
+
   actualizarDolar();
   setInterval(actualizarDolar, 5 * 60 * 1000);
 
@@ -847,6 +915,8 @@ function iniciarApp(sesion) {
   setInterval(async () => {
     await actualizarStockEnVivo();
     actualizarModuloStock($('#formVenta select[name="modeloV"]').val());
+    // Si la pestana Stock esta abierta en este momento, se refresca sola.
+    if ($('#vistaStock').hasClass('vista')) { poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
   }, 2 * 60 * 1000);
 
   poblarChecks('checksFallasReparacion', '#formReparacion');
@@ -956,6 +1026,7 @@ function iniciarApp(sesion) {
         'btnCTradeIn': () => TradeIn(),
         'btnCRepa': () => Reparacion(),
         'btnCPrecios': () => Precios(),
+        'btnCStock': () => Stock(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
         'AgregarCarritoTradeIn': () => AgregarCarritoTradeIn(),
