@@ -197,7 +197,7 @@ function actualizarModuloStock(modelo) {
     const tr = document.createElement('tr');
     const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
     const grupo = grupoDeSucursal(u.sucursal);
-    const sucursalTexto = grupo ? `${u.sucursal} (${grupo})` : u.sucursal + ' (sin asignar)';
+    const sucursalTexto = grupo ? `${u.sucursal} (${grupo})` : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
     tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td>`;
     fragm.appendChild(tr);
@@ -256,7 +256,7 @@ function actualizarVistaStockCompleto() {
     const tr = document.createElement('tr');
     const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
     const grupo = grupoDeSucursal(u.sucursal);
-    const sucursalTexto = grupo ? `${u.sucursal} (${grupo})` : u.sucursal + ' (sin asignar)';
+    const sucursalTexto = grupo ? `${u.sucursal} (${grupo})` : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
     tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td>`;
     fragm.appendChild(tr);
