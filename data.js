@@ -253,24 +253,39 @@ window.COTIZADOR_DATA = {
   // mensaje, asi que no lo cargue. Y "MacBook Neo" lo pasaste con "$" en vez
   // de "USD" — asumi que tambien es USD (si es ARS, avisame y lo corrijo).
   otrosEquiposUniversales: [
-    { modelo: 'AirPods 3ra Generacion',                         capacidades: { 'Unico': { seminuevo: null, sellado: 340 } } },
-    { modelo: 'AirPods 4ta Generacion',                         capacidades: { 'Unico': { seminuevo: null, sellado: 355 } } },
-    { modelo: 'AirPods 4ta Generacion (Cancelacion de Ruido)',  capacidades: { 'Unico': { seminuevo: null, sellado: 410 } } },
-    { modelo: 'AirPods Pro 2da Generacion',                     capacidades: { 'Unico': { seminuevo: null, sellado: 420 } } },
-    { modelo: 'AirPods Pro 3ra Generacion',                     capacidades: { 'Unico': { seminuevo: null, sellado: 510 } } },
-    { modelo: 'AirPods Max',                                    capacidades: { 'Unico': { seminuevo: null, sellado: 780 } } },
+    // Igual que MacBook: antes cada generacion era un modelo separado, ahora
+    // es un solo modelo por familia (AirPods/Apple Watch/iPad) con cada
+    // generacion+tamano como variante (capacidad) distinta.
+    { modelo: 'AirPods', capacidades: {
+        '3ra Generacion': { seminuevo: null, sellado: 340 },
+        '4ta Generacion': { seminuevo: null, sellado: 355 },
+        '4ta Generacion (Cancelacion de Ruido)': { seminuevo: null, sellado: 410 },
+        'Pro 2da Generacion': { seminuevo: null, sellado: 420 },
+        'Pro 3ra Generacion': { seminuevo: null, sellado: 510 },
+        'Max': { seminuevo: null, sellado: 780 }
+      } },
 
-    { modelo: 'Apple Watch SE 2da Gen (GPS)',        capacidades: { '40mm': { seminuevo: null, sellado: 450 }, '44mm': { seminuevo: null, sellado: 450 } } },
-    { modelo: 'Apple Watch SE 3ra Gen (GPS)',        capacidades: { '40mm': { seminuevo: null, sellado: 550 }, '44mm': { seminuevo: null, sellado: 560 } } },
-    { modelo: 'Apple Watch Serie 10 (GPS)',          capacidades: { '42mm': { seminuevo: null, sellado: 550 }, '46mm': { seminuevo: null, sellado: 600 } } },
-    { modelo: 'Apple Watch Serie 10 (GPS + Celular)', capacidades: { '46mm': { seminuevo: null, sellado: 950 } } },
-    { modelo: 'Apple Watch Serie 11 (GPS)',          capacidades: { '42mm': { seminuevo: null, sellado: 640 }, '46mm': { seminuevo: null, sellado: 660 } } },
-    // Apple Watch Ultra 3 (GPS + Celular): SIN PRECIO, falta que lo pases.
+    { modelo: 'Apple Watch', capacidades: {
+        'SE 2da Gen (GPS) - 40mm': { seminuevo: null, sellado: 450 },
+        'SE 2da Gen (GPS) - 44mm': { seminuevo: null, sellado: 450 },
+        'SE 3ra Gen (GPS) - 40mm': { seminuevo: null, sellado: 550 },
+        'SE 3ra Gen (GPS) - 44mm': { seminuevo: null, sellado: 560 },
+        'Serie 10 (GPS) - 42mm': { seminuevo: null, sellado: 550 },
+        'Serie 10 (GPS) - 46mm': { seminuevo: null, sellado: 600 },
+        'Serie 10 (GPS + Celular) - 46mm': { seminuevo: null, sellado: 950 },
+        'Serie 11 (GPS) - 42mm': { seminuevo: null, sellado: 640 },
+        'Serie 11 (GPS) - 46mm': { seminuevo: null, sellado: 660 }
+        // Ultra 3 (GPS + Celular): SIN PRECIO, falta que lo pases.
+      } },
 
-    { modelo: 'iPad A16 (2025)',   capacidades: { '11" 128GB Azul/Rosa': { seminuevo: null, sellado: 665 }, '11" 256GB': { seminuevo: null, sellado: 760 } } },
-    { modelo: 'iPad Air M3',       capacidades: { '11" 256GB Azul': { seminuevo: null, sellado: 1150 }, '13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 } } },
-    { modelo: 'iPad Pro M4',       capacidades: { '11" 256GB': { seminuevo: null, sellado: 1355 } } },
-    { modelo: 'iPad Pro M5',       capacidades: { '11" 256GB': { seminuevo: null, sellado: 1380 } } },
+    { modelo: 'iPad', capacidades: {
+        'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 665 },
+        'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 760 },
+        'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
+        'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
+        'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
+        'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
+      } },
 
     // Antes eran 7 modelos separados (uno por linea/generacion de MacBook);
     // a pedido del usuario se unificaron en un solo modelo "MacBook", con
