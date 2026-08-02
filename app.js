@@ -215,10 +215,10 @@ function poblarSelectStockModelo() {
   const actual = select.val();
   select.children('option:not(:first)').remove();
   const vistos = {};
-  (window.STOCK_IPHONES || []).forEach(u => {
-    const clave = normalizarModelo(u.modelo);
-    if (!vistos[clave]) { vistos[clave] = true; select.append(new Option(u.modelo, u.modelo)); }
-  });
+  (window.STOCK_IPHONES || []).forEach(u => { vistos[normalizarModelo(u.modelo)] = u.modelo; });
+  Object.values(vistos)
+    .sort((a, b) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' }))
+    .forEach(modelo => select.append(new Option(modelo, modelo)));
   select.val(actual && vistos[normalizarModelo(actual)] ? actual : '');
 }
 
