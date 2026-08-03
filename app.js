@@ -746,19 +746,29 @@ function TablaFinancia(value, categoria) {
   infoFinanciacion = '';
   if (!filas.length || value <= 0) { $('#tablaFinancia').removeClass('vista').addClass('oculto'); return; }
 
-  // Los medios de pago de 1 sola cuota sin recargo (Efectivo/Debito/QR/
-  // Transferencia) van todos en el mismo renglon -- a pedido del usuario,
-  // total y cuota son iguales entre ellos asi que no aporta nada mostrarlos
-  // separados.
+  // Los medios de pago de 1 sola cuota sin recargo van todos al mismo valor
+  // (interes 0) -- Efectivo se muestra en su propio renglon (con el
+  // equivalente en dolares, a pedido del usuario) separado del resto
+  // (Debito/QR/Transferencia si los hay), que van agrupados sin dolares.
   const pagoUnico = filas.filter(f => f.cuotas === 1 && f.interes === 0);
+  const pagoUnicoEfectivo = pagoUnico.filter(f => f.plan === 'Efectivo');
+  const pagoUnicoResto = pagoUnico.filter(f => f.plan !== 'Efectivo');
   const enCuotas = filas.filter(f => !(f.cuotas === 1 && f.interes === 0));
 
   const fragm = document.createDocumentFragment();
 
-  if (pagoUnico.length) {
-    const totalSinRecargo = value; // interes 0, cualquiera de los planes sirve de base
-    const nombrePlanes = pagoUnico.map(f => f.plan).join(' / ');
-    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
+  if (pagoUnicoEfectivo.length) {
+    const totalSinRecargo = value;
+    infoFinanciacion += `Efectivo: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>0%</td><td>Efectivo</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
+    fragm.appendChild(tr);
+  }
+
+  if (pagoUnicoResto.length) {
+    const totalSinRecargo = value;
+    const nombrePlanes = pagoUnicoResto.map(f => f.plan).join(' / ');
+    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)}\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
@@ -767,7 +777,7 @@ function TablaFinancia(value, categoria) {
   enCuotas.forEach(f => {
     const totalConInteres = value * (1 + f.interes);
     const cuota = totalConInteres / f.cuotas;
-    infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)} (En dolares: ${formatNumberUsd(cuota / DATA.dolar.DolarVenta)})\n`;
+    infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${(f.interes * 100).toFixed(0)}%</td><td>${f.plan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
     fragm.appendChild(tr);
