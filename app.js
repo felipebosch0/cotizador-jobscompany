@@ -868,7 +868,14 @@ function ExportarInfo(actividad) {
   } else if (actividad === 'VentaEquipo') {
     const bateria = $('#formVenta select[name="estadoBateria"]').val();
     const lineaBateria = bateria ? `\n*Estado de bateria*: ${bateria}` : '';
-    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaBateria}\n\n*Precio final*: ${$('#formVenta input[name="totalVentaEquipo"]').val()}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
+    // "Precio final" en el mensaje de WhatsApp muestra el precio de "3
+    // cuotas sin interes" (no el de efectivo que se ve en pantalla) -- a
+    // pedido del usuario, solo cambia lo que se manda por WhatsApp, no el
+    // campo en pantalla ni el calculo de la tabla de Financiacion.
+    const totalEfectivo = Number(String($('#formVenta input[name="totalVentaEquipo"]').val()).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+    const plan3Cuotas = DATA.financiacion.find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
+    const precioFinalMsj = plan3Cuotas ? totalEfectivo * (1 + plan3Cuotas.interes) : totalEfectivo;
+    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaBateria}\n\n*Precio final*: ${formatNumberArg(precioFinalMsj)}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   }
 
   const el = document.createElement('textarea');
