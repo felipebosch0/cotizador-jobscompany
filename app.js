@@ -766,7 +766,9 @@ function TablaFinancia(value, categoria) {
   if (pagoUnicoResto.length) {
     const totalSinRecargo = value;
     const nombrePlanes = pagoUnicoResto.map(f => f.plan).join(' / ');
-    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)}\n`;
+    // Aviso de que el efectivo tiene descuento -- solo texto, no cambia el
+    // precio de Debito/QR/Transferencia (a pedido del usuario).
+    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (Descuento pagando en efectivo)\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
