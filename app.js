@@ -381,9 +381,7 @@ function AgregarCarritoEquipo() {
     return MostrarAlerta({ tipo: 'error', title: 'Carrito', mnsj: 'Completa el equipo antes de agregarlo al carrito' });
   }
 
-  const condicionTexto = bateria
-    ? `${NOMBRE_CONDICION[condicion] || condicion}, bateria ${bateria}`
-    : (NOMBRE_CONDICION[condicion] || condicion);
+  const condicionTexto = NOMBRE_CONDICION[condicion] || condicion;
 
   // Independencia: como el precio se puede editar a mano, se aclara al
   // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
