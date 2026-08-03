@@ -53,7 +53,8 @@ const USUARIOS = [
   { usuario: 'agustina',  password: 'Shopping123',         rol: 'vendedor', nombre: 'agus',      sucursal: 'Shopping' },
   { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Shopping' },
   { usuario: 'nai',       password: 'Shopping123',         rol: 'vendedor', nombre: 'naileth',   sucursal: 'Shopping' },
-  { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Shopping' }
+  { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Shopping' },
+  { usuario: 'ro',        password: 'Shopping123',         rol: 'vendedor', nombre: 'ro',        sucursal: 'Shopping' }
 ];
 
 const SESION_STORAGE_KEY = 'cotizador_sesion';
