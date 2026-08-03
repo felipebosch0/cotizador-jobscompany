@@ -758,7 +758,7 @@ function TablaFinancia(value, categoria) {
   if (pagoUnico.length) {
     const totalSinRecargo = value; // interes 0, cualquiera de los planes sirve de base
     const nombrePlanes = pagoUnico.map(f => f.plan).join(' / ');
-    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)}\n`;
+    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
@@ -767,7 +767,7 @@ function TablaFinancia(value, categoria) {
   enCuotas.forEach(f => {
     const totalConInteres = value * (1 + f.interes);
     const cuota = totalConInteres / f.cuotas;
-    infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
+    infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)} (En dolares: ${formatNumberUsd(cuota / DATA.dolar.DolarVenta)})\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${(f.interes * 100).toFixed(0)}%</td><td>${f.plan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
     fragm.appendChild(tr);
