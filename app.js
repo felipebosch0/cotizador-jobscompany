@@ -69,6 +69,11 @@ function formatNumberArg(n) {
   return n.toLocaleString('es-ar', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 });
 }
 
+function formatNumberUsd(n) {
+  n = Number(String(n).replace(/,/g, '.'));
+  return n.toLocaleString('en-us', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 });
+}
+
 // ============================ ESTADO ============================
 const DATA = window.COTIZADOR_DATA;
 const principalDiv = document.getElementById('cotizador');
@@ -449,7 +454,7 @@ function ExportarCarrito() {
 
   const parrafoFinanciacion = infoFinanciacion ? `\n*Financiacion*\n${infoFinanciacion}` : '';
 
-  const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Total*: ${formatNumberArg(totalCarrito())}${parrafoTradeIn}\n${parrafoFinanciacion}_*Jobs Company*_`;
+  const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Total*: ${formatNumberArg(totalCarrito())}${parrafoTradeIn}\n${parrafoFinanciacion}${firmaWhatsapp()}`;
 
   const el = document.createElement('textarea');
   el.value = mensaje;
@@ -779,19 +784,20 @@ function promociones_disp(value) {
 // "seminuevoTiers" (varios precios de Semi Nuevo segun % de bateria) en vez
 // de un unico numero como Shopping -- si hay tiers se muestra el rango
 // (precio mas bajo - precio mas alto) en vez de un solo valor.
-function textoPrecioCapacidad(capInfo, condicion) {
+function textoPrecioCapacidad(capInfo, condicion, enUsd) {
   if (!capInfo) return null;
+  const formatear = enUsd ? formatNumberUsd : (usd => formatNumberArg(usd * DATA.dolar.DolarVenta));
   if (condicion === 'sellado') {
-    return capInfo.sellado != null ? formatNumberArg(capInfo.sellado * DATA.dolar.DolarVenta) : null;
+    return capInfo.sellado != null ? formatear(capInfo.sellado) : null;
   }
   // condicion === 'seminuevo'
   if (capInfo.seminuevoTiers && capInfo.seminuevoTiers.length) {
     const precios = capInfo.seminuevoTiers.map(t => t.precio);
     const min = Math.min(...precios), max = Math.max(...precios);
-    if (min === max) return formatNumberArg(min * DATA.dolar.DolarVenta);
-    return formatNumberArg(min * DATA.dolar.DolarVenta) + ' - ' + formatNumberArg(max * DATA.dolar.DolarVenta);
+    if (min === max) return formatear(min);
+    return formatear(min) + ' - ' + formatear(max);
   }
-  return capInfo.seminuevo != null ? formatNumberArg(capInfo.seminuevo * DATA.dolar.DolarVenta) : null;
+  return capInfo.seminuevo != null ? formatear(capInfo.seminuevo) : null;
 }
 
 function CargarSoloPrecios() {
@@ -799,10 +805,11 @@ function CargarSoloPrecios() {
   table.innerHTML = '';
   const fragm = document.createDocumentFragment();
   const capacidades = ['64Gb', '128Gb', '256Gb', '512Gb', '1Tb'];
+  const enUsd = document.getElementById('checkPreciosUsd').checked;
   equipos.forEach(equipo => {
     ['seminuevo', 'sellado'].forEach(condicion => {
       const valores = capacidades.map(cap => {
-        const texto = textoPrecioCapacidad(equipo.capacidades[cap], condicion);
+        const texto = textoPrecioCapacidad(equipo.capacidades[cap], condicion, enUsd);
         return texto == null ? '-' : texto;
       });
       if (valores.every(v => v === '-')) return;
@@ -816,6 +823,14 @@ function CargarSoloPrecios() {
 
 // ============================ WHATSAPP ============================
 
+// Firma del mensaje: antes decia "Jobs Company", ahora identifica a quien
+// esta atendiendo (a pedido del usuario).
+function firmaWhatsapp() {
+  const sesion = sesionGuardada();
+  const nombre = sesion ? sesion.nombre : '';
+  return `Por cualquier consulta te espero, mi nombre es *${nombre}*`;
+}
+
 function ExportarInfo(actividad) {
   const hh = new Date().getHours();
   let saludo = 'Buenos dias';
@@ -825,13 +840,13 @@ function ExportarInfo(actividad) {
 
   if (actividad === 'Reparacion') {
     const fallas = $('#formReparacion :checkbox:checked').map((i, el) => el.dataset.falla).get().join(', ');
-    mensaje = `${saludo}\n*Cotizacion de Reparacion*\n\n*Modelo*: ${$('#formReparacion select[name="modeloR"]').val()}\n*Falla/as*: ${fallas}\n\n*Total*: ${$('#formReparacion input[name="totalCotizaRep"]').val()} efectivo\n*Financiacion*\n${infoFinanciacion}\n_*Jobs Company*_`;
+    mensaje = `${saludo}\n*Cotizacion de Reparacion*\n\n*Modelo*: ${$('#formReparacion select[name="modeloR"]').val()}\n*Falla/as*: ${fallas}\n\n*Total*: ${$('#formReparacion input[name="totalCotizaRep"]').val()} efectivo\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   } else if (actividad === 'VentaAccesorio') {
-    mensaje = `${saludo}\n*Cotizacion de Accesorio*\n\n*Accesorio*: ${$('#formVenta select[name="descripcion"]').val()} - ${$('#formVenta select[name="modeloA"]').val()}\n*Precio*: ${$('#formVenta input[name="totalAccesorio"]').val()} efectivo\n_*Jobs Company*_`;
+    mensaje = `${saludo}\n*Cotizacion de Accesorio*\n\n*Accesorio*: ${$('#formVenta select[name="descripcion"]').val()} - ${$('#formVenta select[name="modeloA"]').val()}\n*Precio*: ${$('#formVenta input[name="totalAccesorio"]').val()} efectivo\n${firmaWhatsapp()}`;
   } else if (actividad === 'VentaEquipo') {
     const bateria = $('#formVenta select[name="estadoBateria"]').val();
     const lineaBateria = bateria ? `\n*Estado de bateria*: ${bateria}` : '';
-    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaBateria}\n\n*Precio final*: ${$('#formVenta input[name="totalVentaEquipo"]').val()}\n*Financiacion*\n${infoFinanciacion}\n_*Jobs Company*_`;
+    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaBateria}\n\n*Precio final*: ${$('#formVenta input[name="totalVentaEquipo"]').val()}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   }
 
   const el = document.createElement('textarea');
@@ -947,6 +962,8 @@ function iniciarApp(sesion) {
     // Si la pestana Stock esta abierta en este momento, se refresca sola.
     if ($('#vistaStock').hasClass('vista')) { poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
   }, 2 * 60 * 1000);
+
+  $('#checkPreciosUsd').on('change', CargarSoloPrecios);
 
   poblarChecks('checksFallasReparacion', '#formReparacion');
   $('#formTradeIn :checkbox').on('change', CalcularTradeIn);
