@@ -385,9 +385,16 @@ function AgregarCarritoEquipo() {
     ? `${NOMBRE_CONDICION[condicion] || condicion}, bateria ${bateria}`
     : (NOMBRE_CONDICION[condicion] || condicion);
 
+  // Independencia: como el precio se puede editar a mano, se aclara al
+  // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
+  // como si se pagara en efectivo con dolares) -- a pedido del usuario.
+  const sufijoUsd = sucursalActual === 'Independencia'
+    ? ` (USD ${Math.round(total / DATA.dolar.DolarVenta)})`
+    : '';
+
   agregarAlCarrito({
     tipo: 'Equipo',
-    descripcion: `${modelo} ${capacidad} (${condicionTexto})`,
+    descripcion: `${modelo} ${capacidad} (${condicionTexto})${sufijoUsd}`,
     precio: total + adelanto
   });
 
