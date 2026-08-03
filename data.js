@@ -138,17 +138,11 @@ window.COTIZADOR_DATA = {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 680 }] }
       } },
       { modelo: 'iPhone 15',         capacidades: {
-        '128Gb': { sellado: 850, seminuevoTiers: [
-          { etiqueta: 'Menor a 100%', precio: 500 },
-          { etiqueta: '100%',         precio: 550 }
-        ] }
+        '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 450 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
-        '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 100%', precio: 600 },
-          { etiqueta: '100%',         precio: 650 }
-        ] },
-        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 710 }] }
+        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 550 }] },
+        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 550 }] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 800 }] },
