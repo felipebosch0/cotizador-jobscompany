@@ -898,6 +898,13 @@ function cargarSucursal(sucursal) {
     if (!categoriasVistas[a.categoria]) { categoriasVistas[a.categoria] = true; $('#formVenta select[name="categoria"]').append(new Option(a.categoria, a.categoria)); }
   });
 
+  // Precio venta / Precio pagando en efectivo: en Independencia se pueden
+  // editar a mano (el vendedor puede sobreescribir el numero calculado); en
+  // Shopping quedan como estaban, de solo lectura.
+  const editable = sucursal === 'Independencia';
+  $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
+  $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
+
   ResetFormCotizador();
   actualizarModuloStock('');
 
@@ -1059,6 +1066,29 @@ function iniciarApp(sesion) {
   });
 
   $('#formVenta select[name="estadoBateria"], #formVenta input[name="EntregaAdelanto"], #formVenta input[name="EntregaAdelantoUsd"]').on('input change', PreciosVentaE);
+
+  // Independencia: "Precio venta" (USD) y "Precio pagando en efectivo" (ARS)
+  // dejan de ser de solo lectura -- el vendedor los puede sobreescribir a
+  // mano. Si edita el USD, se recalcula el ARS (mismo descuento de entrega
+  // en efectivo que ya estaba aplicado); si edita el ARS directo, se toma
+  // tal cual y solo se actualiza la financiacion en base a ese numero.
+  $('#formVenta input[name="PVentaEquipo"]').on('input', function () {
+    if ($(this).prop('readonly')) return;
+    const usd = Number(String($(this).val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+    const adelantoArs = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
+    const adelantoUsd = Number($('#formVenta input[name="EntregaAdelantoUsd"]').val()) || 0;
+    const descuentoTotal = adelantoArs + (adelantoUsd * DATA.dolar.DolarVenta);
+    const total = (usd * DATA.dolar.DolarVenta) - descuentoTotal;
+    $('#formVenta input[name="totalVentaEquipo"]').val(formatNumberArg(total > 0 ? total : 0));
+    TablaFinancia(total > 0 ? total : 0, 'equipo');
+    promociones_disp(total > 0 ? total : 0);
+  });
+  $('#formVenta input[name="totalVentaEquipo"]').on('input', function () {
+    if ($(this).prop('readonly')) return;
+    const total = Number(String($(this).val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+    TablaFinancia(total > 0 ? total : 0, 'equipo');
+    promociones_disp(total > 0 ? total : 0);
+  });
 
   $('#formReparacion select[name="modeloR"]').change(PreciosRepa);
 
