@@ -453,10 +453,15 @@ function ExportarCarrito() {
   const lineas = carrito.map(item => `- ${item.descripcion}: ${formatNumberArg(item.precio)}`).join('\n');
 
   // Si hay un Trade In en el carrito, se agrega un parrafo personalizado
-  // aclarando que equipo se toma y por cuanto -- a pedido del usuario.
+  // aclarando en cuanto se toma el equipo -- a pedido del usuario. Antes
+  // decia "con un descuento de $X por el estado relevado (...)", lo cual
+  // ademas quedaba roto ("(...)") cuando no se marco ninguna falla (equipo
+  // en perfecto estado). Ahora dice en cuanto se toma el equipo, y solo
+  // menciona las fallas marcadas si hay alguna.
   const tradeIn = carrito.find(item => item.tipo === 'Trade In');
   const parrafoTradeIn = tradeIn
-    ? `\n\nTomamos tu *${tradeIn.modelo}* como parte de pago, con un descuento de *${formatNumberArg(-tradeIn.precio)}* por el estado relevado (${tradeIn.detalleFallas.join(', ')}).`
+    ? `\n\nTomamos tu *${tradeIn.modelo}* como parte de pago, en *${formatNumberArg(-tradeIn.precio)}* (USD ${Math.round(-tradeIn.precio / DATA.dolar.DolarVenta)})` +
+      (tradeIn.detalleFallas.length ? `, segun el estado relevado: ${tradeIn.detalleFallas.join(', ')}.` : '.')
     : '';
 
   const parrafoFinanciacion = infoFinanciacion ? `\n*Financiacion*\n${infoFinanciacion}` : '';
