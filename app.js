@@ -359,6 +359,12 @@ function AgregarCarritoEquipo() {
   const bateria = $('#formVenta select[name="estadoBateria"]').val();
   const totalTexto = $('#formVenta input[name="totalVentaEquipo"]').val();
   const total = Number(String(totalTexto).replace(/[^0-9,-]/g, '').replace(',', '.'));
+  // "Entrega efectivo" (adelanto) ya viene restado en "total" (ver
+  // PreciosVentaE). Para que se vea en el carrito como su propio renglon en
+  // vez de desaparecer adentro del precio del equipo, se agrega el equipo a
+  // precio completo (sin descontar) y despues un renglon aparte que resta el
+  // adelanto con la leyenda "Entrega en efectivo".
+  const adelanto = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
 
   const equipo = buscarEquipoVenta(modelo);
   const requiereBateria = condicion === 'seminuevo' && tiersDisponibles(equipo, capacidad).length > 0;
@@ -374,8 +380,16 @@ function AgregarCarritoEquipo() {
   agregarAlCarrito({
     tipo: 'Equipo',
     descripcion: `${modelo} ${capacidad} (${condicionTexto})`,
-    precio: total
+    precio: total + adelanto
   });
+
+  if (adelanto > 0) {
+    agregarAlCarrito({
+      tipo: 'Equipo',
+      descripcion: 'Entrega en efectivo',
+      precio: -adelanto
+    });
+  }
 }
 
 function AgregarCarritoAccesorio() {
