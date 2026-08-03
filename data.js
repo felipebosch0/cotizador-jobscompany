@@ -142,7 +142,7 @@ window.COTIZADOR_DATA = {
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
         '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 550 }] },
-        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 550 }] }
+        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 710 }] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 800 }] },
