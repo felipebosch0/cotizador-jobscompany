@@ -1187,11 +1187,12 @@ window.COTIZADOR_DATA = {
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
     { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'equipo' },
 
-    // Reparacion: solo 2 opciones, ambas sin recargo -- a diferencia de
-    // Venta equipo y Accesorios, aca no se ofrecen Debito/QR/Transferencia
-    // ni 6/12 cuotas, a pedido del usuario.
-    { plan: 'Efectivo',             interes: 0, cuotas: 1, categoria: 'reparacion' },
-    { plan: '3 cuotas sin interes', interes: 0, cuotas: 3, categoria: 'reparacion' },
+    // Reparacion: solo 2 opciones -- a diferencia de Venta equipo y
+    // Accesorios, aca no se ofrecen Debito/QR/Transferencia ni 6/12 cuotas.
+    // Efectivo tiene 20% de DESCUENTO (interes negativo); 3 cuotas queda al
+    // precio de lista, sin recargo.
+    { plan: 'Efectivo',             interes: -0.20, cuotas: 1, categoria: 'reparacion' },
+    { plan: '3 cuotas sin interes', interes: 0,      cuotas: 3, categoria: 'reparacion' },
 
     { plan: 'Efectivo',             interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'accesorio' },
