@@ -359,12 +359,15 @@ function AgregarCarritoEquipo() {
   const bateria = $('#formVenta select[name="estadoBateria"]').val();
   const totalTexto = $('#formVenta input[name="totalVentaEquipo"]').val();
   const total = Number(String(totalTexto).replace(/[^0-9,-]/g, '').replace(',', '.'));
-  // "Entrega efectivo" (adelanto) ya viene restado en "total" (ver
-  // PreciosVentaE). Para que se vea en el carrito como su propio renglon en
-  // vez de desaparecer adentro del precio del equipo, se agrega el equipo a
-  // precio completo (sin descontar) y despues un renglon aparte que resta el
-  // adelanto con la leyenda "Entrega en efectivo".
-  const adelanto = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
+  // "Entrega efectivo" (USD y ARS, 2 campos separados) ya viene restada en
+  // "total" (ver PreciosVentaE). Para que se vea en el carrito como sus
+  // propios renglones en vez de desaparecer adentro del precio del equipo,
+  // se agrega el equipo a precio completo (sin descontar) y despues un
+  // renglon aparte por cada moneda cargada, discriminados.
+  const adelantoArs = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
+  const adelantoUsd = Number($('#formVenta input[name="EntregaAdelantoUsd"]').val()) || 0;
+  const adelantoUsdEnArs = adelantoUsd * DATA.dolar.DolarVenta;
+  const adelanto = adelantoArs + adelantoUsdEnArs;
 
   const equipo = buscarEquipoVenta(modelo);
   const requiereBateria = condicion === 'seminuevo' && tiersDisponibles(equipo, capacidad).length > 0;
@@ -383,11 +386,18 @@ function AgregarCarritoEquipo() {
     precio: total + adelanto
   });
 
-  if (adelanto > 0) {
+  if (adelantoUsd > 0) {
     agregarAlCarrito({
       tipo: 'Equipo',
-      descripcion: 'Entrega en efectivo',
-      precio: -adelanto
+      descripcion: `Entrega en efectivo (USD ${adelantoUsd})`,
+      precio: -adelantoUsdEnArs
+    });
+  }
+  if (adelantoArs > 0) {
+    agregarAlCarrito({
+      tipo: 'Equipo',
+      descripcion: 'Entrega en efectivo (ARS)',
+      precio: -adelantoArs
     });
   }
 }
@@ -516,9 +526,10 @@ function PreciosVentaE() {
   const capacidad = $('#formVenta select[name="capacidadV"]').val();
   const modelo = $('#formVenta select[name="modeloV"]').val();
   const bateria = $('#formVenta select[name="estadoBateria"]').val();
-  const adelanto = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
+  const adelantoArs = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
+  const adelantoUsd = Number($('#formVenta input[name="EntregaAdelantoUsd"]').val()) || 0;
   const precioCompraEquipo = Number($('#formVenta input[name="PCompraEquipo"]').val()) || 0;
-  const descuentoTotal = adelanto + precioCompraEquipo;
+  const descuentoTotal = adelantoArs + (adelantoUsd * DATA.dolar.DolarVenta) + precioCompraEquipo;
 
   if (!(condicion && capacidad && modelo)) return;
   const equipo = buscarEquipoVenta(modelo);
@@ -662,10 +673,14 @@ function AgregarCarritoTradeIn() {
   if (!modelo) return MostrarAlerta({ tipo: 'error', title: 'Trade In', mnsj: 'Elegi un modelo antes de agregar el canje' });
 
   const { descuento, detalle } = evaluarChecklistTradeIn(modelo);
+  // A pedido del usuario: mostrar entre parentesis en cuantos USD se toma el
+  // equipo (el "descuento" ya esta en ARS, se vuelve a pasar a USD solo para
+  // mostrarlo -- no se usa para calcular nada mas).
+  const descuentoUsd = Math.round(descuento / DATA.dolar.DolarVenta);
 
   agregarAlCarrito({
     tipo: 'Trade In',
-    descripcion: `Plan canje "${modelo}"`,
+    descripcion: `Plan canje "${modelo}" (USD ${descuentoUsd})`,
     precio: -descuento,
     modelo: modelo,
     detalleFallas: detalle
@@ -1026,7 +1041,7 @@ function iniciarApp(sesion) {
     PreciosVentaE();
   });
 
-  $('#formVenta select[name="estadoBateria"], #formVenta input[name="EntregaAdelanto"]').change(PreciosVentaE);
+  $('#formVenta select[name="estadoBateria"], #formVenta input[name="EntregaAdelanto"], #formVenta input[name="EntregaAdelantoUsd"]').on('input change', PreciosVentaE);
 
   $('#formReparacion select[name="modeloR"]').change(PreciosRepa);
 
