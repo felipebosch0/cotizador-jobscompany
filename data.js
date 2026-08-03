@@ -63,7 +63,7 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 17Air',        capacidades: { '128Gb': { seminuevo: null, sellado: null }, '256Gb': { seminuevo: null, sellado: 1200 }, '512Gb': { seminuevo: null, sellado: null }, '1Tb': { seminuevo: null, sellado: null } } },
       { modelo: 'iPhone 17',           capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1150, sellado: 1250 }, '512Gb': { seminuevo: 1300, sellado: 1350 }, '1Tb': { seminuevo: 1350, sellado: 1550 } } },
       { modelo: 'iPhone 17 Pro',       capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1646, sellado: 1656 }, '512Gb': { seminuevo: 1796, sellado: 1756 }, '1Tb': { seminuevo: 1846, sellado: 1956 } } },
-      { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1800, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } }
+      { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1700, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } }
     ],
 
     // Independencia: lista real pasada por el usuario (excel con 2 tablas:
