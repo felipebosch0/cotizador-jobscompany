@@ -128,7 +128,8 @@ function tiersDisponibles(equipo, capacidad) {
 // stock-data.js) queda como fallback si la funcion todavia no respondio o
 // fallo (ej. hoja no publica, sheet caida). El modulo se actualiza cada vez
 // que se elige un modelo en Venta > Equipo, y la lista se refresca sola
-// cada 2 min (mismo intervalo de cache que tenia Stock.gs en Apps Script).
+// cada 7 min (antes 2 min, se espacio para gastar menos invocaciones de la
+// funcion de Netlify).
 //
 // El excel tiene inconsistencias de tipeo en el modelo ("Iphone 13",
 // "17 pro" en minuscula, espacios de mas), asi que el match se hace
@@ -269,7 +270,7 @@ function actualizarVistaStockCompleto() {
   body.appendChild(fragm);
 }
 
-// ============================ DOLAR: auto-actualizar cada 5 min ============================
+// ============================ DOLAR: auto-actualizar cada 7 min ============================
 // Fuente real: https://www.infodolar.com/cotizacion-dolar-provincia-cordoba.aspx
 // (el scraping en si corre server-side en netlify/functions/dolar.js -- el
 // navegador NO puede pedirle esto directo a infodolar.com por CORS, pero un
@@ -988,8 +989,11 @@ function iniciarApp(sesion) {
   });
   document.getElementById('selectStockModelo').addEventListener('change', actualizarVistaStockCompleto);
 
+  // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
+  // de las funciones de Netlify -- a pedido del usuario, se estaba por
+  // quedar sin creditos del plan gratis.
   actualizarDolar();
-  setInterval(actualizarDolar, 5 * 60 * 1000);
+  setInterval(actualizarDolar, 7 * 60 * 1000);
 
   actualizarStockEnVivo().then(() => actualizarModuloStock($('#formVenta select[name="modeloV"]').val()));
   setInterval(async () => {
@@ -997,7 +1001,7 @@ function iniciarApp(sesion) {
     actualizarModuloStock($('#formVenta select[name="modeloV"]').val());
     // Si la pestana Stock esta abierta en este momento, se refresca sola.
     if ($('#vistaStock').hasClass('vista')) { poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
-  }, 2 * 60 * 1000);
+  }, 7 * 60 * 1000);
 
   $('#checkPreciosUsd').on('change', CargarSoloPrecios);
 
