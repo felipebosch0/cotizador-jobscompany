@@ -793,7 +793,7 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Cargador APPLE + adaptador', modelo: 'Universal', precio: 90000 },
     { categoria: 'Cargador', descripcion: 'Cargador Certificado(Patas rectas) + Adaptador universal', modelo: 'Universal', precio: 39325 },
     { categoria: 'Cargador', descripcion: 'Fuente', modelo: '30W Mophie essentials - Original', precio: 59999 },
-    { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C - Original', precio: 81070 },
+    { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C - Original', precio: 52000 },
     { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C Dual - Original', precio: 90000 },
     { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'C Dual - Certificada', precio: 50800 },
     { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C - Certificada', precio: 30250 },
