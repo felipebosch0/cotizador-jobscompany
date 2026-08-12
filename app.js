@@ -503,6 +503,116 @@ function Venta() {
 function Reparacion() { ResetFormCotizador(); $('#formReparacion').removeClass('oculto').addClass('vista'); }
 function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('oculto').addClass('vista'); CargarSoloPrecios(); }
 function Stock() { ResetFormCotizador(); $('#vistaStock').removeClass('oculto').addClass('vista'); poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
+function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').removeClass('oculto').addClass('vista'); }
+
+// ============================ INGRESO / EGRESO DE STOCK (solo admin) ============================
+// Escribe/actualiza la planilla real via una funcion de Netlify que le pega
+// al Apps Script "puerta de entrada" pegado en la planilla (ver doPost en
+// el .gs que se le paso al usuario). El Netlify function solo reenvia el
+// pedido, no guarda nada -- la planilla sigue siendo la unica fuente de
+// verdad.
+async function llamarStockWrite(payload) {
+  const response = await fetch('/.netlify/functions/stock-write', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return response.json();
+}
+
+async function ConfirmarIngreso() {
+  const modelo = $('#ingresoModelo').val().trim();
+  const capacidad = $('#ingresoCapacidad').val().trim();
+  const bateriaTexto = $('#ingresoBateria').val().trim();
+  const color = $('#ingresoColor').val().trim();
+  const imei = $('#ingresoImei').val().trim();
+  const sucursal = $('#ingresoDeposito').val();
+  const observaciones = $('#ingresoObservaciones').val();
+
+  if (!modelo || !capacidad || !imei || !sucursal) {
+    return MostrarAlerta({ tipo: 'error', title: 'Ingreso', mnsj: 'Completa al menos Modelo, Capacidad, IMEI y Deposito' });
+  }
+
+  // Bateria: se acepta "0.87" (fraccion) o "87" (ya en %) -- se guarda como
+  // fraccion, igual que el resto de la planilla, para que el lector de
+  // stock (bateriaAPorcentaje en netlify/functions/stock.js) lo interprete
+  // igual que las filas cargadas a mano.
+  let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
+  if (bateria > 1) bateria = bateria / 100;
+
+  const boton = document.getElementById('btnConfirmarIngreso');
+  boton.disabled = true;
+  try {
+    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    MostrarAlerta({ tipo: 'success', title: 'Ingreso', mnsj: `${modelo} ${capacidad}Gb agregado al stock` });
+    $('#ingresoModelo, #ingresoCapacidad, #ingresoBateria, #ingresoColor, #ingresoImei').val('');
+    $('#ingresoDeposito').val('');
+    await actualizarStockEnVivo();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Ingreso', mnsj: 'No se pudo agregar: ' + error.message });
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function BuscarImei() {
+  const ultimos = $('#egresoUltimosDigitos').val().trim();
+  const contenedor = document.getElementById('egresoResultados');
+  contenedor.innerHTML = '';
+
+  if (!ultimos) return MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'Escribi los ultimos digitos del IMEI' });
+
+  const boton = document.getElementById('btnBuscarImei');
+  boton.disabled = true;
+  try {
+    const resp = await llamarStockWrite({ accion: 'buscarImei', ultimos4: ultimos });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+
+    if (!resp.resultados.length) {
+      contenedor.innerHTML = '<p class="sm-t">No se encontro ningun equipo activo con esos digitos.</p>';
+      return;
+    }
+
+    const tabla = document.createElement('table');
+    tabla.className = 'table2';
+    tabla.innerHTML = '<thead><tr><th>Modelo</th><th>Capacidad</th><th>Color</th><th>IMEI</th><th>Deposito</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    resp.resultados.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.modelo}</td><td>${r.capacidad}</td><td>${r.color}</td><td>${r.imei}</td><td>${r.sucursal}</td><td></td>`;
+      const tdBoton = tr.lastElementChild;
+      const btnBaja = document.createElement('button');
+      btnBaja.type = 'button';
+      btnBaja.className = 'btn-total';
+      btnBaja.textContent = 'Dar de baja';
+      btnBaja.addEventListener('click', () => ConfirmarBaja(r.fila, btnBaja));
+      tdBoton.appendChild(btnBaja);
+      tbody.appendChild(tr);
+    });
+    tabla.appendChild(tbody);
+    contenedor.appendChild(tabla);
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'No se pudo buscar: ' + error.message });
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function ConfirmarBaja(fila, boton) {
+  boton.disabled = true;
+  try {
+    const resp = await llamarStockWrite({ accion: 'egreso', fila });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    MostrarAlerta({ tipo: 'success', title: 'Egreso', mnsj: 'Equipo dado de baja' });
+    $('#egresoUltimosDigitos').val('');
+    document.getElementById('egresoResultados').innerHTML = '';
+    await actualizarStockEnVivo();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'No se pudo dar de baja: ' + error.message });
+    boton.disabled = false;
+  }
+}
 
 // ============================ VENTA ACCESORIO ============================
 
@@ -970,6 +1080,11 @@ function iniciarApp(sesion) {
   selectSucursal.addEventListener('change', () => cargarSucursal(selectSucursal.value));
   cargarSucursal(sucursalActual);
 
+  // Ingreso/Egreso de stock: solo lo ve el admin.
+  if (esAdmin(sesion)) {
+    document.getElementById('btnCIngresoEgreso').classList.remove('oculto');
+  }
+
   document.getElementById('toggleTema').addEventListener('click', toggleTema);
 
   document.getElementById('btnToggleCarrito').addEventListener('click', () => {
@@ -994,6 +1109,14 @@ function iniciarApp(sesion) {
     MostrarAlerta({ tipo: 'success', title: 'Stock', mnsj: 'Actualizado' });
   });
   document.getElementById('selectStockModelo').addEventListener('change', actualizarVistaStockCompleto);
+
+  document.getElementById('selectTipoOperacion').addEventListener('change', function () {
+    const esIngreso = this.value === 'ingreso';
+    $('#panelIngreso').toggleClass('oculto', !esIngreso);
+    $('#panelEgreso').toggleClass('oculto', esIngreso);
+  });
+  document.getElementById('btnConfirmarIngreso').addEventListener('click', ConfirmarIngreso);
+  document.getElementById('btnBuscarImei').addEventListener('click', BuscarImei);
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
   // de las funciones de Netlify -- a pedido del usuario, se estaba por
@@ -1142,6 +1265,7 @@ function iniciarApp(sesion) {
         'btnCRepa': () => Reparacion(),
         'btnCPrecios': () => Precios(),
         'btnCStock': () => Stock(),
+        'btnCIngresoEgreso': () => IngresoEgreso(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
         'AgregarCarritoTradeIn': () => AgregarCarritoTradeIn(),

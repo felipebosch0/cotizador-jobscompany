@@ -5917,6 +5917,7 @@
               <button type="button" class="btn-act" data-action="btnCRepa">Reparacion</button>
               <button type="button" class="btn-act" data-action="btnCPrecios">Precios</button>
               <button type="button" class="btn-act" data-action="btnCStock">Stock</button>
+              <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
 
               <form id="formTradeIn" class="oculto">
                 <div class="form-line col-12 sp-t">
@@ -6114,6 +6115,84 @@
                     </thead>
                     <tbody id="bodyStockCompleto"></tbody>
                   </table>
+                </div>
+              </div>
+
+              <div id="vistaIngresoEgreso" class="col-12 sp-t sp-l oculto">
+                <div class="form-group-total">
+                  <label>Operacion</label>
+                  <select id="selectTipoOperacion">
+                    <option value="ingreso">Ingreso (alta de equipo)</option>
+                    <option value="egreso">Egreso (dar de baja por IMEI)</option>
+                  </select>
+                </div>
+
+                <div id="panelIngreso">
+                  <div class="form-line col-6 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>Modelo</label>
+                      <input type="text" id="ingresoModelo" placeholder="Ej. iPhone 13" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l sp-r">
+                    <div class="form-group-total">
+                      <label>Capacidad</label>
+                      <input type="text" id="ingresoCapacidad" placeholder="Ej. 128" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>Bateria</label>
+                      <input type="text" id="ingresoBateria" placeholder="Ej. 0.87 (87%)" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l sp-r">
+                    <div class="form-group-total">
+                      <label>Color</label>
+                      <input type="text" id="ingresoColor" placeholder="Ej. Negro" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>IMEI</label>
+                      <input type="text" id="ingresoImei" placeholder="15 digitos" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l sp-r">
+                    <div class="form-group-total">
+                      <label>Deposito</label>
+                      <select id="ingresoDeposito">
+                        <option value="">Elegi un deposito</option>
+                        <option value="OLMOS">OLMOS</option>
+                        <option value="DINO">DINO</option>
+                        <option value="NUEVO CENTRO">NUEVO CENTRO</option>
+                        <option value="INDEPENDENCIA">INDEPENDENCIA</option>
+                        <option value="DEPO">DEPO</option>
+                        <option value="SERVICIO TECNICO">SERVICIO TECNICO</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-group-total">
+                    <label>Observaciones</label>
+                    <select id="ingresoObservaciones">
+                      <option value="Semi-Nuevo">Semi-Nuevo</option>
+                      <option value="Sellado">Sellado</option>
+                    </select>
+                  </div>
+                  <button type="button" class="btn-total" id="btnConfirmarIngreso">Agregar al stock</button>
+                </div>
+
+                <div id="panelEgreso" class="oculto">
+                  <div class="form-line col-8 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>Ultimos digitos del IMEI</label>
+                      <input type="text" id="egresoUltimosDigitos" placeholder="Ej. 4821" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-4 sp-t sp-l sp-r" style="display:flex; align-items:flex-end;">
+                    <button type="button" class="btn-total" id="btnBuscarImei" style="width:100%;">Buscar</button>
+                  </div>
+                  <div id="egresoResultados"></div>
                 </div>
               </div>
             </div>
