@@ -44,7 +44,8 @@ const ROLES = {
 // contrasena y la valida en el servidor).
 // sucursal: null = ve todas las sucursales (piensa como el admin).
 const USUARIOS = [
-  { usuario: 'admin',     password: 'admin123',            rol: 'admin',    nombre: 'Administrador', sucursal: null },
+  { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },
+  { usuario: 'felipe',    password: 'Jobscompany468',      rol: 'admin',    nombre: 'felipe',    sucursal: null },
   { usuario: 'jose',      password: 'Independencia123',    rol: 'vendedor', nombre: 'jose',      sucursal: 'Independencia' },
   { usuario: 'yoko',      password: 'Shopping123',         rol: 'vendedor', nombre: 'yoko',      sucursal: 'Shopping' },
   { usuario: 'ele',       password: 'Shopping123',         rol: 'vendedor', nombre: 'ele',       sucursal: 'Shopping' },

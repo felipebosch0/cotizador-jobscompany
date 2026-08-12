@@ -837,6 +837,124 @@ function AgregarCarritoTradeIn() {
   });
 }
 
+// ============================ TRADE IN: declaracion jurada ============================
+// Boton aparte de "Agregar al carrito" -- no lo reemplaza ni depende de el.
+// IMEI y bateria NO se piden en el formulario de Trade In (solo hacen falta
+// para la declaracion), se completan aca en el modal junto con nombre y DNI
+// del cliente. Al confirmar: 1) manda el equipo al stock (mismo mecanismo
+// que Ingreso manual, leyenda "Trade-in" en Observaciones) y 2) abre una
+// pestana nueva con la declaracion jurada lista para imprimir y firmar.
+
+function AbrirModalDeclaracion() {
+  const modelo = $('#formTradeIn select[name="modeloTI"]').val();
+  if (!modelo) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Elegi un modelo antes de continuar' });
+  $('#djNombre, #djDni, #djImei, #djBateria').val('');
+  document.getElementById('modalDeclaracionJurada').style.display = 'block';
+}
+
+function CerrarModalDeclaracion() {
+  document.getElementById('modalDeclaracionJurada').style.display = 'none';
+}
+
+async function ConfirmarDeclaracionJurada() {
+  const nombre = $('#djNombre').val().trim();
+  const dni = $('#djDni').val().trim();
+  const imei = $('#djImei').val().trim();
+  const bateriaTexto = $('#djBateria').val().trim();
+  if (!nombre || !dni || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI e IMEI del cliente' });
+  if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+
+  let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
+  if (bateria > 1) bateria = bateria / 100;
+
+  const modelo = $('#formTradeIn select[name="modeloTI"]').val();
+  const { descuento, detalle } = evaluarChecklistTradeIn(modelo);
+  const falla = detalle.join(', ');
+
+  // Observaciones queda como "Trade-in" (clasificacion del ingreso) y el
+  // nombre del vendedor logueado que recibio el equipo se guarda aparte, en
+  // la columna Propietario (J) de la planilla -- asi se puede filtrar por
+  // esa columna sin tener que parsear texto en Observaciones.
+  const sesion = sesionGuardada();
+  const propietario = sesion ? sesion.nombre : 'desconocido';
+
+  const boton = document.getElementById('btnConfirmarDeclaracion');
+  boton.disabled = true;
+  try {
+    const resp = await llamarStockWrite({
+      accion: 'ingreso', modelo, capacidad: '', bateria, color: '', imei,
+      sucursal: sucursalActual, observaciones: 'Trade-in', falla, propietario
+    });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    await actualizarStockEnVivo();
+    imprimirDeclaracionJurada({ nombre, dni, modelo, imei, valor: descuento });
+    CerrarModalDeclaracion();
+    MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No se pudo agregar al stock: ' + error.message });
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+function imprimirDeclaracionJurada(datos) {
+  const fecha = new Date().toLocaleDateString('es-AR');
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Declaracion jurada</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; color: #111; line-height: 1.5; }
+  h1 { font-size: 20px; text-align: center; }
+  h2 { font-size: 15px; margin-top: 28px; border-bottom: 1px solid #999; padding-bottom: 4px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 160px; }
+  .firma { margin-top: 60px; }
+  .firma .linea { margin-top: 40px; border-top: 1px solid #333; width: 300px; }
+</style></head>
+<body>
+  <h1>DOCUMENTO DE ENTREGA DE EQUIPOS EN PARTE DE PAGO</h1>
+
+  <h2>DATOS DEL CLIENTE</h2>
+  <div class="campo"><strong>Nombre y apellido:</strong> ${datos.nombre}</div>
+  <div class="campo"><strong>DNI/CUIT:</strong> ${datos.dni}</div>
+
+  <h2>DATOS DEL IPHONE ENTREGADO</h2>
+  <div class="campo"><strong>Marca:</strong> Apple</div>
+  <div class="campo"><strong>Modelo:</strong> ${datos.modelo}</div>
+  <div class="campo"><strong>Numero de IMEI:</strong> ${datos.imei}</div>
+
+  <h2>DECLARACIONES DEL CLIENTE</h2>
+  <ul>
+    <li>Declaro que el iPhone entregado es de mi propiedad y no tiene ninguna restriccion de uso.</li>
+    <li>Declaro que el iPhone no esta bloqueado por ningun operador de telefonia movil.</li>
+    <li>Declaro que el iPhone no esta denunciado por robado ni extraviado.</li>
+    <li>Declaro que el iPhone no tiene ninguna cuenta de iCloud asociada y no esta sujeto a ninguna restriccion de activacion.</li>
+    <li>Declaro que el iPhone no tiene bypass ni ningun otro tipo de modificacion no autorizada.</li>
+  </ul>
+
+  <h2>CONDICIONES DE LA ENTREGA</h2>
+  <ul>
+    <li>El cliente se compromete a proporcionar toda la informacion necesaria para verificar la propiedad y el estado del iPhone entregado.</li>
+    <li>El cliente queda a disposicion de la empresa para resolver cualquier inconveniente.</li>
+  </ul>
+  <div class="campo"><strong>Valor del equipo:</strong> ${formatNumberArg(datos.valor)}</div>
+
+  <div class="firma">
+    <strong>FIRMA DEL CLIENTE</strong>
+    <div class="linea"></div>
+    <div class="campo">Fecha: ${fecha}</div>
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+  ventana.document.write(html);
+  ventana.document.close();
+}
+
 // ============================ REPARACION ============================
 
 function PreciosRepa() {
@@ -1125,6 +1243,16 @@ function iniciarApp(sesion) {
   });
   document.getElementById('btnConfirmarIngreso').addEventListener('click', ConfirmarIngreso);
   document.getElementById('btnBuscarImei').addEventListener('click', BuscarImei);
+
+  document.getElementById('btnImprimirDeclaracion').addEventListener('click', AbrirModalDeclaracion);
+  document.getElementById('cerrarModalDeclaracion').addEventListener('click', CerrarModalDeclaracion);
+  document.getElementById('btnConfirmarDeclaracion').addEventListener('click', ConfirmarDeclaracionJurada);
+  document.getElementById('modalDeclaracionJurada').addEventListener('click', e => {
+    if (e.target.id === 'modalDeclaracionJurada') CerrarModalDeclaracion();
+  });
+  document.getElementById('djImei').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
   // de las funciones de Netlify -- a pedido del usuario, se estaba por
