@@ -91,11 +91,17 @@ function buscarEquipo(modelo) {
 
 // AirPods/Apple Watch/iPad/MacBook: solo aparecen en Venta de equipos
 // (Modelo), no en Compra (trade-in) ni en Reparacion, que siguen siendo
-// solo celulares. Mismo precio en todas las sucursales.
-const otrosEquiposVenta = DATA.otrosEquiposUniversales || [];
+// solo celulares. AirPods/Watch/MacBook tienen el mismo precio en las 2
+// sucursales; el iPad tiene su propia tabla por sucursal (precio distinto
+// en Shopping vs Independencia, a pedido del usuario) asi que se recalcula
+// cada vez en vez de fijarse una sola vez al cargar la pagina.
+function otrosEquiposVenta() {
+  const ipad = (DATA.iPadPorSucursal || {})[sucursalActual] || [];
+  return (DATA.otrosEquiposUniversales || []).concat(ipad);
+}
 
 function equiposParaVenta() {
-  return equipos.concat(otrosEquiposVenta);
+  return equipos.concat(otrosEquiposVenta());
 }
 
 function buscarEquipoVenta(modelo) {

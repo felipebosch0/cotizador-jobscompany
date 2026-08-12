@@ -272,14 +272,6 @@ window.COTIZADOR_DATA = {
         // Ultra 3 (GPS + Celular): SIN PRECIO, falta que lo pases.
       } },
 
-    { modelo: 'iPad', capacidades: {
-        'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 665 },
-        'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 760 },
-        'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
-        'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
-        'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
-        'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
-      } },
 
     // Antes eran 7 modelos separados (uno por linea/generacion de MacBook);
     // a pedido del usuario se unificaron en un solo modelo "MacBook", con
@@ -301,6 +293,36 @@ window.COTIZADOR_DATA = {
         'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
       } }
   ],
+
+  // --------------------------------------------------------------
+  // iPad: a diferencia del resto de "otros equipos" (AirPods/Watch/
+  // MacBook), el iPad A16 quedo con precio distinto por sucursal a pedido
+  // del usuario -- por eso se separo en su propia tabla en vez de vivir en
+  // otrosEquiposUniversales. Air M3/Pro M4/Pro M5 siguen al mismo precio en
+  // las 2 sucursales (nadie pidio diferenciarlos todavia).
+  // --------------------------------------------------------------
+  iPadPorSucursal: {
+    'Shopping': [
+      { modelo: 'iPad', capacidades: {
+          'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 760 },
+          'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 860 },
+          'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
+          'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
+          'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
+          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'iPad', capacidades: {
+          'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 665 },
+          'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 760 },
+          'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
+          'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
+          'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
+          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
+        } }
+    ]
+  },
 
   // --------------------------------------------------------------
   // REPARACIONES: precio por falla. MOCK (mismo precio para cualquier
