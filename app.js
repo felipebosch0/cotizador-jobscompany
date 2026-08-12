@@ -361,7 +361,14 @@ function renderCarrito() {
   });
   body.appendChild(fragm);
   document.getElementById('totalCarrito').value = formatNumberArg(totalCarrito());
-  TablaFinancia(totalCarrito(), 'equipo');
+
+  // La financiacion del carrito YA NO se muestra en vivo mientras se
+  // navega otras pestanas -- solo se calcula/actualiza si la pestana
+  // Carrito esta activa en este momento (a pedido del usuario).
+  if ($('#vistaCarrito').hasClass('vista')) {
+    $('#tablaFinancia').removeClass('oculto').addClass('vista');
+    TablaFinancia(totalCarrito(), 'equipo');
+  }
 }
 
 function AgregarCarritoEquipo() {
@@ -504,6 +511,16 @@ function Reparacion() { ResetFormCotizador(); $('#formReparacion').removeClass('
 function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('oculto').addClass('vista'); CargarSoloPrecios(); }
 function Stock() { ResetFormCotizador(); $('#vistaStock').removeClass('oculto').addClass('vista'); poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
 function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').removeClass('oculto').addClass('vista'); }
+function Carrito() {
+  ResetFormCotizador();
+  $('#vistaCarrito').removeClass('oculto').addClass('vista');
+  $('#cardCarrito').removeClass('oculto');
+  renderCarrito();
+  if (carrito.length) {
+    $('#tablaFinancia').removeClass('oculto').addClass('vista');
+    TablaFinancia(totalCarrito(), 'equipo');
+  }
+}
 
 // ============================ INGRESO / EGRESO DE STOCK (solo admin) ============================
 // Escribe/actualiza la planilla real via una funcion de Netlify que le pega
@@ -840,21 +857,13 @@ function PreciosRepa() {
 
 // ============================ FINANCIACION / PROMOS / PRECIOS ============================
 
-// Si hay algo cargado en el carrito, la financiacion se muestra siempre
-// sobre el total sumado del carrito (no sobre el producto individual que se
-// este viendo en ese momento) -- a pedido del usuario. Se usan los planes de
-// "equipo" (3/6/12 cuotas) por ser los mas completos, ya que el carrito puede
-// mezclar equipos, accesorios y reparaciones bajo un solo total.
 function TablaFinancia(value, categoria) {
-  // Reparacion no tiene boton "Agregar al carrito" (es una cotizacion aparte,
-  // con su propio total y export de WhatsApp), asi que no tiene sentido que
-  // un carrito con OTRA cosa adentro (un equipo que el vendedor dejo cargado
-  // de antes, por ejemplo) le pise la financiacion sin recargo que se definio
-  // especificamente para Reparacion.
-  if (carrito.length && categoria !== 'reparacion') {
-    value = totalCarrito();
-    categoria = 'equipo';
-  }
+  // Ya NO se pisa value/categoria con el total del carrito -- cada llamado
+  // muestra la financiacion de lo que se esta viendo en ese momento (el
+  // producto buscado, o el carrito completo cuando llama la pestana
+  // Carrito). Antes, si habia algo cargado en el carrito, se mostraba esa
+  // financiacion aunque el vendedor estuviera cotizando otra cosa sin
+  // agregarla -- confundia al cliente con un numero que no correspondia.
   const filas = DATA.financiacion.filter(f => f.categoria === categoria);
   const table = document.getElementById('tablaResultados');
   table.innerHTML = '';
@@ -1087,9 +1096,7 @@ function iniciarApp(sesion) {
 
   document.getElementById('toggleTema').addEventListener('click', toggleTema);
 
-  document.getElementById('btnToggleCarrito').addEventListener('click', () => {
-    document.getElementById('cardCarrito').classList.toggle('oculto');
-  });
+  document.getElementById('btnToggleCarrito').addEventListener('click', Carrito);
 
   document.getElementById('btnLogout').addEventListener('click', () => {
     cerrarSesion();

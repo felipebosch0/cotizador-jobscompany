@@ -6200,20 +6200,6 @@
         </div>
 
         <div class="col-6 col-m-6 col-sm-6">
-          <div class="card oculto" id="tablaFinancia">
-            <div class="card-header"><h3>Financiacion</h3></div>
-            <div class="card-content">
-              <div class="form-line col-12 sp-t">
-                <div class="table-responsive">
-                  <table class="table2">
-                    <thead><tr><th>Interes</th><th>Plan</th><th>Cuotas</th><th>Total</th></tr></thead>
-                    <tbody id="tablaResultados"></tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-          <br>
           <div class="card oculto" id="moduloStock">
             <div class="card-header">
               <h3>Stock disponible</h3>
@@ -6231,25 +6217,46 @@
               </div>
             </div>
           </div>
-          <br>
-          <div class="card oculto" id="cardCarrito">
-            <div class="card-header">
-              <h3>Carrito</h3>
-              <i class="fas fa-trash" data-action="VaciarCarrito" title="Vaciar carrito"></i>
-            </div>
+
+          <!-- Financiacion: se muestra en vivo con lo que se este cotizando
+               en la pestana actual (Venta/Accesorio), y tambien se reusa
+               (con el total del carrito) al entrar a la pestana Carrito. -->
+          <div class="card oculto" id="tablaFinancia">
+            <div class="card-header"><h3>Financiacion</h3></div>
             <div class="card-content">
-              <p id="carritoVacio" class="sm-t">Todavia no agregaste nada.</p>
-              <div class="table-responsive">
-                <table class="table2 oculto" id="tablaCarrito">
-                  <thead><tr><th>Item</th><th>Detalle</th><th>Precio</th><th></th></tr></thead>
-                  <tbody id="bodyCarrito"></tbody>
-                </table>
+              <div class="form-line col-12 sp-t">
+                <div class="table-responsive">
+                  <table class="table2">
+                    <thead><tr><th>Interes</th><th>Plan</th><th>Cuotas</th><th>Total</th></tr></thead>
+                    <tbody id="tablaResultados"></tbody>
+                  </table>
+                </div>
               </div>
-              <div class="form-group-total oculto" id="totalCarritoWrap">
-                <label><strong>Total carrito</strong></label>
-                <input type="text" id="totalCarrito" class="total" readonly>
+            </div>
+          </div>
+          <br>
+
+          <!-- Carrito, como pestana aparte. -->
+          <div id="vistaCarrito" class="oculto">
+            <div class="card oculto" id="cardCarrito">
+              <div class="card-header">
+                <h3>Carrito</h3>
+                <i class="fas fa-trash" data-action="VaciarCarrito" title="Vaciar carrito"></i>
               </div>
-              <button type="button" class="btn-total oculto" id="btnExportCarrito" data-action="ExportarCarrito">WhatsApp (carrito completo)</button>
+              <div class="card-content">
+                <p id="carritoVacio" class="sm-t">Todavia no agregaste nada.</p>
+                <div class="table-responsive">
+                  <table class="table2 oculto" id="tablaCarrito">
+                    <thead><tr><th>Item</th><th>Detalle</th><th>Precio</th><th></th></tr></thead>
+                    <tbody id="bodyCarrito"></tbody>
+                  </table>
+                </div>
+                <div class="form-group-total oculto" id="totalCarritoWrap">
+                  <label><strong>Total carrito</strong></label>
+                  <input type="text" id="totalCarrito" class="total" readonly>
+                </div>
+                <button type="button" class="btn-total oculto" id="btnExportCarrito" data-action="ExportarCarrito">WhatsApp (carrito completo)</button>
+              </div>
             </div>
           </div>
         </div>
