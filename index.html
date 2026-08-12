@@ -6111,7 +6111,7 @@
                 <div class="table-responsive">
                   <table class="table2 table-sortable oculto" id="tablaStockCompleto">
                     <thead>
-                      <tr><th>Modelo</th><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Sucursal</th><th>Estado</th><th>Obs.</th></tr>
+                      <tr><th>Modelo</th><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Sucursal</th><th>Estado</th><th>Obs.</th><th>Falla</th></tr>
                     </thead>
                     <tbody id="bodyStockCompleto"></tbody>
                   </table>
@@ -6179,6 +6179,10 @@
                       <option value="Sellado">Sellado</option>
                     </select>
                   </div>
+                  <div class="form-group-total">
+                    <label>Falla / estado del equipo (opcional)</label>
+                    <input type="text" id="ingresoFalla" placeholder="Ej. Pantalla cambiada, marca camara" autocomplete="off">
+                  </div>
                   <button type="button" class="btn-total" id="btnConfirmarIngreso">Agregar al stock</button>
                 </div>
 
@@ -6210,7 +6214,7 @@
               <div class="table-responsive">
                 <table class="table2 oculto" id="tablaStock">
                   <thead>
-                    <tr><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Sucursal</th><th>Estado</th><th>Obs.</th></tr>
+                    <tr><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Sucursal</th><th>Estado</th><th>Obs.</th><th>Falla</th></tr>
                   </thead>
                   <tbody id="bodyStock"></tbody>
                 </table>

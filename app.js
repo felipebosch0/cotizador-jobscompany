@@ -211,7 +211,7 @@ function actualizarModuloStock(modelo) {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td>`;
+    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td><td>${u.falla || ''}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
@@ -270,7 +270,7 @@ function actualizarVistaStockCompleto() {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td>`;
+    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td><td>${u.falla || ''}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
@@ -545,6 +545,7 @@ async function ConfirmarIngreso() {
   const imei = $('#ingresoImei').val().trim();
   const sucursal = $('#ingresoDeposito').val();
   const observaciones = $('#ingresoObservaciones').val();
+  const falla = $('#ingresoFalla').val().trim();
 
   if (!modelo || !capacidad || !imei || !sucursal) {
     return MostrarAlerta({ tipo: 'error', title: 'Ingreso', mnsj: 'Completa al menos Modelo, Capacidad, IMEI y Deposito' });
@@ -560,10 +561,10 @@ async function ConfirmarIngreso() {
   const boton = document.getElementById('btnConfirmarIngreso');
   boton.disabled = true;
   try {
-    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones });
+    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones, falla });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     MostrarAlerta({ tipo: 'success', title: 'Ingreso', mnsj: `${modelo} ${capacidad}Gb agregado al stock` });
-    $('#ingresoModelo, #ingresoCapacidad, #ingresoBateria, #ingresoColor, #ingresoImei').val('');
+    $('#ingresoModelo, #ingresoCapacidad, #ingresoBateria, #ingresoColor, #ingresoImei, #ingresoFalla').val('');
     $('#ingresoDeposito').val('');
     await actualizarStockEnVivo();
   } catch (error) {

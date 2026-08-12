@@ -117,7 +117,8 @@ async function manejarStock() {
         color: String(fila[2] || '').trim(),
         sucursal: String(fila[5] || '').trim(),
         estado: estado,
-        observaciones: String(fila[8] || '').trim()
+        observaciones: String(fila[8] || '').trim(),
+        falla: String(fila[10] || '').trim()
       });
     });
     return jsonResponse({ stock: stock, error: null });
