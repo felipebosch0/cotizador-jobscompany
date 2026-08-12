@@ -152,7 +152,7 @@ let avisoStockMostrado = false;
 // stock-data.js como esta y avisa UNA sola vez.
 async function actualizarStockEnVivo() {
   try {
-    const response = await fetch('/.netlify/functions/stock');
+    const response = await fetch('/stock');
     const data = await response.json();
     if (data.error) throw new Error(data.error);
     window.STOCK_IPHONES = data.stock;
@@ -286,7 +286,7 @@ let avisoDolarMostrado = false;
 
 async function actualizarDolar() {
   try {
-    const response = await fetch('/.netlify/functions/dolar');
+    const response = await fetch('/dolar');
     const nuevo = await response.json();
     if (!nuevo.DolarVenta) throw new Error(nuevo.error || 'Respuesta invalida de la funcion de dolar');
 
@@ -512,7 +512,7 @@ function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').remove
 // pedido, no guarda nada -- la planilla sigue siendo la unica fuente de
 // verdad.
 async function llamarStockWrite(payload) {
-  const response = await fetch('/.netlify/functions/stock-write', {
+  const response = await fetch('/stock-write', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
