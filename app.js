@@ -175,6 +175,25 @@ function grupoDeSucursal(deposito) {
   return entrada ? entrada[0] : null;
 }
 
+// Precio de venta de una unidad de stock, sacado del modulo de Precios
+// (equiposPorSucursal) segun sucursal + modelo + capacidad + condicion.
+// La condicion sale de la vieja columna "Observaciones" ("Semi-Nuevo" o
+// "Sellado"); si dice otra cosa (ej. "Trade-in") o el modelo/capacidad no
+// tiene precio cargado, no hay de donde sacar un numero.
+// stockPrecioUsd: toggleado con el boton "USD" del modulo de Stock, para
+// ver los precios en dolares en vez de pesos.
+let stockPrecioUsd = false;
+function precioStockTexto(u) {
+  const sucursal = grupoDeSucursal(u.sucursal);
+  if (!sucursal) return '-';
+  const condicion = u.observaciones === 'Semi-Nuevo' ? 'seminuevo' : u.observaciones === 'Sellado' ? 'sellado' : null;
+  if (!condicion) return '-';
+  const equipo = (DATA.equiposPorSucursal[sucursal] || []).find(e => normalizarModelo(e.modelo) === normalizarModelo(u.modelo));
+  if (!equipo) return '-';
+  const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
+  return textoPrecioCapacidad(equipo.capacidades[capacidad], condicion, stockPrecioUsd) || '-';
+}
+
 function actualizarModuloStock(modelo) {
   const modulo = document.getElementById('moduloStock');
   const tabla = document.getElementById('tablaStock');
@@ -211,7 +230,7 @@ function actualizarModuloStock(modelo) {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td><td>${u.falla || ''}</td>`;
+    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${sucursalTexto}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
@@ -270,7 +289,7 @@ function actualizarVistaStockCompleto() {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${sucursalTexto}</td><td>${u.estado}</td><td>${u.observaciones}</td><td>${u.falla || ''}</td>`;
+    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${sucursalTexto}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
@@ -333,6 +352,8 @@ function renderCarrito() {
   const vacio = document.getElementById('carritoVacio');
   const totalWrap = document.getElementById('totalCarritoWrap');
   const btnExport = document.getElementById('btnExportCarrito');
+  const btnGarantia = document.getElementById('btnImprimirGarantia');
+  const btnDeclaracion = document.getElementById('btnImprimirDeclaracion');
   const badge = document.getElementById('badgeCarrito');
 
   badge.textContent = carrito.length;
@@ -343,6 +364,8 @@ function renderCarrito() {
     tabla.classList.add('oculto');
     totalWrap.classList.add('oculto');
     btnExport.classList.add('oculto');
+    btnGarantia.classList.add('oculto');
+    btnDeclaracion.classList.add('oculto');
     vacio.classList.remove('oculto');
     $('#tablaFinancia').removeClass('vista').addClass('oculto');
     return;
@@ -352,6 +375,16 @@ function renderCarrito() {
   tabla.classList.remove('oculto');
   totalWrap.classList.remove('oculto');
   btnExport.classList.remove('oculto');
+
+  // El boton de garantia solo aparece si hay un equipo en el carrito Y ya
+  // esta cargada la plantilla de garantia para la sucursal actual.
+  const hayEquipo = !!equipoPrincipalDelCarrito();
+  const hayPlantilla = hayEquipo && GARANTIA_TEXTOS[sucursalActual] && GARANTIA_TEXTOS[sucursalActual][equipoPrincipalDelCarrito().condicion];
+  btnGarantia.classList.toggle('oculto', !hayPlantilla);
+
+  // El boton de declaracion jurada solo aparece si hay un canje (Trade In)
+  // en el carrito.
+  btnDeclaracion.classList.toggle('oculto', !tradeInDelCarrito());
 
   const fragm = document.createDocumentFragment();
   carrito.forEach((item, i) => {
@@ -407,7 +440,12 @@ function AgregarCarritoEquipo() {
   agregarAlCarrito({
     tipo: 'Equipo',
     descripcion: `${modelo} ${capacidad} (${condicionTexto})${sufijoUsd}`,
-    precio: total + adelanto
+    precio: total + adelanto,
+    // Estos 3 campos son los que usa la garantia (ver imprimirGarantia) --
+    // esEquipoPrincipal distingue este renglon de los de "Entrega en
+    // efectivo" de abajo, que tambien quedan con tipo "Equipo".
+    esEquipoPrincipal: true,
+    modelo, capacidad, condicion
   });
 
   if (adelantoUsd > 0) {
@@ -845,9 +883,17 @@ function AgregarCarritoTradeIn() {
 // que Ingreso manual, leyenda "Trade-in" en Observaciones) y 2) abre una
 // pestana nueva con la declaracion jurada lista para imprimir y firmar.
 
+// El boton vive en el Carrito, no en el formulario de Trade In -- por eso
+// toda la info del equipo (modelo, fallas marcadas, descuento) sale del
+// item ya agregado al carrito, no del estado en vivo del formulario (que
+// puede estar reseteado si el vendedor ya navego a otra pestana).
+function tradeInDelCarrito() {
+  return carrito.find(item => item.tipo === 'Trade In' && item.modelo) || null;
+}
+
 function AbrirModalDeclaracion() {
-  const modelo = $('#formTradeIn select[name="modeloTI"]').val();
-  if (!modelo) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Elegi un modelo antes de continuar' });
+  const tradeIn = tradeInDelCarrito();
+  if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
   $('#djNombre, #djDni, #djImei, #djBateria').val('');
   document.getElementById('modalDeclaracionJurada').style.display = 'block';
 }
@@ -867,9 +913,11 @@ async function ConfirmarDeclaracionJurada() {
   let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
   if (bateria > 1) bateria = bateria / 100;
 
-  const modelo = $('#formTradeIn select[name="modeloTI"]').val();
-  const { descuento, detalle } = evaluarChecklistTradeIn(modelo);
-  const falla = detalle.join(', ');
+  const tradeIn = tradeInDelCarrito();
+  if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
+  const modelo = tradeIn.modelo;
+  const descuento = -tradeIn.precio;
+  const falla = (tradeIn.detalleFallas || []).join(', ');
 
   // Observaciones queda como "Trade-in" (clasificacion del ingreso) y el
   // nombre del vendedor logueado que recibio el equipo se guarda aparte, en
@@ -887,7 +935,7 @@ async function ConfirmarDeclaracionJurada() {
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     await actualizarStockEnVivo();
-    imprimirDeclaracionJurada({ nombre, dni, modelo, imei, valor: descuento });
+    await imprimirDeclaracionJurada({ nombre, dni, modelo, imei, valor: descuento });
     CerrarModalDeclaracion();
     MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
   } catch (error) {
@@ -897,7 +945,47 @@ async function ConfirmarDeclaracionJurada() {
   }
 }
 
-function imprimirDeclaracionJurada(datos) {
+// Los documentos imprimibles (declaracion jurada, garantia) se abren en una
+// pestana en blanco via window.open('', ...) -- no tienen la URL del sitio
+// como base, asi que una ruta relativa a la imagen del logo no resuelve.
+// Por eso se trae el archivo y se embebe como base64 directo en el <img>.
+// Se cachea por sucursal despues de la primera vez para no volver a
+// pedirlo cada impresion. Cada sucursal tiene su propio logo.
+const LOGOS_POR_SUCURSAL = {
+  Shopping: 'logo-jobs-company.jpeg',
+  Independencia: 'logo-independencia.jpeg'
+};
+const logoBase64Cache = {};
+async function logoBase64(sucursal) {
+  if (logoBase64Cache[sucursal]) return logoBase64Cache[sucursal];
+  const archivo = LOGOS_POR_SUCURSAL[sucursal] || LOGOS_POR_SUCURSAL.Shopping;
+  try {
+    const resp = await fetch(archivo);
+    if (!resp.ok) throw new Error('No se encontro ' + archivo);
+    const buffer = await resp.arrayBuffer();
+    // Se arma el data URI a mano con mime "image/jpeg" fijo -- no hay que
+    // confiar en el Content-Type que devuelva el server (algunos servers
+    // estaticos, sobre todo de prueba, sirven .jpeg como
+    // application/octet-stream y el navegador no lo renderiza como imagen).
+    let binario = '';
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < bytes.length; i++) binario += String.fromCharCode(bytes[i]);
+    logoBase64Cache[sucursal] = 'data:image/jpeg;base64,' + btoa(binario);
+  } catch (error) {
+    logoBase64Cache[sucursal] = null;
+  }
+  return logoBase64Cache[sucursal];
+}
+
+async function imprimirDeclaracionJurada(datos) {
+  // window.open tiene que llamarse ANTES de cualquier await -- si no, el
+  // navegador ya no lo considera parte del gesto de click del usuario y
+  // bloquea la ventana como si fuera un popup no solicitado.
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const logo = await logoBase64(sucursalActual);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
   const fecha = new Date().toLocaleDateString('es-AR');
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Declaracion jurada</title>
@@ -913,6 +1001,7 @@ function imprimirDeclaracionJurada(datos) {
   .firma .linea { margin-top: 40px; border-top: 1px solid #333; width: 300px; }
 </style></head>
 <body>
+  ${encabezadoLogo}
   <h1>DOCUMENTO DE ENTREGA DE EQUIPOS EN PARTE DE PAGO</h1>
 
   <h2>DATOS DEL CLIENTE</h2>
@@ -949,8 +1038,215 @@ function imprimirDeclaracionJurada(datos) {
   <script>window.onload = () => window.print();</script>
 </body></html>`;
 
+  ventana.document.write(html);
+  ventana.document.close();
+}
+
+// ============================ CARRITO: garantia ============================
+// Boton "Imprimir garantia" en el Carrito -- solo aparece si hay un equipo
+// (Venta > Equipo) cargado. El equipo ya trae modelo/capacidad/condicion/
+// precio del carrito; lo unico que falta pedir es IMEI y color (Venta >
+// Equipo no los pide hoy). El texto de la garantia varia segun sucursal y
+// segun la condicion (Nuevo/Sellado = 12 meses oficial Apple, Semi-Nuevo =
+// 3 meses Jobs Company). Por ahora solo esta cargado el texto de Shopping
+// -- el de Independencia se agrega despues (tiene su propio formato de
+// comprobante, distinto).
+const GARANTIA_TEXTOS = {
+  Shopping: {
+    sellado: {
+      condicionTexto: 'Nuevo',
+      garantiaTexto: 'garantia oficial Apple de 12 meses'
+    },
+    seminuevo: {
+      condicionTexto: 'Semi-Nuevo',
+      garantiaTexto: 'garantia de 3 meses'
+    }
+  },
+  // Independencia: mismo texto base que Shopping, pero el Semi-Nuevo tiene
+  // solo 1 mes de garantia (a pedido del usuario, distinto a Shopping que
+  // son 3). El Sellado/Nuevo se asume igual (garantia oficial Apple de 12
+  // meses, es un tema de Apple, no de la sucursal) -- confirmar si no.
+  Independencia: {
+    sellado: {
+      condicionTexto: 'Nuevo',
+      garantiaTexto: 'garantia oficial Apple de 12 meses'
+    },
+    seminuevo: {
+      condicionTexto: 'Semi-Nuevo',
+      garantiaTexto: 'garantia de 1 mes'
+    }
+  }
+};
+
+function equipoPrincipalDelCarrito() {
+  return carrito.find(item => item.esEquipoPrincipal) || null;
+}
+
+function AbrirModalGarantia() {
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
+  if (!GARANTIA_TEXTOS[sucursalActual] || !GARANTIA_TEXTOS[sucursalActual][equipo.condicion]) {
+    return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Todavia no esta cargada la plantilla de garantia para ' + sucursalActual });
+  }
+  $('#gtImei, #gtColor').val('');
+  document.getElementById('modalGarantia').style.display = 'block';
+}
+
+function CerrarModalGarantia() {
+  document.getElementById('modalGarantia').style.display = 'none';
+}
+
+async function ConfirmarGarantia() {
+  const imei = $('#gtImei').val().trim();
+  const color = $('#gtColor').val().trim();
+  if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI y color del equipo' });
+  if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
+
+  // Los accesorios del carrito solo se listan en la garantia de
+  // Independencia (a pedido del usuario) -- en Shopping la garantia sale
+  // solo con los datos del equipo. El "Valor de la operacion" de
+  // Independencia tambien tiene que incluir lo que suman esos accesorios,
+  // no solo el precio del equipo.
+  const accesoriosCarrito = sucursalActual === 'Independencia'
+    ? carrito.filter(item => item.tipo === 'Accesorio')
+    : [];
+  const accesorios = accesoriosCarrito.map(item => item.descripcion);
+  const totalAccesorios = accesoriosCarrito.reduce((sum, item) => sum + item.precio, 0);
+
+  // Si el IMEI que se cargo corresponde a un equipo que estaba en el
+  // deposito (dado de alta antes por Ingreso/Trade-in), se da de baja
+  // automatico -- mismo mecanismo que el Egreso manual, con el vendedor
+  // logueado en ese momento anotado en la columna Propietario. Si el IMEI
+  // no estaba en stock (venta de mostrador sin control) no pasa nada, la
+  // garantia se imprime igual. De paso, si ese equipo tenia una falla
+  // anotada, se rescata para mostrarla en la garantia (solo Independencia,
+  // a pedido del usuario).
+  let falla = '';
+  try {
+    const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+    if (busqueda.ok && busqueda.resultados.length === 1) {
+      if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
+      const sesion = sesionGuardada();
+      await llamarStockWrite({
+        accion: 'egreso',
+        fila: busqueda.resultados[0].fila,
+        vendedor: sesion ? sesion.nombre : ''
+      });
+      await actualizarStockEnVivo();
+    }
+  } catch (error) {
+    // No bloquea la impresion de la garantia si esto falla -- es una
+    // mejora, no un requisito para vender.
+  }
+
+  // El box de Observacion (solo Independencia) junta 2 avisos distintos,
+  // cada uno si corresponde: la falla que tenia el equipo vendido (si el
+  // IMEI estaba en stock) y si el cliente entrego OTRO equipo en Trade In
+  // como parte de pago de esta misma operacion -- sin mostrar el IMEI de
+  // ese equipo entregado, solo el aviso.
+  const observaciones = [];
+  if (falla) observaciones.push('Falla del equipo: ' + falla);
+  const tradeIn = sucursalActual === 'Independencia' ? tradeInDelCarrito() : null;
+  if (tradeIn) observaciones.push('El cliente entrego un equipo (' + tradeIn.modelo + ') en Trade In como parte de pago.');
+
+  await imprimirGarantia({
+    sucursal: sucursalActual,
+    modelo: equipo.modelo,
+    capacidad: equipo.capacidad,
+    condicion: equipo.condicion,
+    imei, color,
+    precio: equipo.precio + totalAccesorios,
+    accesorios,
+    observaciones
+  });
+  CerrarModalGarantia();
+}
+
+async function imprimirGarantia(datos) {
+  // window.open antes del await del logo -- mismo motivo que en
+  // imprimirDeclaracionJurada (si no, el navegador bloquea el popup).
   const ventana = window.open('', '_blank');
-  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const plantilla = GARANTIA_TEXTOS[datos.sucursal][datos.condicion];
+  const logo = await logoBase64(datos.sucursal);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const fecha = new Date().toLocaleDateString('es-AR');
+  const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
+  // A pedido del usuario, la garantia de Shopping no muestra el precio de
+  // la operacion (Independencia si).
+  const lineaValorOperacion = datos.sucursal === 'Shopping'
+    ? ''
+    : `<div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>`;
+
+  const boxAccesorios = datos.accesorios.length
+    ? `<div class="box"><strong>Accesorios incluidos</strong><ul>${datos.accesorios.map(a => `<li>${a}</li>`).join('')}</ul></div>`
+    : '';
+
+  // Independencia: avisos varios (falla del equipo vendido, si el cliente
+  // entrego otro equipo en Trade In como parte de pago) -- ver armado de
+  // la lista en ConfirmarGarantia. Mismo tratamiento visual que el box de
+  // accesorios.
+  const boxObservacion = (datos.observaciones && datos.observaciones.length)
+    ? `<div class="box"><strong>Observacion</strong>${datos.observaciones.map(o => `<p>${o}</p>`).join('')}</div>`
+    : '';
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Garantia</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; margin-bottom: 140px; color: #111; line-height: 1.5; }
+  h1 { font-size: 18px; text-align: center; }
+  h2 { font-size: 15px; margin-top: 28px; border-bottom: 1px solid #999; padding-bottom: 4px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  p { text-align: justify; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 140px; }
+  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
+  .box strong { display: block; margin-bottom: 4px; }
+  .box p, .box ul { margin: 4px 0 0; }
+  /* Firma anclada al pie de la hoja (no pegada al texto) para que el
+     cliente tenga lugar comodo donde firmar. */
+  .firma { position: fixed; bottom: 30px; left: 40px; right: 40px; }
+  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
+</style></head>
+<body>
+  ${encabezadoLogo}
+  <h1>Cordoba, ${fecha}</h1>
+  <p>En el dia de hoy recibo de Jobs Company SAS, el equipo que a continuacion se describe:</p>
+
+  <div class="campo"><strong>Marca:</strong> Apple</div>
+  <div class="campo"><strong>Modelo:</strong> ${datos.modelo} ${datos.capacidad}</div>
+  <div class="campo"><strong>IMEI/Serie:</strong> ${datos.imei}</div>
+  <div class="campo"><strong>Color:</strong> ${datos.color}</div>
+  ${lineaValorOperacion}
+
+  <p>Dando por entendido, que se entrega en conformidad un equipo en calidad de <strong>${plantilla.condicionTexto}</strong>,
+  el cual tiene un perfecto funcionamiento de todos sus componentes.
+  El equipo antes mencionado cuenta con ${plantilla.garantiaTexto} a partir de la fecha de compra siempre y cuando,
+  los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del dispositivo,
+  se debera acercar a cualquiera de las sucursales de JobsCompany para hacer valer la garantia.</p>
+
+  <p>La empresa y/o el colaborador no se responsabilizan por la perdida de datos que pudiera ocurrir durante el proceso
+  de transferencia de informacion. El cliente es responsable de proporcionar y conservar las credenciales de acceso
+  necesarias para realizar dicho procedimiento.</p>
+
+  ${boxObservacion}
+  ${boxAccesorios}
+
+  <div class="campo">CUIT: 30-71929577-7</div>
+
+  <div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
+  </div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
   ventana.document.write(html);
   ventana.document.close();
 }
@@ -1234,6 +1530,17 @@ function iniciarApp(sesion) {
     actualizarVistaStockCompleto();
     MostrarAlerta({ tipo: 'success', title: 'Stock', mnsj: 'Actualizado' });
   });
+
+  document.getElementById('btnStockUsd').addEventListener('click', function () {
+    stockPrecioUsd = !stockPrecioUsd;
+    this.style.opacity = stockPrecioUsd ? '1' : '0.5';
+    actualizarVistaStockCompleto();
+    // No forzar actualizarModuloStock si no hay modelo elegido en Venta --
+    // eso lo ocultaria (ver guard clause adentro de esa funcion).
+    const modeloVenta = $('#formVenta select[name="modeloV"]').val();
+    if (modeloVenta) actualizarModuloStock(modeloVenta);
+  });
+  document.getElementById('btnStockUsd').style.opacity = '0.5';
   document.getElementById('selectStockModelo').addEventListener('change', actualizarVistaStockCompleto);
 
   document.getElementById('selectTipoOperacion').addEventListener('change', function () {
@@ -1251,6 +1558,16 @@ function iniciarApp(sesion) {
     if (e.target.id === 'modalDeclaracionJurada') CerrarModalDeclaracion();
   });
   document.getElementById('djImei').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
+
+  document.getElementById('btnImprimirGarantia').addEventListener('click', AbrirModalGarantia);
+  document.getElementById('cerrarModalGarantia').addEventListener('click', CerrarModalGarantia);
+  document.getElementById('btnConfirmarGarantia').addEventListener('click', ConfirmarGarantia);
+  document.getElementById('modalGarantia').addEventListener('click', e => {
+    if (e.target.id === 'modalGarantia') CerrarModalGarantia();
+  });
+  document.getElementById('gtImei').addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
   });
 
