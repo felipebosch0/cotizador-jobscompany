@@ -170,8 +170,13 @@ async function actualizarStockEnVivo() {
 // Si el deposito no esta mapeado a ninguna sucursal (ej. DEPO, SERVICIO
 // TECNICO) devuelve null.
 function grupoDeSucursal(deposito) {
+  // Comparacion sin importar mayusculas/espacios -- la planilla real tiene
+  // el deposito de Independencia escrito como "Independencia" en vez de
+  // "INDEPENDENCIA" como estaba mapeado, asi que no matcheaba nunca y esas
+  // filas quedaban sin sucursal reconocida (mostraban "Depo" y sin precio).
+  const buscado = String(deposito || '').trim().toLowerCase();
   const entrada = Object.entries(DATA.depositoPorSucursal || {})
-    .find(([, depositos]) => depositos.includes(deposito));
+    .find(([, depositos]) => depositos.some(d => d.toLowerCase() === buscado));
   return entrada ? entrada[0] : null;
 }
 
