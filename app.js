@@ -191,6 +191,12 @@ let stockPrecioUsd = false;
 function precioStockTexto(u) {
   const sucursal = grupoDeSucursal(u.sucursal);
   if (!sucursal) return '-';
+  // El stock mezcla unidades de las 2 sucursales (para ver donde mas hay),
+  // pero el precio solo tiene sentido para lo que es de TU sucursal actual
+  // -- si es de la otra, no tiene por que valer lo mismo, asi que no se
+  // muestra ningun numero (evita confundir "esto vale $X" con el precio de
+  // una sucursal en la que no estas parado).
+  if (sucursal !== sucursalActual) return '-';
   const condicion = u.observaciones === 'Semi-Nuevo' ? 'seminuevo' : u.observaciones === 'Sellado' ? 'sellado' : null;
   if (!condicion) return '-';
   const equipo = (DATA.equiposPorSucursal[sucursal] || []).find(e => normalizarModelo(e.modelo) === normalizarModelo(u.modelo));
@@ -765,14 +771,15 @@ function buscarReparacionesDeModelo(modelo) {
 }
 
 // Precio en ARS de una falla para un modelo puntual. Diagnostico es fijo
-// (no depende de modelo ni dolar); el resto sale de reparacionesPorModelo
-// en USD y se convierte con DolarVenta. Devuelve null si esa reparacion no
-// se hace en ese modelo.
+// (no depende de modelo); el resto sale de reparacionesPorModelo, que
+// ahora esta directo en ARS (lista real sacada de Gestioo, ya no se
+// convierte con DolarVenta). Devuelve null si esa reparacion no se hace
+// en ese modelo.
 function precioFallaArs(modelo, nombreFalla) {
   if (nombreFalla === 'Diagnostico') return DATA.diagnosticoPrecioArs;
   const precios = buscarReparacionesDeModelo(modelo);
   if (!precios || precios[nombreFalla] == null) return null;
-  return precios[nombreFalla] * DATA.dolar.DolarVenta;
+  return precios[nombreFalla];
 }
 
 // ============================ TRADE IN (canje) ============================
@@ -899,7 +906,7 @@ function tradeInDelCarrito() {
 function AbrirModalDeclaracion() {
   const tradeIn = tradeInDelCarrito();
   if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
-  $('#djNombre, #djDni, #djImei, #djBateria').val('');
+  $('#djNombre, #djDni, #djImei, #djBateria, #djColor, #djCapacidad').val('');
   document.getElementById('modalDeclaracionJurada').style.display = 'block';
 }
 
@@ -912,6 +919,8 @@ async function ConfirmarDeclaracionJurada() {
   const dni = $('#djDni').val().trim();
   const imei = $('#djImei').val().trim();
   const bateriaTexto = $('#djBateria').val().trim();
+  const color = $('#djColor').val().trim();
+  const capacidad = $('#djCapacidad').val().trim();
   if (!nombre || !dni || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI e IMEI del cliente' });
   if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
 
@@ -935,7 +944,7 @@ async function ConfirmarDeclaracionJurada() {
   boton.disabled = true;
   try {
     const resp = await llamarStockWrite({
-      accion: 'ingreso', modelo, capacidad: '', bateria, color: '', imei,
+      accion: 'ingreso', modelo, capacidad, bateria, color, imei,
       sucursal: sucursalActual, observaciones: 'Trade-in', falla, propietario
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
@@ -1157,6 +1166,12 @@ async function ConfirmarGarantia() {
   const tradeIn = sucursalActual === 'Independencia' ? tradeInDelCarrito() : null;
   if (tradeIn) observaciones.push('El cliente entrego un equipo (' + tradeIn.modelo + ') en Trade In como parte de pago.');
 
+  // Plan canje para la planilla de pagos (pagina 3): a diferencia del aviso
+  // de arriba (solo Independencia), esto se muestra en cualquier sucursal
+  // si hay un Trade In cargado en el carrito.
+  const tradeInCarrito = tradeInDelCarrito();
+  const sesion = sesionGuardada();
+
   await imprimirGarantia({
     sucursal: sucursalActual,
     modelo: equipo.modelo,
@@ -1165,7 +1180,9 @@ async function ConfirmarGarantia() {
     imei, color,
     precio: equipo.precio + totalAccesorios,
     accesorios,
-    observaciones
+    observaciones,
+    vendedor: sesion ? sesion.nombre : '',
+    tradeIn: tradeInCarrito ? { modelo: tradeInCarrito.modelo, precio: tradeInCarrito.precio } : null
   });
   CerrarModalGarantia();
 }
@@ -1199,26 +1216,9 @@ async function imprimirGarantia(datos) {
     ? `<div class="box"><strong>Observacion</strong>${datos.observaciones.map(o => `<p>${o}</p>`).join('')}</div>`
     : '';
 
-  const html = `<!doctype html>
-<html><head><meta charset="utf-8"><title>Garantia</title>
-<style>
-  body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; margin-bottom: 140px; color: #111; line-height: 1.5; }
-  h1 { font-size: 18px; text-align: center; }
-  h2 { font-size: 15px; margin-top: 28px; border-bottom: 1px solid #999; padding-bottom: 4px; }
-  ul { padding-left: 20px; }
-  li { margin-bottom: 6px; }
-  p { text-align: justify; }
-  .campo { margin: 6px 0; }
-  .campo strong { display: inline-block; min-width: 140px; }
-  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
-  .box strong { display: block; margin-bottom: 4px; }
-  .box p, .box ul { margin: 4px 0 0; }
-  /* Firma anclada al pie de la hoja (no pegada al texto) para que el
-     cliente tenga lugar comodo donde firmar. */
-  .firma { position: fixed; bottom: 30px; left: 40px; right: 40px; }
-  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
-</style></head>
-<body>
+  // Contenido de la garantia en si (paginas 1 y 2 son identicas -- 2 copias,
+  // una para el cliente y otra para el local -- a pedido del usuario).
+  const contenidoGarantia = `
   ${encabezadoLogo}
   <h1>Cordoba, ${fecha}</h1>
   <p>En el dia de hoy recibo de Jobs Company SAS, el equipo que a continuacion se describe:</p>
@@ -1247,7 +1247,70 @@ async function imprimirGarantia(datos) {
   <div class="firma">
     <div class="linea"></div>
     <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
-  </div>
+  </div>`;
+
+  // Pagina 3: planilla de pagos interna (mismos campos/orden que la
+  // plantilla en Excel que paso el usuario). Solo se completan los datos
+  // que ya tenemos de la operacion (Fecha, Vendedor, Equipo, GB, precio en
+  // USD, cotizacion, pesos y -- si el cliente entrego algo en Trade In --
+  // el equipo y la cotizacion del canje); el resto de los campos quedan en
+  // blanco para completar a mano en el local.
+  const filasPlanilla = [
+    ['FECHA', fecha],
+    ['VENDEDORES', datos.vendedor || ''],
+    ['CLIENTES', ''],
+    ['EQUIPO', datos.modelo],
+    ['GB', datos.capacidad],
+    ['BATERIA', ''],
+    ['PRECIO DEL EQUIPO EN USD', 'USD ' + precioUsd],
+    ['USD BILLETE', ''],
+    ['COTIZACION DE USD', formatNumberArg(DATA.dolar.DolarVenta)],
+    ['PESOS', formatNumberArg(datos.precio)],
+    ['TRANSFERENCIA EN PESOS', ''],
+    ['CUENTA', ''],
+    ['TRANSFERENCIA EN USD', ''],
+    ['CUENTA', ''],
+    ['CREDITO TOTAL', ''],
+    ['CANTIDAD DE CUOTAS', ''],
+    ['USDT', ''],
+    ['CUENTA', ''],
+    ['EQUIPO EN PLAN CANJE', datos.tradeIn ? datos.tradeIn.modelo : ''],
+    ['COTIZACION DEL CANJE', datos.tradeIn ? formatNumberArg(datos.tradeIn.precio) : '']
+  ];
+  const contenidoPlanilla = `
+  ${encabezadoLogo}
+  <h1>Planilla de pagos</h1>
+  <table class="planilla">
+    ${filasPlanilla.map(([label, valor]) => `<tr><td class="etiqueta">${label}</td><td class="valor">${valor}</td></tr>`).join('')}
+  </table>`;
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Garantia</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; }
+  h1 { font-size: 18px; text-align: center; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  p { text-align: justify; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 140px; }
+  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
+  .box strong { display: block; margin-bottom: 4px; }
+  .box p, .box ul { margin: 4px 0 0; }
+  .pagina { max-width: 700px; min-height: 950px; margin: 40px auto; padding-bottom: 40px; display: flex; flex-direction: column; page-break-after: always; }
+  .pagina:last-child { page-break-after: auto; }
+  .pagina > *:not(.firma) { flex-shrink: 0; }
+  .firma { margin-top: auto; padding-top: 40px; }
+  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
+  .planilla { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  .planilla td { border: 1px solid #999; padding: 8px 10px; }
+  .planilla td.etiqueta { font-weight: bold; width: 45%; background: #f7f7f7; }
+  .planilla td.valor { min-height: 20px; }
+</style></head>
+<body>
+  <div class="pagina">${contenidoGarantia}</div>
+  <div class="pagina">${contenidoGarantia}</div>
+  <div class="pagina">${contenidoPlanilla}</div>
 
   <script>window.onload = () => window.print();</script>
 </body></html>`;
