@@ -62,7 +62,7 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 16 Pro Max',   capacidades: { '256Gb': { seminuevo: 1250, sellado: null }, '512Gb': { seminuevo: 1300, sellado: null }, '1Tb': { seminuevo: 1350, sellado: null } } },
       { modelo: 'iPhone 17 Air',        capacidades: { '128Gb': { seminuevo: null, sellado: null }, '256Gb': { seminuevo: null, sellado: 1200 }, '512Gb': { seminuevo: null, sellado: null }, '1Tb': { seminuevo: null, sellado: null } } },
       { modelo: 'iPhone 17',           capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1150, sellado: 1250 }, '512Gb': { seminuevo: 1300, sellado: 1350 }, '1Tb': { seminuevo: 1350, sellado: 1550 } } },
-      { modelo: 'iPhone 17 Pro',       capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1646, sellado: 1656 }, '512Gb': { seminuevo: 1796, sellado: 1756 }, '1Tb': { seminuevo: 1846, sellado: 1956 } } },
+      { modelo: 'iPhone 17 Pro',       capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1556, sellado: 1656 }, '512Gb': { seminuevo: 1796, sellado: 1756 }, '1Tb': { seminuevo: 1846, sellado: 1956 } } },
       { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1700, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } }
     ],
 
@@ -1250,7 +1250,7 @@ window.COTIZADOR_DATA = {
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'equipo' },
     { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo' },
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
-    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'equipo' },
+    { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'equipo' },
 
     // Reparacion: solo 2 opciones -- a diferencia de Venta equipo y
     // Accesorios, aca no se ofrecen Debito/QR/Transferencia ni 6/12 cuotas.
@@ -1265,7 +1265,7 @@ window.COTIZADOR_DATA = {
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio' },
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'accesorio' },
-    { plan: '12 cuotas',            interes: 0.50, cuotas: 12, categoria: 'accesorio' }
+    { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'accesorio' }
   ],
 
   promociones: [] // MOCK (vacio, sin promos activas)
