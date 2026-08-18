@@ -791,11 +791,12 @@ function precioFallaArs(modelo, nombreFalla) {
 // marcadas con precio de reparacion equivalente, se SUMA arriba de esa base
 // un 80% del precio de cada una (no la reemplaza).
 //
-// Items sin columna de precio equivalente en Gestioo (Face ID/Touch ID,
-// wifi/bluetooth/senal, chasis) se registran en el detalle pero no restan
-// nada -- no hay de donde sacar un numero real para esos. Parlantes/
-// microfono y botones SI tienen categoria en Gestioo (Altavoz / Auricular
-// y Flex boton encendido) y restan igual que el resto.
+// Wifi/bluetooth/senal es el unico item sin precio de referencia (no hay
+// de donde sacar un numero real) -- se registra en el detalle pero no
+// resta nada. El resto SI tiene categoria de precio: Parlantes/microfono y
+// botones salen de Gestioo (Altavoz / Auricular y Flex boton encendido);
+// Face ID/Touch ID y Chasis salen de una lista aparte que paso el negocio
+// (Gestioo no las tenia cargadas).
 const PORCENTAJE_DESCUENTO_TRADEIN = 0.8;
 
 // Solo entran los modelos que tienen valor base cargado en
