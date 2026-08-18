@@ -28,12 +28,12 @@ window.COTIZADOR_DATA = {
   // Los "depositos" que aparecen en Stock.xlsx (OLMOS, DINO, NUEVO CENTRO,
   // DEPO, SERVICIO TECNICO) son ubicaciones internas del sistema viejo, no
   // las 2 sucursales de venta nuevas. OLMOS, DINO y NUEVO CENTRO
-  // pertenecen a "Shopping"; Independencia es su propio deposito. DEPO y
-  // SERVICIO TECNICO no estan asignados a ninguna de las 2 -- quedan
-  // sueltos hasta que se defina donde van.
+  // pertenecen a "Shopping"; DEPO e INDEPENDENCIA son el deposito de
+  // Independencia. SERVICIO TECNICO no esta asignado a ninguna de las 2 --
+  // queda suelto hasta que se defina donde va.
   depositoPorSucursal: {
     'Shopping': ['OLMOS', 'DINO', 'NUEVO CENTRO'],
-    'Independencia': ['INDEPENDENCIA']
+    'Independencia': ['INDEPENDENCIA', 'DEPO']
   },
 
   // --------------------------------------------------------------

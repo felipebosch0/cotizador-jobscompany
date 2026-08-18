@@ -197,7 +197,12 @@ function precioStockTexto(u) {
   // muestra ningun numero (evita confundir "esto vale $X" con el precio de
   // una sucursal en la que no estas parado).
   if (sucursal !== sucursalActual) return '-';
-  const condicion = u.observaciones === 'Semi-Nuevo' ? 'seminuevo' : u.observaciones === 'Sellado' ? 'sellado' : null;
+  // Normalizado (sin espacios/guiones, minuscula) porque la planilla de
+  // Independencia no siempre escribe "Semi-Nuevo" igual que Shopping --
+  // aparecio como "Seminuevo"/"Semi Nuevo" y quedaba sin precio (mostraba
+  // "-") por una comparacion exacta que no las reconocia.
+  const observacionNormalizada = String(u.observaciones || '').toLowerCase().replace(/[\s-]/g, '');
+  const condicion = observacionNormalizada === 'seminuevo' ? 'seminuevo' : observacionNormalizada === 'sellado' ? 'sellado' : null;
   if (!condicion) return '-';
   const equipo = (DATA.equiposPorSucursal[sucursal] || []).find(e => normalizarModelo(e.modelo) === normalizarModelo(u.modelo));
   if (!equipo) return '-';
