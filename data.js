@@ -27,10 +27,10 @@ window.COTIZADOR_DATA = {
 
   // Los "depositos" que aparecen en Stock.xlsx (OLMOS, DINO, NUEVO CENTRO,
   // DEPO, SERVICIO TECNICO) son ubicaciones internas del sistema viejo, no
-  // las 2 sucursales de venta nuevas. El usuario confirmo que OLMOS, DINO y
-  // NUEVO CENTRO pertenecen a "Shopping"; Independencia es su propio
-  // deposito. DEPO y SERVICIO TECNICO no fueron asignados a ninguna de las
-  // 2 -- quedan sueltos hasta que el usuario diga donde van.
+  // las 2 sucursales de venta nuevas. OLMOS, DINO y NUEVO CENTRO
+  // pertenecen a "Shopping"; Independencia es su propio deposito. DEPO y
+  // SERVICIO TECNICO no estan asignados a ninguna de las 2 -- quedan
+  // sueltos hasta que se defina donde van.
   depositoPorSucursal: {
     'Shopping': ['OLMOS', 'DINO', 'NUEVO CENTRO'],
     'Independencia': ['INDEPENDENCIA']
@@ -66,14 +66,14 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1700, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } }
     ],
 
-    // Independencia: lista real pasada por el usuario (excel con 2 tablas:
-    // "Sellados" y "Semi Nuevos"). A diferencia de Shopping, los Semi Nuevos
-    // de Independencia tienen VARIOS precios segun el estado de bateria del
-    // equipo (por eso "seminuevoTiers": un array de { etiqueta, precio } en
-    // vez de un solo numero en "seminuevo"). El usuario confirmo que un
-    // porcentaje negativo en el excel original (ej. -0.8, -1.0) significa
-    // "menor a ese %" (bateria mas gastada que ese umbral), y que los
-    // precios estan en USD igual que el resto de la lista.
+    // Independencia: lista real (excel con 2 tablas: "Sellados" y "Semi
+    // Nuevos"). A diferencia de Shopping, los Semi Nuevos de Independencia
+    // tienen VARIOS precios segun el estado de bateria del equipo (por eso
+    // "seminuevoTiers": un array de { etiqueta, precio } en vez de un solo
+    // numero en "seminuevo"). Un porcentaje negativo en el excel original
+    // (ej. -0.8, -1.0) significa "menor a ese %" (bateria mas gastada que
+    // ese umbral), y los precios estan en USD igual que el resto de la
+    // lista.
     // "Todas las baterias" = un unico precio sin importar el % de bateria
     // (asi decia el excel para 16/16 Pro/16 Pro Max).
     // Los modelos 17/17 Pro/17 Pro Max/17 Air solo vinieron con precio de
@@ -138,11 +138,11 @@ window.COTIZADOR_DATA = {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 680 }] }
       } },
       { modelo: 'iPhone 15',         capacidades: {
-        '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 450 }] }
+        '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
-        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 550 }] },
-        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 710 }] }
+        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 600 }] },
+        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 760 }] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 800 }] },
@@ -171,14 +171,13 @@ window.COTIZADOR_DATA = {
   // evaluarChecklistTradeIn en app.js) se SUMA arriba de este base -- no lo
   // reemplaza. En USD, convertido a ARS con DolarVenta igual que el resto.
   //
-  // REAL: valores que paso el usuario. iPhone 13 Mini: $150. Familia iPhone
-  // 17 = familia iPhone 16 equivalente + USD 100 (17/17 Air sobre la base de
+  // REAL: valores del negocio. iPhone 13 Mini: $150. Familia iPhone 17 =
+  // familia iPhone 16 equivalente + USD 100 (17/17 Air sobre la base de
   // 16/16 Plus, 17 Pro sobre 16 Pro, 17 Pro Max sobre 16 Pro Max).
   //
-  // Independencia tiene su PROPIA tabla de trade-in (distinta a Shopping),
-  // pasada por el usuario. No incluye iPhone 17 ni el resto de los modelos
-  // que no aparecen abajo -- si falta uno es porque el usuario no paso ese
-  // valor todavia.
+  // Independencia tiene su PROPIA tabla de trade-in (distinta a Shopping).
+  // No incluye iPhone 17 ni el resto de los modelos que no aparecen abajo
+  // -- si falta uno es porque todavia no se cargo ese valor.
   baseTradeInUsdPorSucursal: {
     'Shopping': {
       'iPhone 11': 100, 'iPhone 11 Pro': 100, 'iPhone 11 Pro Max': 100,
@@ -229,8 +228,8 @@ window.COTIZADOR_DATA = {
   // en Venta de equipos > Modelo, junto con los iPhone, pero NO en Compra
   // (trade-in) ni en Reparacion, que siguen siendo solo celulares.
   //
-  // REAL: precios en USD que paso el usuario. Mismo precio en todas las
-  // sucursales (no vino diferenciado por shopping como los iPhone).
+  // REAL: precios en USD. Mismo precio en todas las sucursales (no viene
+  // diferenciado por shopping como los iPhone).
   //
   // Usan el mismo formato que "equiposPorSucursal" (modelo + capacidades),
   // solo que aca "capacidad" es en realidad la variante (tamano/color/specs)
@@ -274,8 +273,8 @@ window.COTIZADOR_DATA = {
 
 
     // Antes eran 7 modelos separados (uno por linea/generacion de MacBook);
-    // a pedido del usuario se unificaron en un solo modelo "MacBook", con
-    // cada linea/generacion+specs como una variante (capacidad) distinta.
+    // se unificaron en un solo modelo "MacBook", con cada linea/generacion
+    // +specs como una variante (capacidad) distinta.
     { modelo: 'MacBook', capacidades: {
         'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1080 },
         'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1550 },
@@ -296,10 +295,10 @@ window.COTIZADOR_DATA = {
 
   // --------------------------------------------------------------
   // iPad: a diferencia del resto de "otros equipos" (AirPods/Watch/
-  // MacBook), el iPad A16 quedo con precio distinto por sucursal a pedido
-  // del usuario -- por eso se separo en su propia tabla en vez de vivir en
-  // otrosEquiposUniversales. Air M3/Pro M4/Pro M5 siguen al mismo precio en
-  // las 2 sucursales (nadie pidio diferenciarlos todavia).
+  // MacBook), el iPad A16 tiene precio distinto por sucursal -- por eso se
+  // separo en su propia tabla en vez de vivir en otrosEquiposUniversales.
+  // Air M3/Pro M4/Pro M5 siguen al mismo precio en las 2 sucursales (no
+  // estan diferenciados todavia).
   // --------------------------------------------------------------
   iPadPorSucursal: {
     'Shopping': [
@@ -389,11 +388,12 @@ window.COTIZADOR_DATA = {
   ],
 
   // --------------------------------------------------------------
-  // ACCESORIOS: catalogo + precio, por sucursal. REAL -- extraido de las
-  // listas de precios que paso el usuario (columna "Final", precio de
-  // venta al publico en ARS). Shopping sale de "lista_de_precios_general".
-  // Independencia sale de "lista_de_precios_to_jobs" ("Tio Jobs", vigente
-  // hasta el 31/12/2026 segun esa lista).
+  // ACCESORIOS: catalogo + precio, por sucursal. REAL -- extraido del
+  // sistema de gestion Cianbox (cianbox.org/jobscompany, columna "Final
+  // (IVA inc.)", precio de venta al publico en ARS). Shopping e
+  // Independencia tienen cada una su propia lista de precios en Cianbox,
+  // por eso los mismos productos pueden tener distinto precio segun
+  // sucursal.
   //
   // Categorizado a partir del nombre de producto de la lista: para
   // "Funda" se separo estilo (descripcion) de modelo cuando el nombre
@@ -1237,8 +1237,7 @@ window.COTIZADOR_DATA = {
 
   // --------------------------------------------------------------
   // FINANCIACION: 4 medios de pago sin recargo (precio de lista, 1 pago) +
-  // 3 promos en cuotas con recargo, a pedido del usuario. Cada 3 cuotas mas
-  // suman 10 puntos de recargo (3 cuotas = 20%, 6 = 30%, 12 = 50%).
+  // 3 promos en cuotas con recargo (3 cuotas = 20%, 6 = 30%, 12 = 58%).
   // Si hay algo en el carrito, la financiacion se muestra sobre el total
   // sumado del carrito (categoria "equipo"); si el carrito esta vacio, se
   // muestra sobre el producto individual que se esta viendo. Ver TablaFinancia

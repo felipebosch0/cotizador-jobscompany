@@ -35,13 +35,12 @@ const ROLES = {
   // Agregar mas roles aca (ej. 'supervisor') a medida que haga falta.
 };
 
-// USUARIOS: hardcodeados a pedido del usuario (lista real que paso). Las
-// contrasenas quedan en texto plano en este archivo -- cualquiera que abra
-// la consola del navegador o vea el codigo fuente las puede leer. Aceptado
-// por ahora ("despues vemos si hay que hacer cambios"), pero si en algun
-// momento se necesita mas seguridad hay que mover esto a un backend (ver
-// login real ya armado en cotizador-appscript/Codigo.gs, que cifra la
-// contrasena y la valida en el servidor).
+// USUARIOS: hardcodeados con la lista real del negocio. Las contrasenas
+// quedan en texto plano en este archivo -- cualquiera que abra la consola
+// del navegador o vea el codigo fuente las puede leer. Aceptado por ahora,
+// pero si en algun momento se necesita mas seguridad hay que mover esto a
+// un backend (ver login real ya armado en cotizador-appscript/Codigo.gs,
+// que cifra la contrasena y la valida en el servidor).
 // sucursal: null = ve todas las sucursales (piensa como el admin).
 const USUARIOS = [
   { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },

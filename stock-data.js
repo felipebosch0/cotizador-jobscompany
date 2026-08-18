@@ -1,12 +1,12 @@
 // ============================================================
-// STOCK DE IPHONES (por unidad), extraido de "Stock.xlsx" que paso el
-// usuario (hoja "Inventario iPhones", 1173 filas totales en esa hoja).
+// STOCK DE IPHONES (por unidad), fallback estatico extraido de
+// "Stock.xlsx" (hoja "Inventario iPhones", 1173 filas totales en esa
+// hoja).
 //
-// Esto es un PARCHE TEMPORAL: la idea final es leer esto de un Google
-// Sheets en vivo (como dijo el usuario, "siempre se actualiza y va a ser
-// mas facil"), pero mientras eso no este armado en Apps Script, se carga
-// este archivo a mano cada vez que haga falta una foto mas actual del
-// stock real.
+// Este archivo es el FALLBACK cuando no se puede leer el stock en vivo
+// desde el Google Sheet (ver actualizarStockEnVivo en app.js y ObtenerStock
+// en cotizador-appscript/Stock.gs, que es la fuente real). Se actualiza a
+// mano solo si hace falta una foto mas actual para pruebas locales.
 //
 // Se filtraron del excel original SOLO las filas con Estado = "En Stock" o
 // "Reservado" (111 de 1173) -- se descartaron "Vendido" (155) porque no es
@@ -16,12 +16,11 @@
 // OJO, dos cosas para tener en cuenta:
 //
 // 1) Las "sucursales" de este excel (DEPO, OLMOS, DINO, NUEVO CENTRO,
-//    SERVICIO TECNICO) NO coinciden con las 2 sucursales nuevas que dijo
-//    el usuario (Shopping / Independencia) -- son los nombres viejos de
-//    depositos/sucursales del sistema anterior. Se muestran tal cual estan
-//    en el excel por ahora; falta que el usuario confirme como se
-//    corresponden con Shopping/Independencia (o si van a quedar como
-//    "ubicacion interna" separada de la sucursal de venta).
+//    SERVICIO TECNICO) NO coinciden con las 2 sucursales de venta
+//    (Shopping / Independencia) -- son los nombres viejos de depositos del
+//    sistema anterior. El mapeo a Shopping/Independencia esta en
+//    DATA.depositoPorSucursal (data.js); DEPO y SERVICIO TECNICO quedan
+//    sin mapear a proposito (no son sucursales de venta).
 //
 // 2) El nombre del modelo tiene inconsistencias del excel original
 //    (espacios de mas, "Iphone" en vez de "iPhone", "17 pro" en

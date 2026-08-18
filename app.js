@@ -93,8 +93,8 @@ function buscarEquipo(modelo) {
 // (Modelo), no en Compra (trade-in) ni en Reparacion, que siguen siendo
 // solo celulares. AirPods/Watch/MacBook tienen el mismo precio en las 2
 // sucursales; el iPad tiene su propia tabla por sucursal (precio distinto
-// en Shopping vs Independencia, a pedido del usuario) asi que se recalcula
-// cada vez en vez de fijarse una sola vez al cargar la pagina.
+// en Shopping vs Independencia) asi que se recalcula cada vez en vez de
+// fijarse una sola vez al cargar la pagina.
 function otrosEquiposVenta() {
   const ipad = (DATA.iPadPorSucursal || {})[sucursalActual] || [];
   return (DATA.otrosEquiposUniversales || []).concat(ipad);
@@ -406,9 +406,9 @@ function renderCarrito() {
   body.appendChild(fragm);
   document.getElementById('totalCarrito').value = formatNumberArg(totalCarrito());
 
-  // La financiacion del carrito YA NO se muestra en vivo mientras se
-  // navega otras pestanas -- solo se calcula/actualiza si la pestana
-  // Carrito esta activa en este momento (a pedido del usuario).
+  // La financiacion del carrito no se muestra en vivo mientras se navega
+  // otras pestanas -- solo se calcula/actualiza si la pestana Carrito esta
+  // activa en este momento.
   if ($('#vistaCarrito').hasClass('vista')) {
     $('#tablaFinancia').removeClass('oculto').addClass('vista');
     TablaFinancia(totalCarrito(), 'equipo');
@@ -443,7 +443,7 @@ function AgregarCarritoEquipo() {
 
   // Independencia: como el precio se puede editar a mano, se aclara al
   // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
-  // como si se pagara en efectivo con dolares) -- a pedido del usuario.
+  // como si se pagara en efectivo con dolares).
   const sufijoUsd = sucursalActual === 'Independencia'
     ? ` (USD ${Math.round(total / DATA.dolar.DolarVenta)})`
     : '';
@@ -509,16 +509,15 @@ function ExportarCarrito() {
   if (hh > 19) saludo = 'Buenas noches';
 
   // La financiacion se calcula sobre el total sumado del carrito (ver
-  // TablaFinancia) y se incluye aca con las distintas cotizaciones/planes,
-  // a pedido del usuario.
+  // TablaFinancia) y se incluye aca con las distintas cotizaciones/planes.
   const lineas = carrito.map(item => `- ${item.descripcion}: ${formatNumberArg(item.precio)}`).join('\n');
 
   // Si hay un Trade In en el carrito, se agrega un parrafo personalizado
-  // aclarando en cuanto se toma el equipo -- a pedido del usuario. Antes
-  // decia "con un descuento de $X por el estado relevado (...)", lo cual
-  // ademas quedaba roto ("(...)") cuando no se marco ninguna falla (equipo
-  // en perfecto estado). Ahora dice en cuanto se toma el equipo, y solo
-  // menciona las fallas marcadas si hay alguna.
+  // aclarando en cuanto se toma el equipo. Antes decia "con un descuento de
+  // $X por el estado relevado (...)", lo cual ademas quedaba roto ("(...)")
+  // cuando no se marco ninguna falla (equipo en perfecto estado). Ahora dice
+  // en cuanto se toma el equipo, y solo menciona las fallas marcadas si hay
+  // alguna.
   const tradeIn = carrito.find(item => item.tipo === 'Trade In');
   const parrafoTradeIn = tradeIn
     ? `\n\nTomamos tu *${tradeIn.modelo}* como parte de pago, en *${formatNumberArg(-tradeIn.precio)}* (USD ${Math.round(-tradeIn.precio / DATA.dolar.DolarVenta)})` +
@@ -574,7 +573,7 @@ function Carrito() {
 // ============================ INGRESO / EGRESO DE STOCK (solo admin) ============================
 // Escribe/actualiza la planilla real via una funcion de Netlify que le pega
 // al Apps Script "puerta de entrada" pegado en la planilla (ver doPost en
-// el .gs que se le paso al usuario). El Netlify function solo reenvia el
+// cotizador-appscript/Codigo.gs). El Netlify function solo reenvia el
 // pedido, no guarda nada -- la planilla sigue siendo la unica fuente de
 // verdad.
 async function llamarStockWrite(payload) {
@@ -789,15 +788,17 @@ function precioFallaArs(modelo, nombreFalla) {
 // marcadas con precio de reparacion equivalente, se SUMA arriba de esa base
 // un 80% del precio de cada una (no la reemplaza).
 //
-// Items sin columna de precio equivalente (parlantes/microfono, botones,
-// wifi/bluetooth/senal, rayas de pantalla, humedad, piezas faltantes) se
-// registran en el detalle pero no restan nada -- no hay de donde sacar un
-// numero real para esos (decision del usuario).
+// Items sin columna de precio equivalente en Gestioo (Face ID/Touch ID,
+// wifi/bluetooth/senal, chasis) se registran en el detalle pero no restan
+// nada -- no hay de donde sacar un numero real para esos. Parlantes/
+// microfono y botones SI tienen categoria en Gestioo (Altavoz / Auricular
+// y Flex boton encendido) y restan igual que el resto.
 const PORCENTAJE_DESCUENTO_TRADEIN = 0.8;
 
-// Solo entran los modelos que tienen valor base cargado. Quedan afuera del
-// selector: iPhone X-SE2020 (no se toman) y, por ahora, iPhone 13 Mini y
-// toda la familia iPhone 17 (el usuario no paso esos valores todavia).
+// Solo entran los modelos que tienen valor base cargado en
+// baseTradeInUsdPorSucursal. Quedan afuera del selector los modelos
+// anteriores a iPhone 11 (no se toman en Trade In) y cualquier modelo al
+// que todavia le falte cargar ese valor.
 function baseTradeInUsdSucursal() {
   return (DATA.baseTradeInUsdPorSucursal || {})[sucursalActual] || {};
 }
@@ -835,7 +836,7 @@ function evaluarChecklistTradeIn(modelo) {
     if (el.dataset.informativo) return; // sin precio de referencia, no resta
 
     // Monto fijo en USD (no es "80% de un precio de reparacion", ya es el
-    // numero final que el usuario dio -- ej. humedad, pieza cambiada).
+    // numero final -- ej. humedad, pieza cambiada).
     if (el.dataset.fallaFijoUsd) {
       costoFallas += Number(el.dataset.fallaFijoUsd) * DATA.dolar.DolarVenta;
       return;
@@ -873,8 +874,8 @@ function AgregarCarritoTradeIn() {
   if (!modelo) return MostrarAlerta({ tipo: 'error', title: 'Trade In', mnsj: 'Elegi un modelo antes de agregar el canje' });
 
   const { descuento, detalle } = evaluarChecklistTradeIn(modelo);
-  // A pedido del usuario: mostrar entre parentesis en cuantos USD se toma el
-  // equipo (el "descuento" ya esta en ARS, se vuelve a pasar a USD solo para
+  // Se muestra entre parentesis en cuantos USD se toma el equipo (el
+  // "descuento" ya esta en ARS, se vuelve a pasar a USD solo para
   // mostrarlo -- no se usa para calcular nada mas).
   const descuentoUsd = Math.round(descuento / DATA.dolar.DolarVenta);
 
@@ -1077,9 +1078,9 @@ const GARANTIA_TEXTOS = {
     }
   },
   // Independencia: mismo texto base que Shopping, pero el Semi-Nuevo tiene
-  // solo 1 mes de garantia (a pedido del usuario, distinto a Shopping que
-  // son 3). El Sellado/Nuevo se asume igual (garantia oficial Apple de 12
-  // meses, es un tema de Apple, no de la sucursal) -- confirmar si no.
+  // solo 1 mes de garantia (distinto a Shopping que son 3). El Sellado/
+  // Nuevo se asume igual (garantia oficial Apple de 12 meses, es un tema
+  // de Apple, no de la sucursal) -- confirmar si no.
   Independencia: {
     sellado: {
       condicionTexto: 'Nuevo',
@@ -1120,8 +1121,8 @@ async function ConfirmarGarantia() {
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
 
   // Los accesorios del carrito solo se listan en la garantia de
-  // Independencia (a pedido del usuario) -- en Shopping la garantia sale
-  // solo con los datos del equipo. El "Valor de la operacion" de
+  // Independencia -- en Shopping la garantia sale solo con los datos del
+  // equipo. El "Valor de la operacion" de
   // Independencia tambien tiene que incluir lo que suman esos accesorios,
   // no solo el precio del equipo.
   const accesoriosCarrito = sucursalActual === 'Independencia'
@@ -1136,8 +1137,7 @@ async function ConfirmarGarantia() {
   // logueado en ese momento anotado en la columna Propietario. Si el IMEI
   // no estaba en stock (venta de mostrador sin control) no pasa nada, la
   // garantia se imprime igual. De paso, si ese equipo tenia una falla
-  // anotada, se rescata para mostrarla en la garantia (solo Independencia,
-  // a pedido del usuario).
+  // anotada, se rescata para mostrarla en la garantia (solo Independencia).
   let falla = '';
   try {
     const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
@@ -1198,8 +1198,8 @@ async function imprimirGarantia(datos) {
   const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
   const fecha = new Date().toLocaleDateString('es-AR');
   const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
-  // A pedido del usuario, la garantia de Shopping no muestra el precio de
-  // la operacion (Independencia si).
+  // La garantia de Shopping no muestra el precio de la operacion
+  // (Independencia si).
   const lineaValorOperacion = datos.sucursal === 'Shopping'
     ? ''
     : `<div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>`;
@@ -1217,7 +1217,7 @@ async function imprimirGarantia(datos) {
     : '';
 
   // Contenido de la garantia en si (paginas 1 y 2 son identicas -- 2 copias,
-  // una para el cliente y otra para el local -- a pedido del usuario).
+  // una para el cliente y otra para el local).
   const contenidoGarantia = `
   ${encabezadoLogo}
   <h1>Cordoba, ${fecha}</h1>
@@ -1250,7 +1250,7 @@ async function imprimirGarantia(datos) {
   </div>`;
 
   // Pagina 3: planilla de pagos interna (mismos campos/orden que la
-  // plantilla en Excel que paso el usuario). Solo se completan los datos
+  // plantilla en Excel del negocio). Solo se completan los datos
   // que ya tenemos de la operacion (Fecha, Vendedor, Equipo, GB, precio en
   // USD, cotizacion, pesos y -- si el cliente entrego algo en Trade In --
   // el equipo y la cotizacion del canje); el resto de los campos quedan en
@@ -1355,8 +1355,8 @@ function TablaFinancia(value, categoria) {
 
   // Los medios de pago de 1 sola cuota sin recargo van todos al mismo valor
   // (interes 0) -- Efectivo se muestra en su propio renglon (con el
-  // equivalente en dolares, a pedido del usuario) separado del resto
-  // (Debito/QR/Transferencia si los hay), que van agrupados sin dolares.
+  // equivalente en dolares) separado del resto (Debito/QR/Transferencia si
+  // los hay), que van agrupados sin dolares.
   const pagoUnico = filas.filter(f => f.cuotas === 1 && f.interes === 0);
   const pagoUnicoEfectivo = pagoUnico.filter(f => f.plan === 'Efectivo');
   const pagoUnicoResto = pagoUnico.filter(f => f.plan !== 'Efectivo');
@@ -1376,7 +1376,7 @@ function TablaFinancia(value, categoria) {
     const totalSinRecargo = value;
     const nombrePlanes = pagoUnicoResto.map(f => f.plan).join(' / ');
     // Aviso de que el efectivo tiene descuento -- solo texto, no cambia el
-    // precio de Debito/QR/Transferencia (a pedido del usuario).
+    // precio de Debito/QR/Transferencia.
     infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (Descuento pagando en efectivo)\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
@@ -1455,7 +1455,7 @@ function CargarSoloPrecios() {
 // ============================ WHATSAPP ============================
 
 // Firma del mensaje: antes decia "Jobs Company", ahora identifica a quien
-// esta atendiendo (a pedido del usuario).
+// esta atendiendo.
 function firmaWhatsapp() {
   const sesion = sesionGuardada();
   const nombre = sesion ? sesion.nombre : '';
@@ -1478,9 +1478,9 @@ function ExportarInfo(actividad) {
     const bateria = $('#formVenta select[name="estadoBateria"]').val();
     const lineaBateria = bateria ? `\n*Estado de bateria*: ${bateria}` : '';
     // "Precio final" en el mensaje de WhatsApp muestra el precio de "3
-    // cuotas sin interes" (no el de efectivo que se ve en pantalla) -- a
-    // pedido del usuario, solo cambia lo que se manda por WhatsApp, no el
-    // campo en pantalla ni el calculo de la tabla de Financiacion.
+    // cuotas sin interes" (no el de efectivo que se ve en pantalla) --
+    // solo cambia lo que se manda por WhatsApp, no el campo en pantalla ni
+    // el calculo de la tabla de Financiacion.
     const totalEfectivo = Number(String($('#formVenta input[name="totalVentaEquipo"]').val()).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
     const plan3Cuotas = DATA.financiacion.find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
     const precioFinalMsj = plan3Cuotas ? totalEfectivo * (1 + plan3Cuotas.interes) : totalEfectivo;
@@ -1640,8 +1640,8 @@ function iniciarApp(sesion) {
   });
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
-  // de las funciones de Netlify -- a pedido del usuario, se estaba por
-  // quedar sin creditos del plan gratis.
+  // de las funciones de Netlify -- se estaba por quedar sin creditos del
+  // plan gratis.
   actualizarDolar();
   setInterval(actualizarDolar, 7 * 60 * 1000);
 
