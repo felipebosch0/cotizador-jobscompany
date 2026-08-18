@@ -5,6 +5,10 @@
 <title>Cotizador (local)</title>
 <link rel="stylesheet" href="https://kit-free.fontawesome.com/releases/latest/css/free.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<!-- SheetJS (parseo de .xlsx en el navegador) y Chart.js (graficos), solo
+     para el modulo de Reportes de gestion -- ver reportes.js. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 ﻿<link rel="stylesheet" href="https://kit-free.fontawesome.com/releases/latest/css/free.min.css">
 <style>
 	@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@200;300;400;500;600;700;800&display=swap");
@@ -5796,6 +5800,16 @@
   .login-btn-apple:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .login-footer { margin-top: 36px; text-align: center; font-size: 12px; color: #9a9a9f; }
+
+  /* Reportes de gestion: zonas de drag&drop para los 4 exports de Cianbox. */
+  .reporte-drop {
+    border: 2px dashed #ccc; border-radius: 10px; padding: 16px 12px; text-align: center;
+    cursor: pointer; transition: border-color 150ms ease, background-color 150ms ease;
+  }
+  .reporte-drop:hover, .reporte-drop.reporte-drop-over { border-color: var(--primary-color, #4834d4); background: rgba(72,52,212,0.06); }
+  .reporte-drop-estado { font-weight: 600; margin: 6px 0 0; }
+  .reporte-drop-estado.ok { color: var(--success-color, #6ab04c); }
+  .reporte-drop-estado.error { color: #e74c3c; }
 </style>
 </head>
 <body class="light">
@@ -5918,6 +5932,7 @@
               <button type="button" class="btn-act" data-action="btnCPrecios">Precios</button>
               <button type="button" class="btn-act" data-action="btnCStock">Stock</button>
               <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
+              <button type="button" class="btn-act oculto" id="btnCReportes" data-action="btnCReportes">Reportes</button>
 
               <form id="formTradeIn" class="oculto">
                 <div class="form-line col-12 sp-t">
@@ -6200,6 +6215,112 @@
                   <div id="egresoResultados"></div>
                 </div>
               </div>
+
+              <!-- ============================ REPORTES DE GESTION ============================
+                   Solo admin. 4 zonas de drag&drop (una por export de Cianbox) que parsean el
+                   .xlsx en el navegador con SheetJS y lo mandan a /reportes-write. Los graficos
+                   se arman con los datos ya guardados en el Sheet de Reportes (se leen de
+                   /reportes/:tipo apenas se entra a la pestana, no hace falta subir nada para
+                   verlos si ya se subieron antes). Toda la logica vive en reportes.js. -->
+              <div id="vistaReportes" class="col-12 sp-t sp-l oculto">
+                <div id="reportesCargas" class="form-line col-12 sp-t">
+                  <div class="col-3 col-sm-6">
+                    <div class="reporte-drop" id="dropVentas" data-tipo="Ventas">
+                      <strong>Libro IVA Ventas</strong>
+                      <p class="sm-t">Arrastra el .xlsx aca o hace click</p>
+                      <p class="reporte-drop-estado" id="estadoVentas">Sin cargar</p>
+                      <input type="file" id="fileVentas" accept=".xlsx" class="oculto">
+                    </div>
+                  </div>
+                  <div class="col-3 col-sm-6">
+                    <div class="reporte-drop" id="dropVentasProducto" data-tipo="VentasProducto">
+                      <strong>Ventas por Producto (mes actual)</strong>
+                      <p class="sm-t">Arrastra el .xlsx aca o hace click</p>
+                      <p class="reporte-drop-estado" id="estadoVentasProducto">Sin cargar</p>
+                      <input type="file" id="fileVentasProducto" accept=".xlsx" class="oculto">
+                    </div>
+                  </div>
+                  <div class="col-3 col-sm-6">
+                    <div class="reporte-drop" id="dropVentasProductoAnterior" data-tipo="VentasProductoAnterior">
+                      <strong>Ventas por Producto (mes anterior)</strong>
+                      <p class="sm-t">Arrastra el .xlsx aca o hace click</p>
+                      <p class="reporte-drop-estado" id="estadoVentasProductoAnterior">Sin cargar</p>
+                      <input type="file" id="fileVentasProductoAnterior" accept=".xlsx" class="oculto">
+                    </div>
+                  </div>
+                  <div class="col-3 col-sm-6">
+                    <div class="reporte-drop" id="dropStock" data-tipo="Stock">
+                      <strong>Informe de Stock</strong>
+                      <p class="sm-t">Arrastra el .xlsx aca o hace click</p>
+                      <p class="reporte-drop-estado" id="estadoStock">Sin cargar</p>
+                      <input type="file" id="fileStock" accept=".xlsx" class="oculto">
+                    </div>
+                  </div>
+                </div>
+
+                <p id="reportesVacio" class="sm-t oculto">Todavia no se cargo ningun reporte -- subi los 4 archivos de arriba para ver los graficos.</p>
+
+                <div id="reportesDashboard" class="oculto">
+                  <h2 class="sp-t">Ventas x Vendedor</h2>
+                  <p class="sm-t">Total vendido este mes, cuanto se proyecta para el cierre segun el ritmo actual, y como viene la evolucion dia a dia.</p>
+                  <div class="table-responsive">
+                    <table class="table2 table-sortable">
+                      <thead><tr><th>Vendedor</th><th>Total este mes</th><th>Total mes anterior</th><th>Comprobantes</th><th>Ticket promedio</th><th>Proyeccion de cierre</th></tr></thead>
+                      <tbody id="bodyResumenVendedor"></tbody>
+                    </table>
+                  </div>
+                  <div class="form-line col-12 sp-t">
+                    <div class="col-6 col-sm-12"><canvas id="chartVendedorMes"></canvas></div>
+                    <div class="col-6 col-sm-12"><canvas id="chartVendedorRunRate"></canvas></div>
+                  </div>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartVendedorDiario"></canvas></div></div>
+
+                  <h2 class="sp-t">Ventas x Sucursal</h2>
+                  <p class="sm-t">Mismo resumen que arriba, pero sumado por sucursal (Shopping = Olmos + Dino + Nuevo Centro).</p>
+                  <div class="table-responsive">
+                    <table class="table2 table-sortable">
+                      <thead><tr><th>Sucursal</th><th>Total este mes</th><th>Total mes anterior</th><th>Comprobantes</th><th>Ticket promedio</th><th>Proyeccion de cierre</th></tr></thead>
+                      <tbody id="bodyResumenSucursal"></tbody>
+                    </table>
+                  </div>
+                  <div class="form-line col-12 sp-t">
+                    <div class="col-6 col-sm-12"><canvas id="chartSucursalMes"></canvas></div>
+                    <div class="col-6 col-sm-12"><canvas id="chartSucursalRunRate"></canvas></div>
+                  </div>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartSucursalDiario"></canvas></div></div>
+
+                  <h2 class="sp-t">Productos mas vendidos</h2>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartTop15"></canvas></div></div>
+                  <div class="table-responsive sp-t">
+                    <table class="table2 table-sortable">
+                      <thead><tr><th>Producto</th><th>Cant. este mes</th><th>Cant. mes anterior</th><th>Diferencia</th><th>Monto este mes</th><th>Monto mes anterior</th></tr></thead>
+                      <tbody id="bodyComparacionProductos"></tbody>
+                    </table>
+                  </div>
+
+                  <h2 class="sp-t">Stock y Compras</h2>
+                  <p class="sm-t">Por ahora guia solo por cantidades -- todavia faltan costos y proveedores cargados en Cianbox para varios productos, asi que no se puede calcular el monto a invertir.</p>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartStockAlerta"></canvas></div></div>
+                  <h3 class="sp-t">Alerta de stock -- top 15 mas vendidos (por debajo de minimo/critico)</h3>
+                  <div class="table-responsive">
+                    <table class="table2 table-sortable">
+                      <thead><tr><th>Producto</th><th>Categoria</th><th>Disponible</th><th>Minimo</th><th>Critico</th><th>Estado</th></tr></thead>
+                      <tbody id="bodyAlertaStock"></tbody>
+                    </table>
+                  </div>
+                  <h3 class="sp-t">Sugerencia de compra (se quedan sin stock antes de fin de mes)</h3>
+                  <div class="table-responsive">
+                    <table class="table2 table-sortable">
+                      <thead><tr><th>Producto</th><th>Disponible</th><th>Venta diaria</th><th>Dias de stock restantes</th><th>Cantidad sugerida</th></tr></thead>
+                      <tbody id="bodySugerenciaCompra"></tbody>
+                    </table>
+                  </div>
+
+                  <h2 class="sp-t">Tendencias semanales</h2>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartTendenciaSemanal"></canvas></div></div>
+                  <div class="form-line col-12"><div class="col-12"><canvas id="chartTendenciaSemanalSucursal"></canvas></div></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -6334,5 +6455,6 @@
   <script src="auth.js"></script>
   <script src="stock-data.js"></script>
   <script src="app.js"></script>
+  <script src="reportes.js"></script>
 </body>
 </html>

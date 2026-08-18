@@ -559,6 +559,9 @@ function Reparacion() { ResetFormCotizador(); $('#formReparacion').removeClass('
 function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('oculto').addClass('vista'); CargarSoloPrecios(); }
 function Stock() { ResetFormCotizador(); $('#vistaStock').removeClass('oculto').addClass('vista'); poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
 function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').removeClass('oculto').addClass('vista'); }
+// Definida en reportes.js -- se llama igual que el resto de las pestanas
+// (ver dispatcher de data-action mas abajo) para no romper el patron.
+function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('oculto').addClass('vista'); if (typeof iniciarReportes === 'function') iniciarReportes(); }
 function Carrito() {
   ResetFormCotizador();
   $('#vistaCarrito').removeClass('oculto').addClass('vista');
@@ -1572,9 +1575,10 @@ function iniciarApp(sesion) {
   selectSucursal.addEventListener('change', () => cargarSucursal(selectSucursal.value));
   cargarSucursal(sucursalActual);
 
-  // Ingreso/Egreso de stock: solo lo ve el admin.
+  // Ingreso/Egreso de stock y Reportes de gestion: solo los ve el admin.
   if (esAdmin(sesion)) {
     document.getElementById('btnCIngresoEgreso').classList.remove('oculto');
+    document.getElementById('btnCReportes').classList.remove('oculto');
   }
 
   document.getElementById('toggleTema').addEventListener('click', toggleTema);
@@ -1787,6 +1791,7 @@ function iniciarApp(sesion) {
         'btnCPrecios': () => Precios(),
         'btnCStock': () => Stock(),
         'btnCIngresoEgreso': () => IngresoEgreso(),
+        'btnCReportes': () => Reportes(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
         'AgregarCarritoTradeIn': () => AgregarCarritoTradeIn(),

@@ -6,8 +6,9 @@
 // mano y despues delegarle a env.ASSETS todo lo que no sea una de las 3
 // rutas de API.
 //
-// Rutas de API: /dolar, /stock, /stock-write (mismo comportamiento y forma
-// de respuesta que las funciones de Netlify que reemplazan).
+// Rutas de API: /dolar, /stock, /stock-write, /reportes/:tipo, /reportes-write
+// (mismo comportamiento y forma de respuesta que las funciones de Netlify
+// que reemplazan).
 // Todo lo demas (index.html, app.js, data.js, etc.) lo sirve env.ASSETS,
 // que es el binding de "archivos estaticos" que Cloudflare arma solo a
 // partir de la config "assets" de wrangler.jsonc.
@@ -17,6 +18,14 @@ const LIBRO_STOCK_ID = '1WFl9nKbYYyOuz6ZLLzCNpnhrgd5qWqveP_IXmKG_1HE';
 const NOMBRE_HOJA_INVENTARIO = 'Inventario iPhones';
 const ESTADOS_STOCK_VISIBLES = ['En Stock', 'Reservado'];
 const URL_INFODOLAR = 'https://www.infodolar.com/cotizacion-dolar-provincia-cordoba.aspx';
+
+// Sheet separado (no el de Stock) donde vive el modulo de Reportes de
+// gestion -- Ventas/VentasProducto/VentasProductoAnterior/Stock, cargadas
+// por el admin via drag&drop desde el cotizador (ver /reportes-write). El
+// ID es publico (Sheet compartido "Cualquiera con el enlace > Lector"),
+// no hace falta que sea secreto -- igual que LIBRO_STOCK_ID arriba.
+const LIBRO_REPORTES_ID = '12baER-esKK6_vrXMLFVaWmsVLXvCIlKTosMFyVINzY0';
+const HOJAS_REPORTES_VALIDAS = ['Ventas', 'VentasProducto', 'VentasProductoAnterior', 'Stock'];
 
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), {
@@ -150,6 +159,63 @@ async function manejarStockWrite(request, env) {
   }
 }
 
+// ---------------- /reportes/:tipo ----------------
+// Lectura generica de una de las 4 pestanas del Sheet de Reportes. A
+// diferencia de /stock, ac no se arma un objeto con forma fija -- se
+// devuelven encabezados + filas tal cual estan en la pestana, porque cada
+// una tiene columnas distintas (son 4 reportes de Cianbox diferentes) y
+// toda la logica de negocio (run-rate, top productos, alertas de stock,
+// etc.) vive en app.js, no aca.
+
+async function manejarReportesRead(tipo) {
+  if (HOJAS_REPORTES_VALIDAS.indexOf(tipo) === -1) {
+    return jsonResponse({ encabezados: [], filas: [], error: 'Tipo de reporte desconocido: ' + tipo });
+  }
+  try {
+    const url = 'https://docs.google.com/spreadsheets/d/' + LIBRO_REPORTES_ID +
+      '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tipo);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Google Sheets respondio ' + response.status);
+    const texto = await response.text();
+    if (/^\s*<!DOCTYPE html/i.test(texto)) {
+      throw new Error('La planilla no es publica (Compartir > Cualquiera con el enlace > Lector)');
+    }
+    const todasLasFilas = parseCsv(texto);
+    const encabezados = todasLasFilas[0] || [];
+    const filas = todasLasFilas.slice(1).filter(fila => fila.some(celda => String(celda || '').trim() !== ''));
+    return jsonResponse({ encabezados, filas, error: null });
+  } catch (error) {
+    return jsonResponse({ encabezados: [], filas: [], error: String(error.message || error) });
+  }
+}
+
+// ---------------- /reportes-write ----------------
+// Mismo patron que /stock-write: reenvia tal cual al Apps Script "puerta de
+// entrada" del Sheet de Reportes (URL en la variable de entorno
+// APPS_SCRIPT_REPORTES_URL, configurada en Cloudflare -- no en este
+// archivo, para no dejarla expuesta en el codigo que baja al navegador).
+
+async function manejarReportesWrite(request, env) {
+  const url = env.APPS_SCRIPT_REPORTES_URL;
+  if (!url) return jsonResponse({ ok: false, error: 'Falta configurar APPS_SCRIPT_REPORTES_URL en Cloudflare' });
+
+  try {
+    const bodyTexto = await request.text();
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: bodyTexto,
+      redirect: 'follow'
+    });
+    const texto = await response.text();
+    let json;
+    try { json = JSON.parse(texto); } catch (e) { json = { ok: false, error: 'Respuesta invalida del Apps Script: ' + texto.slice(0, 200) }; }
+    return jsonResponse(json);
+  } catch (error) {
+    return jsonResponse({ ok: false, error: String(error.message || error) });
+  }
+}
+
 // ---------------- Router ----------------
 
 export default {
@@ -159,6 +225,8 @@ export default {
     if (url.pathname === '/dolar') return manejarDolar();
     if (url.pathname === '/stock') return manejarStock();
     if (url.pathname === '/stock-write' && request.method === 'POST') return manejarStockWrite(request, env);
+    if (url.pathname.startsWith('/reportes/')) return manejarReportesRead(url.pathname.slice('/reportes/'.length));
+    if (url.pathname === '/reportes-write' && request.method === 'POST') return manejarReportesWrite(request, env);
 
     // Todo lo demas: archivos estaticos (index.html, app.js, data.js, etc.)
     return env.ASSETS.fetch(request);
