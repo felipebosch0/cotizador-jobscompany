@@ -1590,7 +1590,7 @@ function TablaFinancia(value, categoria) {
     const totalSinRecargo = value;
     infoFinanciacion += `Efectivo: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>0%</td><td>Efectivo</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
+    tr.innerHTML = `<td>Efectivo</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
   }
 
@@ -1601,7 +1601,7 @@ function TablaFinancia(value, categoria) {
     // precio de Debito/QR/Transferencia.
     infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (Descuento pagando en efectivo)\n`;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>0%</td><td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
+    tr.innerHTML = `<td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
   }
 
@@ -1610,7 +1610,7 @@ function TablaFinancia(value, categoria) {
     const cuota = totalConInteres / f.cuotas;
     infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${(f.interes * 100).toFixed(0)}%</td><td>${f.plan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
+    tr.innerHTML = `<td>${f.plan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
     fragm.appendChild(tr);
   });
   table.appendChild(fragm);
