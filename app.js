@@ -1405,7 +1405,7 @@ async function imprimirReserva(datos) {
   <div class="campo"><strong>Saldo pendiente:</strong> ${formatNumberArg(datos.saldoPendiente)}</div>
 
   <p style="margin-top:16px;">La sena entregada garantiza la reserva del equipo antes descripto. La reserva tiene
-  validez durante 48hs habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
+  validez durante 5 dias habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
   cancelar la reserva y disponer del equipo, sujeto a la devolucion de la sena segun politica del local.</p>
 
   <div class="campo">CUIT: 30-71929577-7</div>
