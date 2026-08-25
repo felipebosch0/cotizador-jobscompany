@@ -650,7 +650,7 @@ async function BuscarImei() {
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
 
     if (!resp.resultados.length) {
-      contenedor.innerHTML = '<p class="sm-t">No se encontro ningun equipo activo con esos digitos.</p>';
+      renderFormularioGenerarYDarDeBaja(contenedor, ultimos);
       return;
     }
 
@@ -682,7 +682,8 @@ async function BuscarImei() {
 async function ConfirmarBaja(fila, boton) {
   boton.disabled = true;
   try {
-    const resp = await llamarStockWrite({ accion: 'egreso', fila });
+    const sesion = sesionGuardada();
+    const resp = await llamarStockWrite({ accion: 'egreso', fila, vendedor: sesion ? sesion.nombre : '' });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     MostrarAlerta({ tipo: 'success', title: 'Egreso', mnsj: 'Equipo dado de baja' });
     $('#egresoUltimosDigitos').val('');
@@ -690,6 +691,99 @@ async function ConfirmarBaja(fila, boton) {
     await actualizarStockEnVivo();
   } catch (error) {
     MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'No se pudo dar de baja: ' + error.message });
+    boton.disabled = false;
+  }
+}
+
+// Si la busqueda por IMEI no encuentra nada, es porque el equipo nunca se
+// cargo como Ingreso (venta de mostrador sin control previo, por ejemplo).
+// En vez de dejar la baja sin ningun rastro, se ofrece generar el renglon
+// en la planilla YA marcado como vendido, con una observacion que deja
+// clarisimo que se genero en el momento de la baja (no es un ingreso
+// real) -- a pedido del usuario, "para ir dejando todo con nombre".
+function renderFormularioGenerarYDarDeBaja(contenedor, ultimosDigitos) {
+  contenedor.innerHTML = `
+    <p class="sm-t">No se encontro ningun equipo activo con esos digitos. Si el equipo nunca se cargo en el stock,
+    lo podés generar y dar de baja de una:</p>
+    <div class="form-line col-6 sp-t sp-l">
+      <div class="form-group-total">
+        <label>IMEI completo</label>
+        <input type="text" id="gbImei" placeholder="15 digitos" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-line col-6 sp-t sp-l sp-r">
+      <div class="form-group-total">
+        <label>Modelo</label>
+        <input type="text" id="gbModelo" placeholder="Ej. iPhone 13" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-line col-6 sp-t sp-l">
+      <div class="form-group-total">
+        <label>Capacidad</label>
+        <input type="text" id="gbCapacidad" placeholder="Ej. 128" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-line col-6 sp-t sp-l sp-r">
+      <div class="form-group-total">
+        <label>Color</label>
+        <input type="text" id="gbColor" placeholder="Ej. Negro" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-group-total">
+      <label>Deposito</label>
+      <select id="gbDeposito">
+        <option value="">Elegi un deposito</option>
+        <option value="OLMOS">OLMOS</option>
+        <option value="DINO">DINO</option>
+        <option value="NUEVO CENTRO">NUEVO CENTRO</option>
+        <option value="INDEPENDENCIA">INDEPENDENCIA</option>
+        <option value="DEPO">DEPO</option>
+        <option value="SERVICIO TECNICO">SERVICIO TECNICO</option>
+      </select>
+    </div>
+    <button type="button" class="btn-total sp-t" id="btnGenerarYDarDeBaja">Generar y dar de baja</button>
+  `;
+  document.getElementById('gbImei').value = '';
+  if (/^\d+$/.test(ultimosDigitos)) document.getElementById('gbImei').value = ultimosDigitos;
+  document.getElementById('gbImei').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
+  document.getElementById('btnGenerarYDarDeBaja').addEventListener('click', ConfirmarGenerarYDarDeBaja);
+}
+
+async function ConfirmarGenerarYDarDeBaja() {
+  const imei = $('#gbImei').val().trim();
+  const modelo = $('#gbModelo').val().trim();
+  const capacidad = $('#gbCapacidad').val().trim();
+  const color = $('#gbColor').val().trim();
+  const sucursal = $('#gbDeposito').val();
+  if (!imei || !modelo || !capacidad || !sucursal) {
+    return MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'Completa al menos IMEI, Modelo, Capacidad y Deposito' });
+  }
+  if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+
+  const sesion = sesionGuardada();
+  const vendedor = sesion ? sesion.nombre : '';
+  const boton = document.getElementById('btnGenerarYDarDeBaja');
+  boton.disabled = true;
+  try {
+    const respIngreso = await llamarStockWrite({
+      accion: 'ingreso', modelo, capacidad, color, imei, sucursal,
+      observaciones: 'GENERADO AL DAR DE BAJA (no estaba cargado en stock)',
+      propietario: vendedor
+    });
+    if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
+    if (!respIngreso.fila) throw new Error('El Apps Script no devolvio el numero de fila -- actualiza el codigo del doPost (ver manejarIngreso)');
+
+    const respEgreso = await llamarStockWrite({ accion: 'egreso', fila: respIngreso.fila, vendedor });
+    if (!respEgreso.ok) throw new Error(respEgreso.error || 'Se genero el equipo pero no se pudo dar de baja');
+
+    MostrarAlerta({ tipo: 'success', title: 'Egreso', mnsj: `${modelo} generado y dado de baja` });
+    $('#egresoUltimosDigitos').val('');
+    document.getElementById('egresoResultados').innerHTML = '';
+    await actualizarStockEnVivo();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: error.message });
     boton.disabled = false;
   }
 }
