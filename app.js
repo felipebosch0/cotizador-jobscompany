@@ -370,6 +370,7 @@ function renderCarrito() {
   const btnExport = document.getElementById('btnExportCarrito');
   const btnGarantia = document.getElementById('btnImprimirGarantia');
   const btnDeclaracion = document.getElementById('btnImprimirDeclaracion');
+  const btnReserva = document.getElementById('btnImprimirReserva');
   const badge = document.getElementById('badgeCarrito');
 
   badge.textContent = carrito.length;
@@ -382,6 +383,7 @@ function renderCarrito() {
     btnExport.classList.add('oculto');
     btnGarantia.classList.add('oculto');
     btnDeclaracion.classList.add('oculto');
+    btnReserva.classList.add('oculto');
     vacio.classList.remove('oculto');
     $('#tablaFinancia').removeClass('vista').addClass('oculto');
     return;
@@ -401,6 +403,10 @@ function renderCarrito() {
   // El boton de declaracion jurada solo aparece si hay un canje (Trade In)
   // en el carrito.
   btnDeclaracion.classList.toggle('oculto', !tradeInDelCarrito());
+
+  // El boton de reserva solo aparece si hay un equipo en el carrito (misma
+  // condicion que garantia, pero sin depender de que exista la plantilla).
+  btnReserva.classList.toggle('oculto', !hayEquipo);
 
   const fragm = document.createDocumentFragment();
   carrito.forEach((item, i) => {
@@ -1328,6 +1334,115 @@ async function imprimirGarantia(datos) {
   ventana.document.close();
 }
 
+// ============================ RESERVA DE EQUIPO ============================
+// Comprobante de sena: nombre/telefono del cliente y monto de la sena se
+// piden en el modal; el resto (equipo, precio total, vendedor, fecha) sale
+// del carrito y de la sesion. No modifica el stock ni el carrito -- es solo
+// un papel para el cliente y otro para el local, igual que la garantia.
+
+function AbrirModalReserva() {
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
+  $('#rsNombre, #rsTelefono, #rsSena').val('');
+  document.getElementById('modalReserva').style.display = 'block';
+}
+
+function CerrarModalReserva() {
+  document.getElementById('modalReserva').style.display = 'none';
+}
+
+async function ConfirmarReserva() {
+  const nombre = $('#rsNombre').val().trim();
+  const telefono = $('#rsTelefono').val().trim();
+  const senaTexto = $('#rsSena').val().trim();
+  const sena = Number(String(senaTexto).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+  if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa nombre y telefono del cliente' });
+  if (!sena) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa el monto de la sena' });
+
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
+
+  const total = totalCarrito();
+  const sesion = sesionGuardada();
+
+  await imprimirReserva({
+    nombre, telefono, sena,
+    total,
+    saldoPendiente: Math.max(0, total - sena),
+    modelo: equipo.modelo,
+    capacidad: equipo.capacidad,
+    condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion,
+    vendedor: sesion ? sesion.nombre : ''
+  });
+  CerrarModalReserva();
+}
+
+async function imprimirReserva(datos) {
+  // window.open antes del await del logo -- mismo motivo que garantia y
+  // declaracion jurada (si no, el navegador bloquea el popup).
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const logo = await logoBase64(sucursalActual);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  const contenido = `
+  ${encabezadoLogo}
+  <h1>Reserva de equipo</h1>
+  <div class="campo"><strong>Fecha:</strong> ${fecha}</div>
+  <div class="campo"><strong>Vendedor:</strong> ${datos.vendedor}</div>
+  <div class="campo"><strong>Cliente:</strong> ${datos.nombre}</div>
+  <div class="campo"><strong>Telefono:</strong> ${datos.telefono}</div>
+
+  <div class="box">
+    <strong>Equipo reservado</strong>
+    <p>${datos.modelo} ${datos.capacidad} (${datos.condicion})</p>
+  </div>
+
+  <div class="campo" style="margin-top:16px;"><strong>Precio total:</strong> ${formatNumberArg(datos.total)}</div>
+  <div class="campo"><strong>Sena entregada:</strong> ${formatNumberArg(datos.sena)}</div>
+  <div class="campo"><strong>Saldo pendiente:</strong> ${formatNumberArg(datos.saldoPendiente)}</div>
+
+  <p style="margin-top:16px;">La sena entregada garantiza la reserva del equipo antes descripto. La reserva tiene
+  validez durante 48hs habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
+  cancelar la reserva y disponer del equipo, sujeto a la devolucion de la sena segun politica del local.</p>
+
+  <div class="campo">CUIT: 30-71929577-7</div>
+
+  <div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
+  </div>`;
+
+  const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Reserva</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; }
+  h1 { font-size: 18px; text-align: center; }
+  p { text-align: justify; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 140px; }
+  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
+  .box strong { display: block; margin-bottom: 4px; }
+  .box p { margin: 4px 0 0; }
+  .pagina { max-width: 700px; min-height: 950px; margin: 40px auto; padding-bottom: 40px; display: flex; flex-direction: column; page-break-after: always; }
+  .pagina:last-child { page-break-after: auto; }
+  .pagina > *:not(.firma) { flex-shrink: 0; }
+  .firma { margin-top: auto; padding-top: 40px; }
+  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
+</style></head>
+<body>
+  <div class="pagina">${contenido}</div>
+  <div class="pagina">${contenido}</div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+
+  ventana.document.write(html);
+  ventana.document.close();
+}
+
 // ============================ REPARACION ============================
 
 function PreciosRepa() {
@@ -1647,6 +1762,13 @@ function iniciarApp(sesion) {
   });
   document.getElementById('gtImei').addEventListener('input', function () {
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
+
+  document.getElementById('btnImprimirReserva').addEventListener('click', AbrirModalReserva);
+  document.getElementById('cerrarModalReserva').addEventListener('click', CerrarModalReserva);
+  document.getElementById('btnConfirmarReserva').addEventListener('click', ConfirmarReserva);
+  document.getElementById('modalReserva').addEventListener('click', e => {
+    if (e.target.id === 'modalReserva') CerrarModalReserva();
   });
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
