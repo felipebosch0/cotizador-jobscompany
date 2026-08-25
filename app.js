@@ -1002,6 +1002,10 @@ async function logoBase64(sucursal) {
     for (let i = 0; i < bytes.length; i++) binario += String.fromCharCode(bytes[i]);
     logoBase64Cache[sucursal] = 'data:image/jpeg;base64,' + btoa(binario);
   } catch (error) {
+    // Antes esto fallaba en silencio -- ahora queda un aviso en consola
+    // (warning amarillo, no error rojo) para poder diagnosticar por que no
+    // aparecio el logo en un comprobante puntual.
+    console.warn('No se pudo cargar el logo (' + archivo + ') para ' + sucursal + ':', error);
     logoBase64Cache[sucursal] = null;
   }
   return logoBase64Cache[sucursal];
