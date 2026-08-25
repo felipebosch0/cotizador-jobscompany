@@ -158,8 +158,8 @@ window.COTIZADOR_DATA = {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 975 }] }
       } },
       { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1060, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1260, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17 Pro Max', capacidades: { '256Gb': { sellado: 1360, seminuevoTiers: [] } } },
+      { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1290, seminuevoTiers: [] } } },
+      { modelo: 'iPhone 17 Pro Max', capacidades: { '256Gb': { sellado: 1390, seminuevoTiers: [] } } },
       { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [] } } }
     ]
   },
