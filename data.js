@@ -276,18 +276,19 @@ window.COTIZADOR_DATA = {
     // se unificaron en un solo modelo "MacBook", con cada linea/generacion
     // +specs como una variante (capacidad) distinta.
     { modelo: 'MacBook', capacidades: {
-        'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1080 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1550 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1550 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1550 },
-        'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 1760 },
-        'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 1840 }, // ver nota de conflicto arriba (vs 1900)
-        'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 1840 },
-        'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 1840 },
-        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2630 },
-        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2630 },
-        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2880 },
-        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2880 },
+        'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1380 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1850 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1850 },
+        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1850 },
+        'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 2060 },
+        'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 2140 }, // ver nota de conflicto arriba (vs 1900) -- +300 aplicado sobre 1840
+        'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 2140 },
+        'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 2140 },
+        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2930 },
+        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2930 },
+        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 3180 },
+        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 3180 },
+        // Neo -- sin cambios, a proposito (quedan afuera del aumento de +300).
         'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
         'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
       } }
