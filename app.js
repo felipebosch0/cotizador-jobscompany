@@ -573,6 +573,9 @@ function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').remove
 // Definida en reportes.js -- se llama igual que el resto de las pestanas
 // (ver dispatcher de data-action mas abajo) para no romper el patron.
 function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('oculto').addClass('vista'); if (typeof iniciarReportes === 'function') iniciarReportes(); }
+// Definida en reportes.js (vive junto con el resto del modulo de Reportes,
+// comparten Sheet/Apps Script).
+function Reservas() { ResetFormCotizador(); $('#vistaReservas').removeClass('oculto').addClass('vista'); if (typeof iniciarReservas === 'function') iniciarReservas(); }
 function Carrito() {
   ResetFormCotizador();
   $('#vistaCarrito').removeClass('oculto').addClass('vista');
@@ -592,6 +595,17 @@ function Carrito() {
 // verdad.
 async function llamarStockWrite(payload) {
   const response = await fetch('/stock-write', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  return response.json();
+}
+
+// Mismo patron que llamarStockWrite, pero pega al Apps Script del Sheet de
+// Reportes (ver Reportes.gs) -- ahi vive tambien el modulo de Reservas.
+async function llamarReportesWrite(payload) {
+  const response = await fetch('/reportes-write', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -1016,7 +1030,7 @@ function tradeInDelCarrito() {
 function AbrirModalDeclaracion() {
   const tradeIn = tradeInDelCarrito();
   if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
-  $('#djNombre, #djDni, #djImei, #djBateria, #djColor, #djCapacidad').val('');
+  $('#djNombre, #djDni, #djDomicilio, #djImei, #djBateria, #djColor, #djCapacidad').val('');
   document.getElementById('modalDeclaracionJurada').style.display = 'block';
 }
 
@@ -1027,11 +1041,12 @@ function CerrarModalDeclaracion() {
 async function ConfirmarDeclaracionJurada() {
   const nombre = $('#djNombre').val().trim();
   const dni = $('#djDni').val().trim();
+  const domicilio = $('#djDomicilio').val().trim();
   const imei = $('#djImei').val().trim();
   const bateriaTexto = $('#djBateria').val().trim();
   const color = $('#djColor').val().trim();
   const capacidad = $('#djCapacidad').val().trim();
-  if (!nombre || !dni || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI e IMEI del cliente' });
+  if (!nombre || !dni || !domicilio || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI, domicilio e IMEI del cliente' });
   if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
 
   let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
@@ -1059,7 +1074,28 @@ async function ConfirmarDeclaracionJurada() {
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     await actualizarStockEnVivo();
-    await imprimirDeclaracionJurada({ nombre, dni, modelo, imei, valor: descuento });
+
+    // Se guarda en el Sheet de Reportes (pestana TRADEIN) para tener un
+    // registro aparte de todas las declaraciones juradas -- si esto falla
+    // no bloquea el alta en stock ni la impresion del papel, que ya se
+    // hicieron; se avisa aparte.
+    if (typeof llamarReportesWrite === 'function') {
+      try {
+        const respTradeIn = await llamarReportesWrite({
+          accion: 'tradein-crear',
+          fecha: new Date().toLocaleDateString('es-AR'),
+          vendedor: propietario, sucursal: sucursalActual,
+          nombre, dni, domicilio, imei,
+          modelo, capacidad, color, bateria,
+          valor: descuento, falla
+        });
+        if (!respTradeIn.ok) throw new Error(respTradeIn.error || 'Error desconocido');
+      } catch (error) {
+        MostrarAlerta({ tipo: 'warning', title: 'Declaracion jurada', mnsj: 'Se guardo en stock, pero no se pudo guardar en el registro de TRADEIN: ' + error.message });
+      }
+    }
+
+    await imprimirDeclaracionJurada({ nombre, dni, domicilio, modelo, imei, valor: descuento });
     CerrarModalDeclaracion();
     MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
   } catch (error) {
@@ -1135,6 +1171,7 @@ async function imprimirDeclaracionJurada(datos) {
   <h2>DATOS DEL CLIENTE</h2>
   <div class="campo"><strong>Nombre y apellido:</strong> ${datos.nombre}</div>
   <div class="campo"><strong>DNI/CUIT:</strong> ${datos.dni}</div>
+  <div class="campo"><strong>Domicilio:</strong> ${datos.domicilio}</div>
 
   <h2>DATOS DEL IPHONE ENTREGADO</h2>
   <div class="campo"><strong>Marca:</strong> Apple</div>
@@ -1267,6 +1304,14 @@ async function ConfirmarGarantia() {
   } catch (error) {
     // No bloquea la impresion de la garantia si esto falla -- es una
     // mejora, no un requisito para vender.
+  }
+
+  // Si este mismo IMEI quedo anotado en alguna reserva Activa (campo
+  // opcional del modulo de Reservas), se marca esa reserva como Cumplida
+  // -- el equipo se esta entregando/vendiendo ahora mismo. Igual que el
+  // egreso de stock de arriba, no bloquea la garantia si falla.
+  if (typeof buscarYCumplirReservaPorImei === 'function') {
+    try { await buscarYCumplirReservaPorImei(imei); } catch (error) { /* no bloquea */ }
   }
 
   // El box de Observacion (solo Independencia) junta 2 avisos distintos,
@@ -1441,7 +1486,7 @@ async function imprimirGarantia(datos) {
 function AbrirModalReserva() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
-  $('#rsNombre, #rsTelefono, #rsSena').val('');
+  $('#rsNombre, #rsTelefono, #rsSena, #rsImei, #rsObservaciones').val('');
   document.getElementById('modalReserva').style.display = 'block';
 }
 
@@ -1454,23 +1499,47 @@ async function ConfirmarReserva() {
   const telefono = $('#rsTelefono').val().trim();
   const senaTexto = $('#rsSena').val().trim();
   const sena = Number(String(senaTexto).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+  const imei = $('#rsImei').val().trim();
+  const observaciones = $('#rsObservaciones').val().trim();
   if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa nombre y telefono del cliente' });
   if (!sena) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa el monto de la sena' });
+  if (imei && !/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'El IMEI tiene que tener exactamente 15 digitos (o dejalo vacio si todavia no se sabe)' });
 
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
 
   const total = totalCarrito();
   const sesion = sesionGuardada();
+  const saldoPendiente = Math.max(0, total - sena);
+  const vendedor = sesion ? sesion.nombre : '';
+  const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
+
+  // Se guarda en el Sheet de Reportes (pestana Reservas) para que aparezca
+  // en el modulo de Reservas -- si esto falla (Apps Script no configurado
+  // todavia, sin conexion, etc.) no bloquea la impresion del papel, que es
+  // lo que el cliente se lleva; se avisa aparte.
+  try {
+    const resp = await llamarReportesWrite({
+      accion: 'reserva-crear',
+      fecha: new Date().toLocaleDateString('es-AR'),
+      vendedor, sucursal: sucursalActual,
+      cliente: nombre, telefono,
+      equipo: equipoTexto, imei, observaciones,
+      sena, total, saldoPendiente
+    });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+  } catch (error) {
+    MostrarAlerta({ tipo: 'warning', title: 'Reserva', mnsj: 'Se imprimio el papel, pero no se pudo guardar en el modulo de Reservas: ' + error.message });
+  }
 
   await imprimirReserva({
     nombre, telefono, sena,
     total,
-    saldoPendiente: Math.max(0, total - sena),
+    saldoPendiente,
     modelo: equipo.modelo,
     capacidad: equipo.capacidad,
     condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion,
-    vendedor: sesion ? sesion.nombre : ''
+    vendedor
   });
   CerrarModalReserva();
 }
@@ -1868,6 +1937,9 @@ function iniciarApp(sesion) {
   document.getElementById('modalReserva').addEventListener('click', e => {
     if (e.target.id === 'modalReserva') CerrarModalReserva();
   });
+  document.getElementById('rsImei').addEventListener('input', function () {
+    this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
   // de las funciones de Netlify -- se estaba por quedar sin creditos del
@@ -2018,6 +2090,7 @@ function iniciarApp(sesion) {
         'btnCStock': () => Stock(),
         'btnCIngresoEgreso': () => IngresoEgreso(),
         'btnCReportes': () => Reportes(),
+        'btnCReservas': () => Reservas(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
         'AgregarCarritoTradeIn': () => AgregarCarritoTradeIn(),

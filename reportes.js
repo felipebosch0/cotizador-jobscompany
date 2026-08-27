@@ -457,3 +457,113 @@ function renderLineChart(canvasId, titulo, etiquetas, datasets, formatoMoneda) {
     }
   });
 }
+
+// ============================================================
+// RESERVAS -- lista lo que se guarda al confirmar "Imprimir reserva" desde
+// el Carrito (ver ConfirmarReserva en app.js). Vive en el mismo Sheet/Apps
+// Script que el resto de Reportes, pestana aparte ("Reservas"), pero a
+// diferencia de esas 4 no se reemplaza entera -- se van agregando filas
+// una por una y se actualiza el Estado de una fila puntual al marcarla
+// Cumplida/Cancelada. Por eso NO usa el cache de leerReporte (cambia
+// seguido, se lee fresco cada vez que se abre la pestana o se actualiza).
+// ============================================================
+
+let reservasInicializado = false;
+
+function iniciarReservas() {
+  if (!reservasInicializado) {
+    reservasInicializado = true;
+    document.getElementById('selectReservasEstado').addEventListener('change', cargarReservas);
+    document.getElementById('refrescarReservas').addEventListener('click', cargarReservas);
+  }
+  cargarReservas();
+}
+
+async function cargarReservas() {
+  const tbody = document.getElementById('bodyReservas');
+  const tabla = document.getElementById('tablaReservas');
+  const vacio = document.getElementById('reservasVacio');
+  let filas;
+  try {
+    const resp = await fetch('/reportes/Reservas');
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    filas = filasAObjetos(json.encabezados, json.filas);
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Reservas', mnsj: 'No se pudo leer el Sheet de Reservas: ' + error.message });
+    return;
+  }
+
+  // Admin ve todas las sucursales; un vendedor solo ve las de la suya
+  // propia (mismo criterio que el resto de la app).
+  const sesion = sesionGuardada();
+  if (!esAdmin(sesion)) filas = filas.filter(f => f['Sucursal'] === sucursalActual);
+
+  const filtroEstado = document.getElementById('selectReservasEstado').value;
+  if (filtroEstado !== 'todas') filas = filas.filter(f => f['Estado'] === filtroEstado);
+
+  // Mas nuevas primero -- el numero de fila real del Sheet (fila+2 porque
+  // el encabezado es la fila 1 y el indice arranca en 0) es el ID que hay
+  // que mandar para actualizar el Estado despues.
+  const conFila = filas.map((f, i) => ({ ...f, _fila: i + 2 })).reverse();
+
+  tbody.innerHTML = '';
+  if (!conFila.length) {
+    tabla.classList.add('oculto');
+    vacio.classList.remove('oculto');
+    return;
+  }
+  vacio.classList.add('oculto');
+  tabla.classList.remove('oculto');
+
+  const fragm = document.createDocumentFragment();
+  conFila.forEach(f => {
+    const tr = document.createElement('tr');
+    const esActiva = f['Estado'] === 'Activa';
+    const acciones = esActiva
+      ? `<button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cumplida" style="width:auto; padding:4px 10px; margin-right:6px;">Cumplida</button>
+         <button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cancelada" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelada</button>`
+      : '';
+    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>${f['Observaciones'] || ''}</td><td>${f['Vendedor']}</td><td>${f['Sucursal']}</td><td>${formatNumberArg(Number(f['Sena']) || 0)}</td><td>${formatNumberArg(Number(f['Total']) || 0)}</td><td>${formatNumberArg(Number(f['SaldoPendiente']) || 0)}</td><td>${f['Estado']}</td><td>${acciones}</td>`;
+    fragm.appendChild(tr);
+  });
+  tbody.appendChild(fragm);
+
+  tbody.querySelectorAll('[data-reserva-fila]').forEach(boton => {
+    boton.addEventListener('click', () => marcarEstadoReserva(Number(boton.dataset.reservaFila), boton.dataset.reservaEstado, boton));
+  });
+}
+
+// Llamada desde ConfirmarGarantia (app.js) al imprimir garantia. Si el IMEI
+// cargado coincide con el de alguna reserva Activa (campo opcional, no
+// siempre se sabe al reservar), la marca Cumplida -- el equipo se esta
+// entregando en este momento. Silencioso si no hay match o si falla la
+// consulta (no es un requisito para poder vender, solo una comodidad).
+async function buscarYCumplirReservaPorImei(imei) {
+  if (!imei) return false;
+  try {
+    const resp = await fetch('/reportes/Reservas');
+    const json = await resp.json();
+    if (json.error) return false;
+    const filas = filasAObjetos(json.encabezados, json.filas);
+    const idx = filas.findIndex(f => f['Estado'] === 'Activa' && String(f['Imei'] || '').trim() === imei);
+    if (idx === -1) return false;
+    const resp2 = await llamarReportesWrite({ accion: 'reserva-actualizar-estado', fila: idx + 2, estado: 'Cumplida' });
+    return !!(resp2 && resp2.ok);
+  } catch (error) {
+    return false;
+  }
+}
+
+async function marcarEstadoReserva(fila, estado, boton) {
+  boton.disabled = true;
+  try {
+    const resp = await llamarReportesWrite({ accion: 'reserva-actualizar-estado', fila, estado });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    MostrarAlerta({ tipo: 'success', title: 'Reservas', mnsj: 'Reserva marcada como ' + estado });
+    await cargarReservas();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Reservas', mnsj: 'No se pudo actualizar: ' + error.message });
+    boton.disabled = false;
+  }
+}

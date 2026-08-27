@@ -25,7 +25,7 @@ const URL_INFODOLAR = 'https://www.infodolar.com/cotizacion-dolar-provincia-cord
 // ID es publico (Sheet compartido "Cualquiera con el enlace > Lector"),
 // no hace falta que sea secreto -- igual que LIBRO_STOCK_ID arriba.
 const LIBRO_REPORTES_ID = '12baER-esKK6_vrXMLFVaWmsVLXvCIlKTosMFyVINzY0';
-const HOJAS_REPORTES_VALIDAS = ['Ventas', 'VentasProducto', 'VentasProductoAnterior', 'Stock'];
+const HOJAS_REPORTES_VALIDAS = ['Ventas', 'VentasProducto', 'VentasProductoAnterior', 'Stock', 'Reservas'];
 
 function jsonResponse(obj) {
   return new Response(JSON.stringify(obj), {

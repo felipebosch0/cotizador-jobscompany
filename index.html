@@ -2,7 +2,8 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
-<title>Cotizador (local)</title>
+<title>Jobs Company</title>
+<link rel="icon" type="image/jpeg" href="logo-jobs-company.jpeg">
 <link rel="stylesheet" href="https://kit-free.fontawesome.com/releases/latest/css/free.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 <!-- SheetJS (parseo de .xlsx en el navegador) y Chart.js (graficos), solo
@@ -5931,6 +5932,7 @@
               <button type="button" class="btn-act" data-action="btnCRepa">Reparacion</button>
               <button type="button" class="btn-act" data-action="btnCPrecios">Precios</button>
               <button type="button" class="btn-act" data-action="btnCStock">Stock</button>
+              <button type="button" class="btn-act" data-action="btnCReservas">Reservas</button>
               <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
               <button type="button" class="btn-act oculto" id="btnCReportes" data-action="btnCReportes">Reportes</button>
 
@@ -6130,6 +6132,38 @@
                       <tr><th>Modelo</th><th>Capacidad</th><th>Bateria</th><th>Color</th><th>Precio</th><th>Observaciones</th><th>Estado</th><th>Sucursal</th></tr>
                     </thead>
                     <tbody id="bodyStockCompleto"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- ============================ RESERVAS ============================
+                   Lista las reservas guardadas al confirmar "Imprimir reserva" desde el
+                   Carrito. Un vendedor ve solo las de su sucursal, el admin ve todas
+                   (mismo criterio que Stock). "Activa" es lo unico accionable -- se puede
+                   marcar Cumplida (el cliente termino de pagar y se llevo el equipo) o
+                   Cancelada (no vino a pagar el saldo). -->
+              <div id="vistaReservas" class="col-12 sp-t sp-l oculto">
+                <div class="form-line col-12 sp-t">
+                  <div class="form-group-total" style="display:flex; align-items:flex-end; gap:12px;">
+                    <div style="flex:1;">
+                      <label>Estado</label>
+                      <select id="selectReservasEstado">
+                        <option value="Activa">Activas</option>
+                        <option value="todas">Todas</option>
+                        <option value="Cumplida">Cumplidas</option>
+                        <option value="Cancelada">Canceladas</option>
+                      </select>
+                    </div>
+                    <i class="fas fa-sync-alt" id="refrescarReservas" title="Actualizar reservas" style="cursor:pointer; padding-bottom:10px;"></i>
+                  </div>
+                </div>
+                <p id="reservasVacio" class="sm-t oculto">Sin reservas para mostrar.</p>
+                <div class="table-responsive">
+                  <table class="table2 table-sortable oculto" id="tablaReservas">
+                    <thead>
+                      <tr><th>Fecha</th><th>Cliente</th><th>Telefono</th><th>Equipo</th><th>Observaciones</th><th>Vendedor</th><th>Sucursal</th><th>Sena</th><th>Total</th><th>Saldo pendiente</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody id="bodyReservas"></tbody>
                   </table>
                 </div>
               </div>
@@ -6414,6 +6448,10 @@
         <input type="text" id="djDni" placeholder="Ej. 30123456" autocomplete="off">
       </div>
       <div class="form-group-total sp-t">
+        <label>Domicilio</label>
+        <input type="text" id="djDomicilio" placeholder="Calle, numero, localidad" autocomplete="off">
+      </div>
+      <div class="form-group-total sp-t">
         <label>IMEI del equipo</label>
         <input type="text" id="djImei" placeholder="15 digitos" autocomplete="off" inputmode="numeric">
       </div>
@@ -6470,6 +6508,14 @@
       <div class="form-group-total sp-t">
         <label>Sena entregada</label>
         <input type="text" id="rsSena" placeholder="$0" autocomplete="off" inputmode="numeric">
+      </div>
+      <div class="form-group-total sp-t">
+        <label>IMEI del equipo (opcional)</label>
+        <input type="text" id="rsImei" placeholder="Si ya se sabe cual se aparta -- 15 digitos" autocomplete="off" inputmode="numeric">
+      </div>
+      <div class="form-group-total sp-t">
+        <label>Observaciones (opcional)</label>
+        <input type="text" id="rsObservaciones" placeholder="Ej. paga el saldo el viernes" autocomplete="off">
       </div>
       <button type="button" class="btn-total sp-t" id="btnConfirmarReserva">Confirmar e imprimir</button>
     </div>
