@@ -634,10 +634,11 @@ async function ConfirmarIngreso() {
   let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
   if (bateria > 1) bateria = bateria / 100;
 
+  const sesionIngreso = sesionGuardada();
   const boton = document.getElementById('btnConfirmarIngreso');
   boton.disabled = true;
   try {
-    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones, falla });
+    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones, falla, usuario: sesionIngreso ? sesionIngreso.nombre : '' });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     MostrarAlerta({ tipo: 'success', title: 'Ingreso', mnsj: `${modelo} ${capacidad}Gb agregado al stock` });
     $('#ingresoModelo, #ingresoCapacidad, #ingresoBateria, #ingresoColor, #ingresoImei, #ingresoFalla').val('');
@@ -1514,6 +1515,12 @@ async function ConfirmarReserva() {
   const vendedor = sesion ? sesion.nombre : '';
   const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
 
+  // Si hay un Trade In en el carrito, su valor ya esta descontado del
+  // "total" (totalCarrito suma el precio del Trade In, que es negativo) --
+  // esto solo es para mostrarlo aparte en el papel, que quede claro para
+  // el cliente que ese descuento ya esta incluido en el total a pagar.
+  const tradeIn = tradeInDelCarrito();
+
   // Se guarda en el Sheet de Reportes (pestana Reservas) para que aparezca
   // en el modulo de Reservas -- si esto falla (Apps Script no configurado
   // todavia, sin conexion, etc.) no bloquea la impresion del papel, que es
@@ -1532,6 +1539,23 @@ async function ConfirmarReserva() {
     MostrarAlerta({ tipo: 'warning', title: 'Reserva', mnsj: 'Se imprimio el papel, pero no se pudo guardar en el modulo de Reservas: ' + error.message });
   }
 
+  // Si ya se sabe el IMEI del equipo fisico apartado, se lo busca en la
+  // planilla de Stock y se marca "Reservado" (en vez de "En Stock") --
+  // asi tambien queda claro ahi que ese equipo puntual no esta disponible
+  // para otra venta. Si no esta cargado el IMEI, o no se encuentra en
+  // Stock, no pasa nada -- la reserva ya quedo guardada arriba igual.
+  if (imei) {
+    try {
+      const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+      if (busqueda.ok && busqueda.resultados.length === 1) {
+        await llamarStockWrite({ accion: 'reservar', fila: busqueda.resultados[0].fila, usuario: vendedor });
+        await actualizarStockEnVivo();
+      }
+    } catch (error) {
+      // No bloquea la reserva si esto falla -- es una mejora, no un requisito.
+    }
+  }
+
   await imprimirReserva({
     nombre, telefono, sena,
     total,
@@ -1539,7 +1563,8 @@ async function ConfirmarReserva() {
     modelo: equipo.modelo,
     capacidad: equipo.capacidad,
     condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion,
-    vendedor
+    vendedor,
+    tradeIn: tradeIn ? { modelo: tradeIn.modelo, valor: tradeIn.precio } : null
   });
   CerrarModalReserva();
 }
@@ -1554,6 +1579,13 @@ async function imprimirReserva(datos) {
   const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
   const fecha = new Date().toLocaleDateString('es-AR');
 
+  // Si el cliente entrego un equipo en Trade In como parte de pago de esta
+  // misma reserva, se lo aclara aparte -- su valor ya esta restado del
+  // "Precio total" de abajo, no es un descuento adicional.
+  const boxTradeIn = datos.tradeIn
+    ? `<div class="box"><strong>Plan canje incluido</strong><p>${datos.tradeIn.modelo} (-${formatNumberArg(-datos.tradeIn.valor)})</p></div>`
+    : '';
+
   const contenido = `
   ${encabezadoLogo}
   <h1>Reserva de equipo</h1>
@@ -1567,12 +1599,15 @@ async function imprimirReserva(datos) {
     <p>${datos.modelo} ${datos.capacidad} (${datos.condicion})</p>
   </div>
 
+  ${boxTradeIn}
+
   <div class="campo" style="margin-top:16px;"><strong>Precio total:</strong> ${formatNumberArg(datos.total)}</div>
   <div class="campo"><strong>Sena entregada:</strong> ${formatNumberArg(datos.sena)}</div>
   <div class="campo"><strong>Saldo pendiente:</strong> ${formatNumberArg(datos.saldoPendiente)}</div>
+  ${datos.tradeIn ? '<p style="color:#666; font-size:13px;">El precio total ya incluye el descuento del plan canje detallado arriba.</p>' : ''}
 
-  <p style="margin-top:16px;">La sena entregada garantiza la reserva del equipo antes descripto. La reserva tiene
-  validez durante 5 dias habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
+  <p style="margin-top:16px;">Este documento garantiza el equipo antes descripto. La reserva tiene
+  validez de 10 dias habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
   cancelar la reserva y disponer del equipo, sujeto a la devolucion de la sena segun politica del local.</p>
 
   <div class="campo">CUIT: 30-71929577-7</div>

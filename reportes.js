@@ -468,6 +468,38 @@ function renderLineChart(canvasId, titulo, etiquetas, datasets, formatoMoneda) {
 // seguido, se lee fresco cada vez que se abre la pestana o se actualiza).
 // ============================================================
 
+// Misma validez que dice el papel de la reserva (ver imprimirReserva en
+// app.js) -- si cambia una, hay que cambiar la otra a mano, no hay un
+// unico lugar de donde ambas lean (una es texto legal en el papel, la
+// otra es solo un aviso visual).
+const VALIDEZ_RESERVA_DIAS_HABILES = 10;
+
+// Cuenta los dias habiles (lunes a viernes) transcurridos desde la fecha
+// de la reserva (formato DD/M/AAAA, como la arma toLocaleDateString('es-AR'))
+// hasta hoy. No descuenta feriados -- no hay de donde sacar ese calendario
+// -- asi que puede quedar corto en semanas con feriados de por medio.
+// Devuelve null si la fecha no se pudo parsear.
+function diasHabilesTranscurridos(fechaStr) {
+  const partes = String(fechaStr || '').split('/');
+  if (partes.length !== 3) return null;
+  const [dia, mes, anio] = partes.map(Number);
+  if (!dia || !mes || !anio) return null;
+  const inicio = new Date(anio, mes - 1, dia);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  if (isNaN(inicio.getTime()) || inicio > hoy) return null;
+
+  let dias = 0;
+  const cursor = new Date(inicio);
+  cursor.setDate(cursor.getDate() + 1); // no cuenta el dia de la reserva en si
+  while (cursor <= hoy) {
+    const diaSemana = cursor.getDay();
+    if (diaSemana !== 0 && diaSemana !== 6) dias++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dias;
+}
+
 let reservasInicializado = false;
 
 function iniciarReservas() {
@@ -521,16 +553,33 @@ async function cargarReservas() {
     const tr = document.createElement('tr');
     const esActiva = f['Estado'] === 'Activa';
     const acciones = esActiva
-      ? `<button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cumplida" style="width:auto; padding:4px 10px; margin-right:6px;">Cumplida</button>
-         <button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cancelada" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelada</button>`
+      ? `<button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cumplida" data-reserva-imei="${f['Imei'] || ''}" style="width:auto; padding:4px 10px; margin-right:6px;">Cumplida</button>
+         <button type="button" class="btn-total" data-reserva-fila="${f._fila}" data-reserva-estado="Cancelada" data-reserva-imei="${f['Imei'] || ''}" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelada</button>`
       : '';
-    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>${f['Observaciones'] || ''}</td><td>${f['Vendedor']}</td><td>${f['Sucursal']}</td><td>${formatNumberArg(Number(f['Sena']) || 0)}</td><td>${formatNumberArg(Number(f['Total']) || 0)}</td><td>${formatNumberArg(Number(f['SaldoPendiente']) || 0)}</td><td>${f['Estado']}</td><td>${acciones}</td>`;
+
+    // Alerta de vencimiento: solo tiene sentido para las que siguen
+    // Activas (una Cumplida/Cancelada ya no esta "corriendo" el plazo).
+    let estadoCelda = f['Estado'];
+    if (esActiva) {
+      const dias = diasHabilesTranscurridos(f['Fecha']);
+      if (dias !== null) {
+        if (dias >= VALIDEZ_RESERVA_DIAS_HABILES) {
+          tr.style.background = 'rgba(231,76,60,0.15)';
+          estadoCelda += ` (vencida, ${dias}d)`;
+        } else if (dias >= VALIDEZ_RESERVA_DIAS_HABILES - 3) {
+          tr.style.background = 'rgba(241,196,15,0.15)';
+          estadoCelda += ` (vence pronto, ${dias}d)`;
+        }
+      }
+    }
+
+    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>${f['Observaciones'] || ''}</td><td>${f['Vendedor']}</td><td>${f['Sucursal']}</td><td>${formatNumberArg(Number(f['Sena']) || 0)}</td><td>${formatNumberArg(Number(f['Total']) || 0)}</td><td>${formatNumberArg(Number(f['SaldoPendiente']) || 0)}</td><td>${estadoCelda}</td><td>${acciones}</td>`;
     fragm.appendChild(tr);
   });
   tbody.appendChild(fragm);
 
   tbody.querySelectorAll('[data-reserva-fila]').forEach(boton => {
-    boton.addEventListener('click', () => marcarEstadoReserva(Number(boton.dataset.reservaFila), boton.dataset.reservaEstado, boton));
+    boton.addEventListener('click', () => marcarEstadoReserva(Number(boton.dataset.reservaFila), boton.dataset.reservaEstado, boton.dataset.reservaImei, boton));
   });
 }
 
@@ -555,11 +604,30 @@ async function buscarYCumplirReservaPorImei(imei) {
   }
 }
 
-async function marcarEstadoReserva(fila, estado, boton) {
+async function marcarEstadoReserva(fila, estado, imei, boton) {
   boton.disabled = true;
   try {
     const resp = await llamarReportesWrite({ accion: 'reserva-actualizar-estado', fila, estado });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+
+    // Si la reserva tenia un IMEI cargado y se cancela, el equipo en Stock
+    // se habia marcado "Reservado" al confirmarla -- se libera de vuelta a
+    // "En Stock" para que vuelva a estar disponible. Si se marca Cumplida
+    // no hace falta tocar Stock aca: eso ya lo hace ConfirmarGarantia (pasa
+    // a "Vendido" directamente, no queda en "Reservado").
+    if (estado === 'Cancelada' && imei) {
+      try {
+        const sesion = sesionGuardada();
+        const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+        if (busqueda.ok && busqueda.resultados.length === 1 && busqueda.resultados[0].estado === 'Reservado') {
+          await llamarStockWrite({ accion: 'liberarReserva', fila: busqueda.resultados[0].fila, usuario: sesion ? sesion.nombre : '' });
+          await actualizarStockEnVivo();
+        }
+      } catch (error) {
+        // No bloquea -- la reserva ya quedo Cancelada, esto es una mejora.
+      }
+    }
+
     MostrarAlerta({ tipo: 'success', title: 'Reservas', mnsj: 'Reserva marcada como ' + estado });
     await cargarReservas();
   } catch (error) {
