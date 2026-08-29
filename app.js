@@ -1248,13 +1248,41 @@ function equipoPrincipalDelCarrito() {
   return carrito.find(item => item.esEquipoPrincipal) || null;
 }
 
+// AirPods/Apple Watch/MacBook/iPad no tienen IMEI (son 15 digitos, solo
+// existen en telefonos) -- tienen numero de serie, que mezcla letras y
+// numeros. Se usa para saber si el campo "IMEI / Serie" de Garantia y
+// Reserva tiene que exigir el formato estricto de IMEI o aceptar cualquier
+// numero de serie.
+function esTelefono(modelo) {
+  return /^iphone/i.test(String(modelo || '').trim());
+}
+
+// Si al confirmar la garantia el IMEI/Serie no esta en Stock, en vez de
+// bloquear de una se ofrece generarlo ahi mismo (ver ConfirmarGarantia).
+// Este flag guarda para que IMEI ya se mostro ese aviso, asi el segundo
+// click con el mismo numero genera en vez de volver a avisar. Se resetea
+// cada vez que se abre el modal (equipo/IMEI distintos = aviso de nuevo).
+let garantiaGenerarPendienteImei = null;
+
 function AbrirModalGarantia() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
   if (!GARANTIA_TEXTOS[sucursalActual] || !GARANTIA_TEXTOS[sucursalActual][equipo.condicion]) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Todavia no esta cargada la plantilla de garantia para ' + sucursalActual });
   }
+  garantiaGenerarPendienteImei = null;
   $('#gtImei, #gtColor').val('');
+  // AirPods/Apple Watch/MacBook/iPad/Apple Pencil no tienen IMEI, tienen
+  // numero de serie (letras y numeros) -- se cambia el campo segun que
+  // haya en el carrito, en vez de exigir siempre 15 digitos.
+  const campoImei = document.getElementById('gtImei');
+  if (esTelefono(equipo.modelo)) {
+    campoImei.placeholder = '15 digitos';
+    campoImei.setAttribute('inputmode', 'numeric');
+  } else {
+    campoImei.placeholder = 'Numero de serie (letras y numeros)';
+    campoImei.setAttribute('inputmode', 'text');
+  }
   document.getElementById('modalGarantia').style.display = 'block';
 }
 
@@ -1265,11 +1293,17 @@ function CerrarModalGarantia() {
 async function ConfirmarGarantia() {
   const imei = $('#gtImei').val().trim();
   const color = $('#gtColor').val().trim();
-  if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI y color del equipo' });
-  if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+  if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
 
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
+
+  // Solo los iPhone tienen IMEI (15 digitos exactos) -- el resto (AirPods,
+  // Apple Watch, MacBook, iPad, Apple Pencil) tiene numero de serie, que
+  // mezcla letras y numeros y no tiene un largo fijo.
+  if (esTelefono(equipo.modelo) && !/^\d{15}$/.test(imei)) {
+    return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+  }
 
   // Los accesorios del carrito solo se listan en la garantia de
   // Independencia -- en Shopping la garantia sale solo con los datos del
@@ -1282,29 +1316,70 @@ async function ConfirmarGarantia() {
   const accesorios = accesoriosCarrito.map(item => item.descripcion);
   const totalAccesorios = accesoriosCarrito.reduce((sum, item) => sum + item.precio, 0);
 
-  // Si el IMEI que se cargo corresponde a un equipo que estaba en el
-  // deposito (dado de alta antes por Ingreso/Trade-in), se da de baja
-  // automatico -- mismo mecanismo que el Egreso manual, con el vendedor
-  // logueado en ese momento anotado en la columna Propietario. Si el IMEI
-  // no estaba en stock (venta de mostrador sin control) no pasa nada, la
-  // garantia se imprime igual. De paso, si ese equipo tenia una falla
-  // anotada, se rescata para mostrarla en la garantia (solo Independencia).
+  // El IMEI/Serie tiene que existir en la planilla de Stock -- si no esta,
+  // no se deja imprimir la garantia de una (evita vender/entregar algo que
+  // nadie dio de alta primero, sin darse cuenta). Aplica a cualquier
+  // equipo, no solo iPhone (Apple Watch/iPad/Apple Pencil/MacBook/AirPods
+  // tambien se cargan en Stock, con numero de serie en vez de IMEI en la
+  // misma columna).
+  //
+  // Si no esta, en vez de trabar la venta, se ofrece generarlo ahi mismo
+  // (mismo mecanismo que "Generar y dar de baja" en Egreso): el primer
+  // click avisa y no imprime nada todavia; si se aprieta "Confirmar e
+  // imprimir" de nuevo con el mismo IMEI/Serie, ahi si se genera el alta
+  // (observacion "GENERADO AL IMPRIMIR GARANTIA", para poder auditar
+  // despues quien vende cosas que nunca cargo primero) y se sigue con la
+  // venta normal. Asi queda registro de TODO lo vendido en Stock, sin
+  // frenar al vendedor en el momento.
   let falla = '';
-  try {
-    const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
-    if (busqueda.ok && busqueda.resultados.length === 1) {
-      if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
-      const sesion = sesionGuardada();
-      await llamarStockWrite({
-        accion: 'egreso',
-        fila: busqueda.resultados[0].fila,
-        vendedor: sesion ? sesion.nombre : ''
-      });
-      await actualizarStockEnVivo();
+  {
+    let busqueda;
+    try {
+      busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+    } catch (error) {
+      return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No se pudo consultar el stock, intenta de nuevo: ' + error.message });
     }
-  } catch (error) {
-    // No bloquea la impresion de la garantia si esto falla -- es una
-    // mejora, no un requisito para vender.
+    if (!busqueda.ok) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: busqueda.error || 'No se pudo consultar el stock' });
+
+    if (busqueda.resultados.length > 1) {
+      return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Hay mas de un equipo activo con ese IMEI/Serie en stock -- revisalo a mano antes de continuar.' });
+    }
+
+    const sesion = sesionGuardada();
+    const vendedorStock = sesion ? sesion.nombre : '';
+
+    if (!busqueda.resultados.length) {
+      if (garantiaGenerarPendienteImei !== imei) {
+        garantiaGenerarPendienteImei = imei;
+        return MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'Ese IMEI/Serie no esta cargado en el stock. Apreta "Confirmar e imprimir" de nuevo para generarlo y continuar con la venta.' });
+      }
+      // Segundo intento con el mismo IMEI/Serie: se genera el alta y se da
+      // de baja de una, igual que ConfirmarGenerarYDarDeBaja en Egreso.
+      garantiaGenerarPendienteImei = null;
+      try {
+        const respIngreso = await llamarStockWrite({
+          accion: 'ingreso', modelo: equipo.modelo, capacidad: equipo.capacidad, color, imei,
+          sucursal: sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA', usuario: vendedorStock, propietario: vendedorStock
+        });
+        if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
+        if (respIngreso.fila) {
+          await llamarStockWrite({ accion: 'egreso', fila: respIngreso.fila, vendedor: vendedorStock, usuario: vendedorStock });
+        }
+        await actualizarStockEnVivo();
+      } catch (error) {
+        return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No se pudo generar el equipo en stock: ' + error.message });
+      }
+    } else {
+      if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
+      try {
+        await llamarStockWrite({ accion: 'egreso', fila: busqueda.resultados[0].fila, vendedor: vendedorStock, usuario: vendedorStock });
+        await actualizarStockEnVivo();
+      } catch (error) {
+        // Esto ya paso la validacion (el IMEI/Serie existe) -- si el
+        // egreso en si falla no bloquea la garantia, es una mejora, no un
+        // requisito.
+      }
+    }
   }
 
   // Si este mismo IMEI quedo anotado en alguna reserva Activa (campo
@@ -1330,6 +1405,31 @@ async function ConfirmarGarantia() {
   // si hay un Trade In cargado en el carrito.
   const tradeInCarrito = tradeInDelCarrito();
   const sesion = sesionGuardada();
+  const vendedorGarantia = sesion ? sesion.nombre : '';
+
+  // Se guarda en el Sheet de Reportes (pestana VentasEquipos) -- un
+  // registro por cada venta de equipo, pensado para metricas (tendencias,
+  // equipos que no rotan, ranking por vendedor) y para calcular comisiones
+  // despues. No bloquea la impresion de la garantia si falla.
+  if (typeof llamarReportesWrite === 'function') {
+    try {
+      const ahora = new Date();
+      const respVenta = await llamarReportesWrite({
+        accion: 'venta-equipo-crear',
+        fecha: ahora.toLocaleDateString('es-AR'),
+        hora: ahora.toLocaleTimeString('es-AR'),
+        vendedor: vendedorGarantia, sucursal: sucursalActual,
+        imei, modelo: equipo.modelo, capacidad: equipo.capacidad,
+        condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion, color,
+        precioTotal: equipo.precio,
+        tradeInModelo: tradeInCarrito ? tradeInCarrito.modelo : '',
+        tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0
+      });
+      if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
+    } catch (error) {
+      MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo registrar la venta en VentasEquipos: ' + error.message });
+    }
+  }
 
   await imprimirGarantia({
     sucursal: sucursalActual,
@@ -1488,6 +1588,14 @@ function AbrirModalReserva() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
   $('#rsNombre, #rsTelefono, #rsSena, #rsImei, #rsObservaciones').val('');
+  const campoImei = document.getElementById('rsImei');
+  if (esTelefono(equipo.modelo)) {
+    campoImei.placeholder = 'Si ya se sabe cual se aparta -- 15 digitos';
+    campoImei.setAttribute('inputmode', 'numeric');
+  } else {
+    campoImei.placeholder = 'Si ya se sabe cual se aparta -- numero de serie';
+    campoImei.setAttribute('inputmode', 'text');
+  }
   document.getElementById('modalReserva').style.display = 'block';
 }
 
@@ -1504,10 +1612,15 @@ async function ConfirmarReserva() {
   const observaciones = $('#rsObservaciones').val().trim();
   if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa nombre y telefono del cliente' });
   if (!sena) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa el monto de la sena' });
-  if (imei && !/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'El IMEI tiene que tener exactamente 15 digitos (o dejalo vacio si todavia no se sabe)' });
 
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
+
+  // Solo los iPhone tienen IMEI (15 digitos exactos) -- el resto tiene
+  // numero de serie, que mezcla letras y numeros.
+  if (imei && esTelefono(equipo.modelo) && !/^\d{15}$/.test(imei)) {
+    return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'El IMEI tiene que tener exactamente 15 digitos (o dejalo vacio si todavia no se sabe)' });
+  }
 
   const total = totalCarrito();
   const sesion = sesionGuardada();
@@ -1898,11 +2011,17 @@ function iniciarApp(sesion) {
   selectSucursal.addEventListener('change', () => cargarSucursal(selectSucursal.value));
   cargarSucursal(sucursalActual);
 
-  // Ingreso/Egreso de stock y Reportes de gestion: solo los ve el admin.
+  // Ingreso/Egreso de stock: solo lo ve el admin.
   if (esAdmin(sesion)) {
     document.getElementById('btnCIngresoEgreso').classList.remove('oculto');
-    document.getElementById('btnCReportes').classList.remove('oculto');
   }
+
+  // TODO: Reportes de gestion -- pausado a pedido del usuario (hay otras
+  // cosas mas urgentes primero). El codigo queda completo y funcionando
+  // (reportes.js, boton en index.html, Apps Script), solo se oculta el
+  // boton para que no aparezca en el menu. Sacar este comentario y volver
+  // a agregar 'document.getElementById('btnCReportes').classList.remove
+  // ('oculto');' arriba (dentro del if esAdmin) para reactivarlo.
 
   document.getElementById('toggleTema').addEventListener('click', toggleTema);
 
@@ -1962,7 +2081,11 @@ function iniciarApp(sesion) {
   document.getElementById('modalGarantia').addEventListener('click', e => {
     if (e.target.id === 'modalGarantia') CerrarModalGarantia();
   });
+  // Solo restringe a digitos si hay un iPhone en el carrito -- para el
+  // resto (numero de serie) se deja escribir letras y numeros libremente.
   document.getElementById('gtImei').addEventListener('input', function () {
+    const equipo = equipoPrincipalDelCarrito();
+    if (equipo && !esTelefono(equipo.modelo)) return;
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
   });
 
@@ -1973,6 +2096,8 @@ function iniciarApp(sesion) {
     if (e.target.id === 'modalReserva') CerrarModalReserva();
   });
   document.getElementById('rsImei').addEventListener('input', function () {
+    const equipo = equipoPrincipalDelCarrito();
+    if (equipo && !esTelefono(equipo.modelo)) return;
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
   });
 
