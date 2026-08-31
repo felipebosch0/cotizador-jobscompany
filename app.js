@@ -1283,6 +1283,10 @@ function AbrirModalGarantia() {
     campoImei.placeholder = 'Numero de serie (letras y numeros)';
     campoImei.setAttribute('inputmode', 'text');
   }
+  // "Pauta" (seguimiento de ventas que vienen de una campana paga) solo
+  // aplica a Independencia -- se oculta y se destilda para el resto.
+  document.getElementById('gtPautaContenedor').classList.toggle('oculto', sucursalActual !== 'Independencia');
+  document.getElementById('gtPauta').checked = false;
   document.getElementById('modalGarantia').style.display = 'block';
 }
 
@@ -1293,6 +1297,9 @@ function CerrarModalGarantia() {
 async function ConfirmarGarantia() {
   const imei = $('#gtImei').val().trim();
   const color = $('#gtColor').val().trim();
+  // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
+  // checkbox esta oculto y siempre destildado.
+  const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
   if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
 
   const equipo = equipoPrincipalDelCarrito();
@@ -1423,7 +1430,8 @@ async function ConfirmarGarantia() {
         condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion, color,
         precioTotal: equipo.precio,
         tradeInModelo: tradeInCarrito ? tradeInCarrito.modelo : '',
-        tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0
+        tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0,
+        pauta: pauta ? 'Pauta' : ''
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
     } catch (error) {
@@ -1910,7 +1918,12 @@ function ExportarInfo(actividad) {
 
   if (actividad === 'Reparacion') {
     const fallas = $('#formReparacion :checkbox:checked').map((i, el) => el.dataset.falla).get().join(', ');
-    mensaje = `${saludo}\n*Cotizacion de Reparacion*\n\n*Modelo*: ${$('#formReparacion select[name="modeloR"]').val()}\n*Falla/as*: ${fallas}\n\n*Total*: ${$('#formReparacion input[name="totalCotizaRep"]').val()} efectivo\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
+    // OJO: no se le pega "efectivo" a este numero -- totalCotizaRep es el
+    // precio de lista SIN el 20% de descuento por efectivo (ver categoria
+    // 'reparacion' en DATA.financiacion), ese numero ya sale mas abajo,
+    // desglosado, en infoFinanciacion. Ponerle "efectivo" aca mostraba dos
+    // cifras distintas para lo mismo en el mismo mensaje.
+    mensaje = `${saludo}\n*Cotizacion de Reparacion*\n\n*Modelo*: ${$('#formReparacion select[name="modeloR"]').val()}\n*Falla/as*: ${fallas}\n\n*Total*: ${$('#formReparacion input[name="totalCotizaRep"]').val()}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   } else if (actividad === 'VentaAccesorio') {
     mensaje = `${saludo}\n*Cotizacion de Accesorio*\n\n*Accesorio*: ${$('#formVenta select[name="descripcion"]').val()} - ${$('#formVenta select[name="modeloA"]').val()}\n*Precio*: ${$('#formVenta input[name="totalAccesorio"]').val()} efectivo\n${firmaWhatsapp()}`;
   } else if (actividad === 'VentaEquipo') {

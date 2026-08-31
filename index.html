@@ -6486,6 +6486,13 @@
         <label>Color</label>
         <input type="text" id="gtColor" placeholder="Ej. Negro" autocomplete="off">
       </div>
+      <!-- Solo Independencia -- para hacer seguimiento de que ventas vienen
+           de una campana paga (ver AbrirModalGarantia en app.js). -->
+      <div class="form-group-total sp-t oculto" id="gtPautaContenedor">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="gtPauta" style="width:auto;"> Pauta
+        </label>
+      </div>
       <button type="button" class="btn-total sp-t" id="btnConfirmarGarantia">Confirmar e imprimir</button>
     </div>
   </div>
