@@ -371,6 +371,7 @@ function renderCarrito() {
   const btnGarantia = document.getElementById('btnImprimirGarantia');
   const btnDeclaracion = document.getElementById('btnImprimirDeclaracion');
   const btnReserva = document.getElementById('btnImprimirReserva');
+  const btnFinanciacion = document.getElementById('btnIniciarFinanciacion');
   const badge = document.getElementById('badgeCarrito');
 
   badge.textContent = carrito.length;
@@ -384,6 +385,7 @@ function renderCarrito() {
     btnGarantia.classList.add('oculto');
     btnDeclaracion.classList.add('oculto');
     btnReserva.classList.add('oculto');
+    btnFinanciacion.classList.add('oculto');
     vacio.classList.remove('oculto');
     $('#tablaFinancia').removeClass('vista').addClass('oculto');
     return;
@@ -407,6 +409,9 @@ function renderCarrito() {
   // El boton de reserva solo aparece si hay un equipo en el carrito (misma
   // condicion que garantia, pero sin depender de que exista la plantilla).
   btnReserva.classList.toggle('oculto', !hayEquipo);
+
+  // Financiacion propia: mismo criterio que reserva, pero solo Independencia.
+  btnFinanciacion.classList.toggle('oculto', !hayEquipo || sucursalActual !== 'Independencia');
 
   const fragm = document.createDocumentFragment();
   carrito.forEach((item, i) => {
@@ -576,6 +581,11 @@ function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('ocu
 // Definida en reportes.js (vive junto con el resto del modulo de Reportes,
 // comparten Sheet/Apps Script).
 function Reservas() { ResetFormCotizador(); $('#vistaReservas').removeClass('oculto').addClass('vista'); if (typeof iniciarReservas === 'function') iniciarReservas(); }
+// Definida en reportes.js. Solo Independencia -- el boton de nav queda
+// oculto en Shopping (ver cargarSucursal), pero si igual se llegara a
+// invocar (ej. quedo un click en cola al cambiar de sucursal) no rompe
+// nada, solo muestra una lista vacia/filtrada por sucursal como el resto.
+function Financiacion() { ResetFormCotizador(); $('#vistaFinanciacion').removeClass('oculto').addClass('vista'); if (typeof iniciarFinanciacion === 'function') iniciarFinanciacion(); }
 function Carrito() {
   ResetFormCotizador();
   $('#vistaCarrito').removeClass('oculto').addClass('vista');
@@ -1397,6 +1407,15 @@ async function ConfirmarGarantia() {
     try { await buscarYCumplirReservaPorImei(imei); } catch (error) { /* no bloquea */ }
   }
 
+  // Mismo criterio para un plan de Financiacion Propia Activo con este IMEI
+  // -- se marca Completado (el cliente termino de pagar y se lo esta
+  // llevando ahora). No exige que el saldo este en $0 -- si el vendedor
+  // esta imprimiendo la garantia con ese IMEI es porque ya decidio
+  // entregarlo, el saldo pendiente queda como referencia en la lista.
+  if (typeof buscarYCumplirFinanciacionPorImei === 'function') {
+    try { await buscarYCumplirFinanciacionPorImei(imei); } catch (error) { /* no bloquea */ }
+  }
+
   // El box de Observacion (solo Independencia) junta 2 avisos distintos,
   // cada uno si corresponde: la falla que tenia el equipo vendido (si el
   // IMEI estaba en stock) y si el cliente entrego OTRO equipo en Trade In
@@ -1766,6 +1785,138 @@ async function imprimirReserva(datos) {
   ventana.document.close();
 }
 
+// ============================ FINANCIACION PROPIA ============================
+// Plan de pago propio del local (solo Independencia): el cliente va
+// pagando en cuotas hasta cubrir el total y recien ahi retira el equipo.
+// El monto total queda fijo en USD (se toma el precio del carrito
+// convertido al dolar del momento) -- cada pago se registra en pesos y se
+// convierte a USD con el dolar del dia de ESE pago, para que un plan de
+// varios meses no pierda valor real por la devaluacion (ver
+// RegistrarPagoFinanciacion en Reportes.gs). El resto de la logica (listar
+// planes, registrar pagos, cancelar, WhatsApp) vive en reportes.js.
+
+function AbrirModalFinanciacion() {
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No hay ningun equipo en el carrito' });
+  $('#fpNombre, #fpTelefono, #fpImei').val('');
+  const montoUsd = Math.round(totalCarrito() / DATA.dolar.DolarVenta);
+  document.getElementById('fpMontoInfo').textContent =
+    `Monto total del plan: USD ${montoUsd} (${formatNumberArg(totalCarrito())} al dolar de hoy). ` +
+    `El cliente elige cuanto y cada cuanto paga, con un plazo maximo de 6 meses. ` +
+    `Si cancela antes de terminar, se le devuelve lo pagado menos un 15% por gastos administrativos.`;
+  const campoImei = document.getElementById('fpImei');
+  if (esTelefono(equipo.modelo)) {
+    campoImei.placeholder = 'Si ya se sabe cual se aparta -- 15 digitos';
+    campoImei.setAttribute('inputmode', 'numeric');
+  } else {
+    campoImei.placeholder = 'Si ya se sabe cual se aparta -- numero de serie';
+    campoImei.setAttribute('inputmode', 'text');
+  }
+  document.getElementById('modalFinanciacion').style.display = 'block';
+}
+
+function CerrarModalFinanciacion() {
+  document.getElementById('modalFinanciacion').style.display = 'none';
+}
+
+async function ConfirmarFinanciacion() {
+  const nombre = $('#fpNombre').val().trim();
+  const telefono = $('#fpTelefono').val().trim();
+  const imei = $('#fpImei').val().trim();
+  if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'Completa nombre y telefono del cliente' });
+
+  const equipo = equipoPrincipalDelCarrito();
+  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No hay ningun equipo en el carrito' });
+
+  if (imei && esTelefono(equipo.modelo) && !/^\d{15}$/.test(imei)) {
+    return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'El IMEI tiene que tener exactamente 15 digitos (o dejalo vacio si todavia no se sabe)' });
+  }
+
+  const montoTotalUsd = Math.round(totalCarrito() / DATA.dolar.DolarVenta);
+  const sesion = sesionGuardada();
+  const vendedor = sesion ? sesion.nombre : '';
+  const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
+
+  let respuesta;
+  try {
+    respuesta = await llamarReportesWrite({
+      accion: 'financiacion-crear',
+      fecha: new Date().toLocaleDateString('es-AR'),
+      vendedor, sucursal: sucursalActual,
+      cliente: nombre, telefono,
+      equipo: equipoTexto, imei, montoTotalUsd
+    });
+    if (!respuesta.ok) throw new Error(respuesta.error || 'Error desconocido');
+  } catch (error) {
+    return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo iniciar el plan: ' + error.message });
+  }
+
+  // Mismo criterio que Reserva: si ya se sabe el IMEI, se aparta en Stock
+  // para que no lo venda otro vendedor mientras el cliente lo sigue pagando
+  // en cuotas -- queda "Financiacion Propia" (no "Reservado") para
+  // distinguirlo de una reserva comun a simple vista en la planilla.
+  if (imei) {
+    try {
+      const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+      if (busqueda.ok && busqueda.resultados.length === 1) {
+        await llamarStockWrite({ accion: 'reservar', fila: busqueda.resultados[0].fila, usuario: vendedor, estado: 'Financiacion Propia' });
+        await actualizarStockEnVivo();
+      }
+    } catch (error) {
+      // No bloquea el plan si esto falla -- es una mejora, no un requisito.
+    }
+  }
+
+  MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Plan iniciado para ${nombre} -- USD ${montoTotalUsd}` });
+  CerrarModalFinanciacion();
+  if (typeof cargarFinanciacion === 'function' && $('#vistaFinanciacion').hasClass('vista')) cargarFinanciacion();
+}
+
+// Fila (en la pestana FinanciacionPropia) del plan al que se le esta por
+// registrar un pago -- se setea al abrir el modal desde la lista (ver
+// reportes.js) y se usa recien al confirmar.
+let financiacionPagoPlanFila = null;
+
+function AbrirModalPagoFinanciacion(fila, infoTexto) {
+  financiacionPagoPlanFila = fila;
+  $('#fppMonto').val('');
+  document.getElementById('fppInfo').textContent = infoTexto || '';
+  document.getElementById('modalPagoFinanciacion').style.display = 'block';
+}
+
+function CerrarModalPagoFinanciacion() {
+  financiacionPagoPlanFila = null;
+  document.getElementById('modalPagoFinanciacion').style.display = 'none';
+}
+
+async function ConfirmarPagoFinanciacion() {
+  if (!financiacionPagoPlanFila) return CerrarModalPagoFinanciacion();
+  const montoTexto = $('#fppMonto').val().trim();
+  const montoArs = Number(String(montoTexto).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
+  if (!montoArs) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'Completa el monto pagado' });
+
+  const dolarDelDia = DATA.dolar.DolarVenta;
+  const montoUsd = montoArs / dolarDelDia;
+  const sesion = sesionGuardada();
+  const vendedor = sesion ? sesion.nombre : '';
+
+  try {
+    const resp = await llamarReportesWrite({
+      accion: 'financiacion-pago',
+      fecha: new Date().toLocaleDateString('es-AR'),
+      vendedor, planFila: financiacionPagoPlanFila,
+      montoArs, dolarDelDia, montoUsd
+    });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+  } catch (error) {
+    return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo registrar el pago: ' + error.message });
+  }
+
+  MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Pago registrado: ${formatNumberArg(montoArs)} (USD ${montoUsd.toFixed(2)})` });
+  CerrarModalPagoFinanciacion();
+  if (typeof cargarFinanciacion === 'function') cargarFinanciacion();
+}
+
 // ============================ REPARACION ============================
 
 function PreciosRepa() {
@@ -1995,6 +2146,9 @@ function cargarSucursal(sucursal) {
   $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
   $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
 
+  // Financiacion propia: solo Independencia (ver AbrirModalFinanciacion).
+  document.getElementById('btnCFinanciacion').classList.toggle('oculto', sucursal !== 'Independencia');
+
   ResetFormCotizador();
   actualizarModuloStock('');
 
@@ -2112,6 +2266,24 @@ function iniciarApp(sesion) {
     const equipo = equipoPrincipalDelCarrito();
     if (equipo && !esTelefono(equipo.modelo)) return;
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
+
+  document.getElementById('btnIniciarFinanciacion').addEventListener('click', AbrirModalFinanciacion);
+  document.getElementById('cerrarModalFinanciacion').addEventListener('click', CerrarModalFinanciacion);
+  document.getElementById('btnConfirmarFinanciacion').addEventListener('click', ConfirmarFinanciacion);
+  document.getElementById('modalFinanciacion').addEventListener('click', e => {
+    if (e.target.id === 'modalFinanciacion') CerrarModalFinanciacion();
+  });
+  document.getElementById('fpImei').addEventListener('input', function () {
+    const equipo = equipoPrincipalDelCarrito();
+    if (equipo && !esTelefono(equipo.modelo)) return;
+    this.value = this.value.replace(/\D/g, '').slice(0, 15);
+  });
+
+  document.getElementById('cerrarModalPagoFinanciacion').addEventListener('click', CerrarModalPagoFinanciacion);
+  document.getElementById('btnConfirmarPagoFinanciacion').addEventListener('click', ConfirmarPagoFinanciacion);
+  document.getElementById('modalPagoFinanciacion').addEventListener('click', e => {
+    if (e.target.id === 'modalPagoFinanciacion') CerrarModalPagoFinanciacion();
   });
 
   // Cada 7 min (antes 5 el dolar, 2 el stock) para gastar menos invocaciones
@@ -2264,6 +2436,7 @@ function iniciarApp(sesion) {
         'btnCIngresoEgreso': () => IngresoEgreso(),
         'btnCReportes': () => Reportes(),
         'btnCReservas': () => Reservas(),
+        'btnCFinanciacion': () => Financiacion(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
         'AgregarCarritoTradeIn': () => AgregarCarritoTradeIn(),

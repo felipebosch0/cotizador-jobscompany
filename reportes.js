@@ -635,3 +635,286 @@ async function marcarEstadoReserva(fila, estado, imei, boton) {
     boton.disabled = false;
   }
 }
+
+// ============================================================
+// FINANCIACION PROPIA -- solo Independencia. Un plan por cliente/equipo
+// (pestana FinanciacionPropia) mas un registro por cada pago parcial
+// (pestana FinanciacionPagos, filtrado por PlanFila) -- ver Reportes.gs.
+// El monto total del plan queda fijo en USD; el saldo pendiente se calcula
+// aca restando la suma de pagos (tambien en USD, ya convertidos al dolar
+// del dia de cada uno) -- no hay una sola celda "saldo" en el Sheet, se
+// arma en el momento con las dos pestanas.
+// ============================================================
+
+// Plazo maximo del plan: 6 meses corridos desde que se inicio. Es un aviso
+// visual (mismo criterio que VALIDEZ_RESERVA_DIAS_HABILES de Reservas), no
+// bloquea nada -- el vendedor decide que hacer con un plan vencido (dar de
+// baja, renegociar, etc.).
+const MAX_MESES_FINANCIACION = 6;
+
+// Porcentaje que se retiene por gastos administrativos si el cliente
+// cancela el plan antes de terminar de pagarlo -- se le devuelve el resto
+// de lo que ya pago. Ver marcarEstadoFinanciacion.
+const RETENCION_CANCELACION_FINANCIACION = 0.15;
+
+// Dias que faltan hasta el limite de 6 meses (fecha + 6 meses corridos,
+// no dias habiles como Reservas -- este plazo es mucho mas largo). Numero
+// negativo = ya vencido. Devuelve null si la fecha no se pudo parsear.
+function diasParaLimiteFinanciacion(fechaStr) {
+  const partes = String(fechaStr || '').split('/');
+  if (partes.length !== 3) return null;
+  const [dia, mes, anio] = partes.map(Number);
+  if (!dia || !mes || !anio) return null;
+  const inicio = new Date(anio, mes - 1, dia);
+  if (isNaN(inicio.getTime())) return null;
+  const limite = new Date(inicio);
+  limite.setMonth(limite.getMonth() + MAX_MESES_FINANCIACION);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  limite.setHours(0, 0, 0, 0);
+  return Math.round((limite - hoy) / 86400000);
+}
+
+let financiacionInicializado = false;
+
+function iniciarFinanciacion() {
+  if (!financiacionInicializado) {
+    financiacionInicializado = true;
+    document.getElementById('selectFinanciacionEstado').addEventListener('change', cargarFinanciacion);
+    document.getElementById('refrescarFinanciacion').addEventListener('click', cargarFinanciacion);
+  }
+  cargarFinanciacion();
+}
+
+async function cargarFinanciacion() {
+  const tbody = document.getElementById('bodyFinanciacion');
+  const tabla = document.getElementById('tablaFinanciacion');
+  const vacio = document.getElementById('financiacionVacio');
+  let planes, pagos;
+  try {
+    const [respPlanes, respPagos] = await Promise.all([
+      fetch('/reportes/FinanciacionPropia').then(r => r.json()),
+      fetch('/reportes/FinanciacionPagos').then(r => r.json())
+    ]);
+    if (respPlanes.error) throw new Error(respPlanes.error);
+    if (respPagos.error) throw new Error(respPagos.error);
+    planes = filasAObjetos(respPlanes.encabezados, respPlanes.filas);
+    pagos = filasAObjetos(respPagos.encabezados, respPagos.filas);
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo leer el Sheet de Financiacion: ' + error.message });
+    return;
+  }
+
+  // Admin ve todas las sucursales (en la practica solo va a haber
+  // Independencia, pero se deja el mismo criterio que Reservas por las dudas).
+  const sesion = sesionGuardada();
+  if (!esAdmin(sesion)) planes = planes.filter(f => f['Sucursal'] === sucursalActual);
+
+  const filtroEstado = document.getElementById('selectFinanciacionEstado').value;
+  if (filtroEstado !== 'todas') planes = planes.filter(f => f['Estado'] === filtroEstado);
+
+  // Suma de pagos por plan (PlanFila en Pagos = numero de fila real en
+  // FinanciacionPropia, igual que "_fila" mas abajo).
+  const pagadoPorPlanFila = {};
+  pagos.forEach(p => {
+    const fila = Number(p['PlanFila']);
+    const usd = Number(p['MontoUsd']) || 0;
+    pagadoPorPlanFila[fila] = (pagadoPorPlanFila[fila] || 0) + usd;
+  });
+
+  const conFila = planes.map((f, i) => ({ ...f, _fila: i + 2 })).reverse();
+
+  tbody.innerHTML = '';
+  if (!conFila.length) {
+    tabla.classList.add('oculto');
+    vacio.classList.remove('oculto');
+    return;
+  }
+  vacio.classList.add('oculto');
+  tabla.classList.remove('oculto');
+
+  const dolarHoy = (typeof DATA !== 'undefined' && DATA.dolar) ? DATA.dolar.DolarVenta : null;
+
+  const fragm = document.createDocumentFragment();
+  conFila.forEach(f => {
+    const totalUsd = Number(f['MontoTotalUsd']) || 0;
+    const pagadoUsd = pagadoPorPlanFila[f._fila] || 0;
+    const saldoUsd = Math.max(0, totalUsd - pagadoUsd);
+    const esActivo = f['Estado'] === 'Activo';
+
+    const saldoTexto = dolarHoy
+      ? `USD ${saldoUsd.toFixed(2)} (${formatNumberArg(saldoUsd * dolarHoy)})`
+      : `USD ${saldoUsd.toFixed(2)}`;
+
+    const acciones = esActivo
+      ? `<button type="button" class="btn-total" data-fp-pago="${f._fila}" data-fp-cliente="${f['Cliente'] || ''}" data-fp-equipo="${f['Equipo'] || ''}" data-fp-saldo="${saldoUsd.toFixed(2)}" style="width:auto; padding:4px 10px; margin-right:6px;">Registrar pago</button>
+         <button type="button" class="btn-total" data-fp-whatsapp="${f._fila}" style="width:auto; padding:4px 10px; margin-right:6px; background:#25D366;">WhatsApp</button>
+         <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Completado" style="width:auto; padding:4px 10px; margin-right:6px;">Completado</button>
+         <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Cancelado" data-fp-imei="${f['Imei'] || ''}" data-fp-pagado="${pagadoUsd.toFixed(2)}" data-fp-cliente="${f['Cliente'] || ''}" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelado</button>`
+      : '';
+
+    // Alerta de plazo: igual que Reservas, solo tiene sentido para planes
+    // que siguen Activos -- rojo si ya paso el limite de 6 meses, amarillo
+    // si le quedan 15 dias o menos.
+    let estadoCelda = f['Estado'];
+    const tr = document.createElement('tr');
+    if (esActivo) {
+      const dias = diasParaLimiteFinanciacion(f['Fecha']);
+      if (dias !== null) {
+        if (dias <= 0) {
+          tr.style.background = 'rgba(231,76,60,0.15)';
+          estadoCelda += ` (vencido, hace ${-dias}d)`;
+        } else if (dias <= 15) {
+          tr.style.background = 'rgba(241,196,15,0.15)';
+          estadoCelda += ` (vence en ${dias}d)`;
+        } else if (saldoUsd <= 0) {
+          tr.style.background = 'rgba(106,176,76,0.15)'; // ya pago todo, listo para retirar
+        }
+      }
+    }
+    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>USD ${totalUsd}</td><td>USD ${pagadoUsd.toFixed(2)}</td><td>${saldoTexto}</td><td>${estadoCelda}</td><td>${acciones}</td>`;
+    fragm.appendChild(tr);
+  });
+  tbody.appendChild(fragm);
+
+  tbody.querySelectorAll('[data-fp-pago]').forEach(boton => {
+    boton.addEventListener('click', () => {
+      const info = `${boton.dataset.fpCliente} -- ${boton.dataset.fpEquipo} -- saldo actual: USD ${boton.dataset.fpSaldo}`;
+      AbrirModalPagoFinanciacion(Number(boton.dataset.fpPago), info);
+    });
+  });
+  tbody.querySelectorAll('[data-fp-whatsapp]').forEach(boton => {
+    boton.addEventListener('click', () => copiarMensajeFinanciacion(Number(boton.dataset.fpWhatsapp)));
+  });
+  tbody.querySelectorAll('[data-fp-estado]').forEach(boton => {
+    boton.addEventListener('click', () => marcarEstadoFinanciacion(Number(boton.dataset.fpEstado), boton.dataset.fpNuevoEstado, boton.dataset.fpImei, Number(boton.dataset.fpPagado) || 0, boton.dataset.fpCliente || '', boton));
+  });
+}
+
+// Llamada desde ConfirmarGarantia (app.js) al imprimir garantia. Si el IMEI
+// coincide con el de un plan Activo, lo marca Completado -- el cliente se
+// esta llevando el equipo ahora. Silencioso si no hay match o falla la
+// consulta (no bloquea la venta, es solo una comodidad -- igual que su
+// equivalente de Reservas).
+async function buscarYCumplirFinanciacionPorImei(imei) {
+  if (!imei) return false;
+  try {
+    const resp = await fetch('/reportes/FinanciacionPropia');
+    const json = await resp.json();
+    if (json.error) return false;
+    const filas = filasAObjetos(json.encabezados, json.filas);
+    const idx = filas.findIndex(f => f['Estado'] === 'Activo' && String(f['Imei'] || '').trim() === imei);
+    if (idx === -1) return false;
+    const resp2 = await llamarReportesWrite({ accion: 'financiacion-actualizar-estado', fila: idx + 2, estado: 'Completado' });
+    return !!(resp2 && resp2.ok);
+  } catch (error) {
+    return false;
+  }
+}
+
+// pagadoUsd/cliente solo importan para el caso "Cancelado" (calculo y
+// aviso de la devolucion) -- "Completado" los ignora.
+async function marcarEstadoFinanciacion(fila, estado, imei, pagadoUsd, cliente, boton) {
+  if (estado === 'Cancelado') {
+    // El cliente puede cancelar en cualquier momento -- se le devuelve lo
+    // que pago menos un 15% que se retiene por gastos administrativos. Se
+    // muestra el desglose y hay que confirmar antes de tocar nada, porque
+    // es un movimiento de dinero real que el vendedor tiene que entregar.
+    const devolucionUsd = pagadoUsd * (1 - RETENCION_CANCELACION_FINANCIACION);
+    const retenidoUsd = pagadoUsd * RETENCION_CANCELACION_FINANCIACION;
+    const dolarHoy = (typeof DATA !== 'undefined' && DATA.dolar) ? DATA.dolar.DolarVenta : null;
+    const devolucionArsTexto = dolarHoy ? ` (${formatNumberArg(devolucionUsd * dolarHoy)})` : '';
+    const mensajeConfirm = pagadoUsd > 0
+      ? `${cliente} pago USD ${pagadoUsd.toFixed(2)} hasta ahora. Se retiene el 15% (USD ${retenidoUsd.toFixed(2)}) por gastos administrativos y se le devuelve USD ${devolucionUsd.toFixed(2)}${devolucionArsTexto}. ¿Confirmas la cancelacion?`
+      : `${cliente} todavia no registra ningun pago -- no hay nada que devolver. ¿Confirmas la cancelacion del plan?`;
+
+    Notiflix.Confirm.Show('Cancelar plan de financiacion', mensajeConfirm, 'Si, cancelar', 'Volver', () => {
+      ejecutarCancelacionFinanciacion(fila, imei, devolucionUsd, boton);
+    });
+    return;
+  }
+
+  boton.disabled = true;
+  try {
+    const resp = await llamarReportesWrite({ accion: 'financiacion-actualizar-estado', fila, estado });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: 'Plan marcado como ' + estado });
+    await cargarFinanciacion();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo actualizar: ' + error.message });
+    boton.disabled = false;
+  }
+}
+
+async function ejecutarCancelacionFinanciacion(fila, imei, devolucionUsd, boton) {
+  boton.disabled = true;
+  try {
+    const resp = await llamarReportesWrite({
+      accion: 'financiacion-actualizar-estado', fila, estado: 'Cancelado',
+      montoDevueltoUsd: Number(devolucionUsd.toFixed(2))
+    });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+
+    // Igual que Reservas: si el equipo estaba "Financiacion Propia" en Stock
+    // por este plan, se libera de vuelta a "En Stock".
+    if (imei) {
+      try {
+        const sesion = sesionGuardada();
+        const busqueda = await llamarStockWrite({ accion: 'buscarImei', ultimos4: imei });
+        if (busqueda.ok && busqueda.resultados.length === 1 && busqueda.resultados[0].estado === 'Financiacion Propia') {
+          await llamarStockWrite({ accion: 'liberarReserva', fila: busqueda.resultados[0].fila, usuario: sesion ? sesion.nombre : '' });
+          await actualizarStockEnVivo();
+        }
+      } catch (error) {
+        // No bloquea -- el plan ya quedo Cancelado, esto es una mejora.
+      }
+    }
+
+    MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Plan cancelado -- entregarle al cliente USD ${devolucionUsd.toFixed(2)}` });
+    await cargarFinanciacion();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo actualizar: ' + error.message });
+    boton.disabled = false;
+  }
+}
+
+// Arma el mensaje de WhatsApp con el saldo pendiente de un plan puntual y
+// lo copia al portapapeles -- mismo patron de copiado que ExportarInfo /
+// ExportarCarrito (textarea temporal + execCommand('copy')) en app.js.
+async function copiarMensajeFinanciacion(fila) {
+  let planes, pagos;
+  try {
+    const [respPlanes, respPagos] = await Promise.all([
+      fetch('/reportes/FinanciacionPropia').then(r => r.json()),
+      fetch('/reportes/FinanciacionPagos').then(r => r.json())
+    ]);
+    if (respPlanes.error) throw new Error(respPlanes.error);
+    if (respPagos.error) throw new Error(respPagos.error);
+    planes = filasAObjetos(respPlanes.encabezados, respPlanes.filas);
+    pagos = filasAObjetos(respPagos.encabezados, respPagos.filas);
+  } catch (error) {
+    return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo armar el mensaje: ' + error.message });
+  }
+
+  const plan = planes[fila - 2];
+  if (!plan) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se encontro ese plan' });
+
+  const totalUsd = Number(plan['MontoTotalUsd']) || 0;
+  const pagadoUsd = pagos.filter(p => Number(p['PlanFila']) === fila).reduce((s, p) => s + (Number(p['MontoUsd']) || 0), 0);
+  const saldoUsd = Math.max(0, totalUsd - pagadoUsd);
+  const dolarHoy = (typeof DATA !== 'undefined' && DATA.dolar) ? DATA.dolar.DolarVenta : null;
+  const saldoArsTexto = dolarHoy ? ` (${formatNumberArg(saldoUsd * dolarHoy)})` : '';
+
+  const nombre = String(plan['Cliente'] || '').split(' ')[0] || plan['Cliente'] || '';
+  const mensaje = saldoUsd > 0
+    ? `Hola ${nombre}! Te paso el saldo pendiente de tu ${plan['Equipo']}: USD ${saldoUsd.toFixed(2)}${saldoArsTexto}. Cualquier duda me escribis, gracias!`
+    : `Hola ${nombre}! Tu ${plan['Equipo']} ya esta pago por completo -- pasa cuando quieras a retirarlo. Gracias!`;
+
+  const el = document.createElement('textarea');
+  el.value = mensaje;
+  document.body.appendChild(el);
+  el.select();
+  document.execCommand('copy');
+  document.body.removeChild(el);
+  MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: 'Se copio el mensaje de WhatsApp' });
+}

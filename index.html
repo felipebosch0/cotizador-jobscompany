@@ -5933,6 +5933,8 @@
               <button type="button" class="btn-act" data-action="btnCPrecios">Precios</button>
               <button type="button" class="btn-act" data-action="btnCStock">Stock</button>
               <button type="button" class="btn-act" data-action="btnCReservas">Reservas</button>
+              <!-- Solo Independencia -- financiacion propia (ver cargarSucursal en app.js). -->
+              <button type="button" class="btn-act oculto" id="btnCFinanciacion" data-action="btnCFinanciacion">Financiacion</button>
               <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
               <button type="button" class="btn-act oculto" id="btnCReportes" data-action="btnCReportes">Reportes</button>
 
@@ -6163,6 +6165,37 @@
                       <tr><th>Fecha</th><th>Cliente</th><th>Telefono</th><th>Equipo</th><th>Observaciones</th><th>Vendedor</th><th>Sucursal</th><th>Sena</th><th>Total</th><th>Saldo pendiente</th><th>Estado</th><th></th></tr>
                     </thead>
                     <tbody id="bodyReservas"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- ============================ FINANCIACION PROPIA ============================
+                   Solo Independencia. Un plan por cliente/equipo, se inicia desde el Carrito
+                   (boton "Iniciar financiacion propia", ver AbrirModalFinanciacion en app.js) y
+                   se le van cargando pagos parciales aca hasta cubrir el total -- toda la logica
+                   vive en reportes.js, mismo Sheet/Apps Script que Reservas. -->
+              <div id="vistaFinanciacion" class="col-12 sp-t sp-l oculto">
+                <div class="form-line col-12 sp-t">
+                  <div class="form-group-total" style="display:flex; align-items:flex-end; gap:12px;">
+                    <div style="flex:1;">
+                      <label>Estado</label>
+                      <select id="selectFinanciacionEstado">
+                        <option value="Activo">Activos</option>
+                        <option value="todas">Todos</option>
+                        <option value="Completado">Completados</option>
+                        <option value="Cancelado">Cancelados</option>
+                      </select>
+                    </div>
+                    <i class="fas fa-sync-alt" id="refrescarFinanciacion" title="Actualizar" style="cursor:pointer; padding-bottom:10px;"></i>
+                  </div>
+                </div>
+                <p id="financiacionVacio" class="sm-t oculto">Sin planes de financiacion para mostrar.</p>
+                <div class="table-responsive">
+                  <table class="table2 table-sortable oculto" id="tablaFinanciacion">
+                    <thead>
+                      <tr><th>Fecha</th><th>Cliente</th><th>Telefono</th><th>Equipo</th><th>Total (USD)</th><th>Pagado</th><th>Saldo pendiente</th><th>Estado</th><th></th></tr>
+                    </thead>
+                    <tbody id="bodyFinanciacion"></tbody>
                   </table>
                 </div>
               </div>
@@ -6418,6 +6451,7 @@
                 <button type="button" class="btn-total oculto" id="btnImprimirGarantia" style="margin-top:8px; background:#333;">Imprimir garantia</button>
                 <button type="button" class="btn-total oculto" id="btnImprimirDeclaracion" style="margin-top:8px; background:#333;">Imprimir declaracion jurada</button>
                 <button type="button" class="btn-total oculto" id="btnImprimirReserva" style="margin-top:8px; background:#333;">Imprimir reserva</button>
+                <button type="button" class="btn-total oculto" id="btnIniciarFinanciacion" style="margin-top:8px; background:#333;">Iniciar financiacion propia</button>
               </div>
             </div>
           </div>
@@ -6524,6 +6558,40 @@
         <input type="text" id="rsObservaciones" placeholder="Ej. paga el saldo el viernes" autocomplete="off">
       </div>
       <button type="button" class="btn-total sp-t" id="btnConfirmarReserva">Confirmar e imprimir</button>
+    </div>
+  </div>
+
+  <div id="modalFinanciacion" class="modal">
+    <div class="modal-content" style="max-width:420px;">
+      <span class="close" id="cerrarModalFinanciacion">&times;</span>
+      <h3>Iniciar financiacion propia</h3>
+      <p class="sm-t" id="fpMontoInfo"></p>
+      <div class="form-group-total sp-t">
+        <label>Nombre y apellido del cliente</label>
+        <input type="text" id="fpNombre" placeholder="Nombre completo" autocomplete="off">
+      </div>
+      <div class="form-group-total sp-t">
+        <label>Telefono del cliente</label>
+        <input type="text" id="fpTelefono" placeholder="Ej. 351 1234567" autocomplete="off" inputmode="tel">
+      </div>
+      <div class="form-group-total sp-t">
+        <label>IMEI del equipo (opcional)</label>
+        <input type="text" id="fpImei" placeholder="Si ya se sabe cual se aparta -- 15 digitos" autocomplete="off" inputmode="numeric">
+      </div>
+      <button type="button" class="btn-total sp-t" id="btnConfirmarFinanciacion">Iniciar plan</button>
+    </div>
+  </div>
+
+  <div id="modalPagoFinanciacion" class="modal">
+    <div class="modal-content" style="max-width:380px;">
+      <span class="close" id="cerrarModalPagoFinanciacion">&times;</span>
+      <h3>Registrar pago</h3>
+      <p class="sm-t" id="fppInfo"></p>
+      <div class="form-group-total sp-t">
+        <label>Monto pagado (pesos)</label>
+        <input type="text" id="fppMonto" placeholder="$0" autocomplete="off" inputmode="numeric">
+      </div>
+      <button type="button" class="btn-total sp-t" id="btnConfirmarPagoFinanciacion">Registrar</button>
     </div>
   </div>
 
