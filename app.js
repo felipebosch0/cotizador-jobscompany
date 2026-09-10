@@ -556,6 +556,7 @@ function ExportarCarrito() {
 // ============================ TABS / RESET ============================
 
 function ResetFormCotizador() {
+  precioVentaEditadoManual = false;
   principalDiv.querySelector('#formVenta').reset();
   principalDiv.querySelector('#formTradeIn').reset();
   principalDiv.querySelector('#formReparacion').reset();
@@ -852,6 +853,14 @@ function PrecioAccesorio() {
 
 // ============================ VENTA EQUIPO ============================
 
+// Independencia: el vendedor puede sobreescribir el "Precio venta" (USD) a
+// mano. Este flag marca que ese numero YA NO sale de la lista de precios,
+// para que PreciosVentaE -- que tambien se dispara al cargar la entrega en
+// efectivo -- no lo pise con el valor original. Se resetea al cambiar
+// modelo/condicion/capacidad/bateria (ahi si es otro equipo) y al resetear
+// el formulario.
+let precioVentaEditadoManual = false;
+
 function PreciosVentaE() {
   const condicion = $('#formVenta select[name="tipoEquipo"]').val();
   const capacidad = $('#formVenta select[name="capacidadV"]').val();
@@ -878,6 +887,14 @@ function PreciosVentaE() {
     precioUsd = tier ? tier.precio : null;
   } else {
     precioUsd = equipo && equipo.capacidades[capacidad] ? equipo.capacidades[capacidad][condicion] : null;
+  }
+
+  // Si el vendedor ya edito el precio a mano (solo Independencia), ese
+  // numero manda -- no se vuelve a tomar el de la lista. Asi, cargar la
+  // entrega en efectivo despues de editar el precio no revierte el cambio.
+  if (precioVentaEditadoManual && sucursalActual === 'Independencia') {
+    const usdManual = Number(String($('#formVenta input[name="PVentaEquipo"]').val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
+    if (usdManual > 0) precioUsd = usdManual;
   }
 
   if (precioUsd == null) {
@@ -2359,6 +2376,7 @@ function iniciarApp(sesion) {
   }
 
   $('#formVenta select[name="modeloV"]').change(function () {
+    precioVentaEditadoManual = false;
     const equipo = buscarEquipoVenta($(this).val());
     const selectCondicion = $('#formVenta select[name="tipoEquipo"]');
     selectCondicion.children('option:not(:first)').remove();
@@ -2370,6 +2388,7 @@ function iniciarApp(sesion) {
   });
 
   $('#formVenta select[name="tipoEquipo"]').change(function () {
+    precioVentaEditadoManual = false;
     const equipo = buscarEquipoVenta($('#formVenta select[name="modeloV"]').val());
     const condicion = $(this).val();
     const selectCapacidad = $('#formVenta select[name="capacidadV"]');
@@ -2380,6 +2399,7 @@ function iniciarApp(sesion) {
   });
 
   $('#formVenta select[name="capacidadV"]').change(function () {
+    precioVentaEditadoManual = false;
     const equipo = buscarEquipoVenta($('#formVenta select[name="modeloV"]').val());
     const condicion = $('#formVenta select[name="tipoEquipo"]').val();
     const capacidad = $(this).val();
@@ -2395,7 +2415,11 @@ function iniciarApp(sesion) {
     PreciosVentaE();
   });
 
-  $('#formVenta select[name="estadoBateria"], #formVenta input[name="EntregaAdelanto"], #formVenta input[name="EntregaAdelantoUsd"]').on('input change', PreciosVentaE);
+  $('#formVenta select[name="estadoBateria"]').on('change', function () {
+    precioVentaEditadoManual = false;
+    PreciosVentaE();
+  });
+  $('#formVenta input[name="EntregaAdelanto"], #formVenta input[name="EntregaAdelantoUsd"]').on('input change', PreciosVentaE);
 
   // Independencia: "Precio venta" (USD) y "Precio pagando en efectivo" (ARS)
   // dejan de ser de solo lectura -- el vendedor los puede sobreescribir a
@@ -2404,6 +2428,7 @@ function iniciarApp(sesion) {
   // tal cual y solo se actualiza la financiacion en base a ese numero.
   $('#formVenta input[name="PVentaEquipo"]').on('input', function () {
     if ($(this).prop('readonly')) return;
+    precioVentaEditadoManual = true;
     const usd = Number(String($(this).val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
     const adelantoArs = Number($('#formVenta input[name="EntregaAdelanto"]').val()) || 0;
     const adelantoUsd = Number($('#formVenta input[name="EntregaAdelantoUsd"]').val()) || 0;
