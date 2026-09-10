@@ -75,9 +75,16 @@ window.COTIZADOR_DATA = {
     // ese umbral), y los precios estan en USD igual que el resto de la
     // lista.
     // "Todas las baterias" = un unico precio sin importar el % de bateria
-    // (asi decia el excel para 16/16 Pro/16 Pro Max).
-    // Los modelos 17/17 Pro/17 Pro Max/17 Air solo vinieron con precio de
-    // Sellado (el excel no trajo Semi Nuevo para esos todavia).
+    // (cuando el excel no discrimina por bateria para ese modelo).
+    // Los modelos 17/17 Pro/17 Pro Max/17 Air solo tienen precio de Sellado
+    // cargado aca (el excel ya trae seminuevo de 17 y 17 Pro, pero todavia
+    // no se sumaron).
+    //
+    // Precios seminuevo revisados contra el excel "STOCK TIO JOBS" (columna
+    // "PRECIO USD 20% DESCUENTO" = precio efectivo). Los modelos que no
+    // estan en el excel (11/11 Pro/11 Pro Max, 12 64Gb, 13 Pro, 13 Pro Max
+    // 256Gb, 14 Pro Max 256Gb, 15 Pro Max) se dejaron con el valor que ya
+    // tenian -- no habia con que compararlos.
     'Independencia': [
       { modelo: 'iPhone 11',         capacidades: {
         '64Gb':  { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 200 }] },
@@ -105,11 +112,12 @@ window.COTIZADOR_DATA = {
         '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 400 }] }
       } },
       { modelo: 'iPhone 13',         capacidades: {
+        // Excel Tio Jobs: 98% ya vale igual que 100% ($380), no hay tramo
+        // intermedio a $350 -- se saco.
         '128Gb': { sellado: null, seminuevoTiers: [
           { etiqueta: 'Menor a 80%', precio: 300 },
           { etiqueta: '80% a 90%',   precio: 330 },
-          { etiqueta: '90% a 98%',   precio: 350 },
-          { etiqueta: '100%',        precio: 380 }
+          { etiqueta: '90% a 100%',  precio: 380 }
         ] }
       } },
       { modelo: 'iPhone 13 Pro',     capacidades: {
@@ -127,22 +135,33 @@ window.COTIZADOR_DATA = {
         ] }
       } },
       { modelo: 'iPhone 14 Pro',     capacidades: {
+        // Excel Tio Jobs: 100% -> $520, ~86-99% -> $500, menos de 86% -> $470.
         '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 80%', precio: 500 },
-          { etiqueta: '80% a 90%',   precio: 550 },
-          { etiqueta: '90% a 100%',  precio: 580 }
+          { etiqueta: 'Menor a 86%', precio: 470 },
+          { etiqueta: '86% a 99%',   precio: 500 },
+          { etiqueta: '100%',        precio: 520 }
         ] }
       } },
       { modelo: 'iPhone 14 Pro Max', capacidades: {
-        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 650 }] },
+        // Excel Tio Jobs: unica unidad de referencia a 87% -> $680 (128Gb).
+        // 256Gb no vino en el excel -- se deja el valor anterior.
+        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '85% a 100%', precio: 680 }] },
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 680 }] }
       } },
       { modelo: 'iPhone 15',         capacidades: {
         '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
-        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 600 }] },
-        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 760 }] }
+        // Excel Tio Jobs: 128Gb 80%+ -> $600, menos de 80% -> $550.
+        // 256Gb 81%+ -> $680, menos de 81% -> $650 (no hay unidades 100%).
+        '128Gb': { sellado: null, seminuevoTiers: [
+          { etiqueta: 'Menor a 80%', precio: 550 },
+          { etiqueta: '80% a 100%',  precio: 600 }
+        ] },
+        '256Gb': { sellado: null, seminuevoTiers: [
+          { etiqueta: 'Menor a 81%', precio: 650 },
+          { etiqueta: '81% a 100%',  precio: 680 }
+        ] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 800 }] },
@@ -152,10 +171,10 @@ window.COTIZADOR_DATA = {
         '128Gb': { sellado: 950, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 725 }] }
       } },
       { modelo: 'iPhone 16 Pro',     capacidades: {
-        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 850 }] }
+        '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 780 }] }
       } },
       { modelo: 'iPhone 16 Pro Max', capacidades: {
-        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 975 }] }
+        '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 950 }] }
       } },
       { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1060, seminuevoTiers: [] } } },
       { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1290, seminuevoTiers: [] } } },
