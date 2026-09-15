@@ -246,7 +246,12 @@ function actualizarModuloStock(modelo) {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${sucursalTexto}</td>`;
+    // Estado real de la unidad -- antes esta columna no se llenaba (el <td>
+    // que caia en la posicion de "Estado" en realidad tenia el texto de
+    // Observaciones, corrido), asi que un equipo Reservado o en un plan de
+    // Financiacion Propia se veia identico a uno realmente disponible.
+    if (u.estado && u.estado !== 'En Stock') tr.style.background = 'rgba(241,196,15,0.15)';
+    tr.innerHTML = `<td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${u.estado || ''}</td><td>${sucursalTexto}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
@@ -305,7 +310,9 @@ function actualizarVistaStockCompleto() {
     const grupo = grupoDeSucursal(u.sucursal);
     const sucursalTexto = grupo ? u.sucursal : 'Depo';
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
-    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${sucursalTexto}</td>`;
+    // Ver comentario equivalente en actualizarModuloStock -- misma correccion.
+    if (u.estado && u.estado !== 'En Stock') tr.style.background = 'rgba(241,196,15,0.15)';
+    tr.innerHTML = `<td>${u.modelo}</td><td>${capacidad}</td><td>${u.bateria}%</td><td>${u.color}</td><td>${precioStockTexto(u)}</td><td>${u.falla || ''}</td><td>${u.observaciones}</td><td>${u.estado || ''}</td><td>${sucursalTexto}</td>`;
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
