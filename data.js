@@ -176,10 +176,14 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 16 Pro Max', capacidades: {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 950 }] }
       } },
-      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1060, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1290, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17 Pro Max', capacidades: { '256Gb': { sellado: 1390, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [] } } }
+      // Semi Nuevo de la gama 17 (Independencia): USD 150 menos que el
+      // Sellado del mismo modelo/capacidad -- asi se puede armar la venta
+      // e imprimir la garantia de un 17 semi nuevo, que antes no tenia
+      // ningun precio cargado (solo estaba el Sellado).
+      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1060, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
+      { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1290, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] } } },
+      { modelo: 'iPhone 17 Pro Max', capacidades: { '256Gb': { sellado: 1390, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] } } },
+      { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 980 }] } } }
     ]
   },
 
