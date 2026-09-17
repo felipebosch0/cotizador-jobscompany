@@ -1743,13 +1743,10 @@ async function imprimirReserva(datos) {
   const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
   const fecha = new Date().toLocaleDateString('es-AR');
 
-  // Si el cliente entrego un equipo en Trade In como parte de pago de esta
-  // misma reserva, se lo aclara aparte -- su valor ya esta restado del
-  // "Precio total" de abajo, no es un descuento adicional.
-  const boxTradeIn = datos.tradeIn
-    ? `<div class="box"><strong>Plan canje incluido</strong><p>${datos.tradeIn.modelo} (-${formatNumberArg(-datos.tradeIn.valor)})</p></div>`
-    : '';
-
+  // El papel solo informa que equipo se reservo y cuanto se dejo de sena --
+  // no el precio total ni el saldo pendiente ni el detalle del canje (eso
+  // sigue quedando registrado en el modulo de Reservas / Sheet, pero no se
+  // imprime en el papel que se lleva el cliente).
   const contenido = `
   ${encabezadoLogo}
   <h1>Reserva de equipo</h1>
@@ -1763,12 +1760,7 @@ async function imprimirReserva(datos) {
     <p>${datos.modelo} ${datos.capacidad} (${datos.condicion})</p>
   </div>
 
-  ${boxTradeIn}
-
-  <div class="campo" style="margin-top:16px;"><strong>Precio total:</strong> ${formatNumberArg(datos.total)}</div>
-  <div class="campo"><strong>Sena entregada:</strong> ${formatNumberArg(datos.sena)}</div>
-  <div class="campo"><strong>Saldo pendiente:</strong> ${formatNumberArg(datos.saldoPendiente)}</div>
-  ${datos.tradeIn ? '<p style="color:#666; font-size:13px;">El precio total ya incluye el descuento del plan canje detallado arriba.</p>' : ''}
+  <div class="campo" style="margin-top:16px;"><strong>Sena entregada:</strong> ${formatNumberArg(datos.sena)}</div>
 
   <p style="margin-top:16px;">Este documento garantiza el equipo antes descripto. La reserva tiene
   validez de 10 dias habiles; pasado ese plazo sin abonar el saldo pendiente, el local se reserva el derecho de
