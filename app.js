@@ -1387,12 +1387,16 @@ function poblarSelectVendedor(selectId) {
   const select = document.getElementById(selectId);
   select.innerHTML = '';
   const nombres = vendedoresDeSucursal(sucursalActual);
-  // El admin logueado (ej. atendiendo el mostrador el mismo) no figura en
-  // USUARIOS con rol 'vendedor', asi que no saldria en la lista -- se
-  // agrega su nombre igual, al principio, para que se pueda elegir.
-  if (sesion && nombres.indexOf(sesion.nombre) === -1) nombres.unshift(sesion.nombre);
+  // Si quien esta logueado es un vendedor real, se agrega su nombre igual
+  // por si no esta en la lista. Si es una cuenta admin (Administrador/
+  // felipe), en vez de mostrar "Administrador" en el selector (no es un
+  // vendedor real, no tiene sentido acreditarle una venta) se ofrece
+  // "vicky" como opcion por defecto -- es quien suele atender el mostrador
+  // con la cuenta de administrador.
+  const nombrePropio = sesion && sesion.rol === 'admin' ? 'vicky' : (sesion ? sesion.nombre : null);
+  if (nombrePropio && nombres.indexOf(nombrePropio) === -1) nombres.unshift(nombrePropio);
   nombres.forEach(n => select.appendChild(new Option(n, n)));
-  if (sesion && nombres.indexOf(sesion.nombre) !== -1) select.value = sesion.nombre;
+  if (nombrePropio && nombres.indexOf(nombrePropio) !== -1) select.value = nombrePropio;
 }
 
 function AbrirModalGarantia() {
