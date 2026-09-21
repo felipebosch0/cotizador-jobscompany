@@ -332,7 +332,9 @@ window.COTIZADOR_DATA = {
           'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
           'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
           'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
-          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
+          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 },
+          // Promo: A16 128GB + Apple Pencil (certificado) + funda incluidos.
+          'A16 (2025) - 11" 128GB + Pencil + Funda (PROMO)': { seminuevo: null, sellado: 775 }
         } }
     ],
     'Independencia': [
@@ -342,7 +344,9 @@ window.COTIZADOR_DATA = {
           'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
           'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
           'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
-          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 }
+          'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 },
+          // Promo: A16 128GB + Apple Pencil (certificado) + funda incluidos.
+          'A16 (2025) - 11" 128GB + Pencil + Funda (PROMO)': { seminuevo: null, sellado: 675 }
         } }
     ]
   },
