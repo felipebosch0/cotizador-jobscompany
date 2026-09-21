@@ -582,7 +582,11 @@ function Venta() {
 function Reparacion() { ResetFormCotizador(); $('#formReparacion').removeClass('oculto').addClass('vista'); }
 function Precios() { ResetFormCotizador(); $('#tablaPreciosSolos').removeClass('oculto').addClass('vista'); CargarSoloPrecios(); }
 function Stock() { ResetFormCotizador(); $('#vistaStock').removeClass('oculto').addClass('vista'); poblarSelectStockModelo(); actualizarVistaStockCompleto(); }
-function IngresoEgreso() { ResetFormCotizador(); $('#vistaIngresoEgreso').removeClass('oculto').addClass('vista'); }
+function IngresoEgreso() {
+  ResetFormCotizador();
+  $('#vistaIngresoEgreso').removeClass('oculto').addClass('vista');
+  poblarSelectVendedor('ingresoVendedor');
+}
 // Definida en reportes.js -- se llama igual que el resto de las pestanas
 // (ver dispatcher de data-action mas abajo) para no romper el patron.
 function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('oculto').addClass('vista'); if (typeof iniciarReportes === 'function') iniciarReportes(); }
@@ -653,10 +657,11 @@ async function ConfirmarIngreso() {
   if (bateria > 1) bateria = bateria / 100;
 
   const sesionIngreso = sesionGuardada();
+  const vendedorIngreso = $('#ingresoVendedor').val() || (sesionIngreso ? sesionIngreso.nombre : '');
   const boton = document.getElementById('btnConfirmarIngreso');
   boton.disabled = true;
   try {
-    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones, falla, usuario: sesionIngreso ? sesionIngreso.nombre : '' });
+    const resp = await llamarStockWrite({ accion: 'ingreso', modelo, capacidad, bateria, color, imei, sucursal, observaciones, falla, usuario: vendedorIngreso, propietario: vendedorIngreso });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     MostrarAlerta({ tipo: 'success', title: 'Ingreso', mnsj: `${modelo} ${capacidad}Gb agregado al stock` });
     $('#ingresoModelo, #ingresoCapacidad, #ingresoBateria, #ingresoColor, #ingresoImei, #ingresoFalla').val('');
@@ -724,6 +729,79 @@ async function ConfirmarBaja(fila, boton) {
     await actualizarStockEnVivo();
   } catch (error) {
     MostrarAlerta({ tipo: 'error', title: 'Egreso', mnsj: 'No se pudo dar de baja: ' + error.message });
+    boton.disabled = false;
+  }
+}
+
+// ============================ TRANSFERENCIA ENTRE DEPOSITOS ============================
+// Mueve una unidad de un deposito a otro sin darla de baja (mismo patron de
+// busqueda por ultimos digitos del IMEI que Egreso, pero en vez de "Dar de
+// baja" el boton pide el deposito destino y llama a la accion "transferir"
+// del Apps Script -- ver manejarTransferencia en StockWrite.gs).
+const DEPOSITOS_STOCK = ['OLMOS', 'DINO', 'NUEVO CENTRO', 'INDEPENDENCIA', 'DEPO', 'SERVICIO TECNICO'];
+
+async function BuscarImeiTransferencia() {
+  const ultimos = $('#transferenciaUltimosDigitos').val().trim();
+  const contenedor = document.getElementById('transferenciaResultados');
+  contenedor.innerHTML = '';
+
+  if (!ultimos) return MostrarAlerta({ tipo: 'error', title: 'Transferencia', mnsj: 'Escribi los ultimos digitos del IMEI' });
+
+  const boton = document.getElementById('btnBuscarImeiTransferencia');
+  boton.disabled = true;
+  try {
+    const resp = await llamarStockWrite({ accion: 'buscarImei', ultimos4: ultimos });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+
+    if (!resp.resultados.length) {
+      contenedor.innerHTML = '<p class="sm-t">No se encontro ningun equipo activo con esos digitos.</p>';
+      return;
+    }
+
+    const tabla = document.createElement('table');
+    tabla.className = 'table2';
+    tabla.innerHTML = '<thead><tr><th>Modelo</th><th>Capacidad</th><th>Color</th><th>IMEI</th><th>Deposito actual</th><th>Deposito destino</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+    resp.resultados.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.modelo}</td><td>${r.capacidad}</td><td>${r.color}</td><td>${r.imei}</td><td>${r.sucursal}</td><td></td><td></td>`;
+      const tdSelect = tr.children[5];
+      const select = document.createElement('select');
+      select.appendChild(new Option('Elegi un deposito', ''));
+      DEPOSITOS_STOCK.forEach(d => select.appendChild(new Option(d, d)));
+      tdSelect.appendChild(select);
+
+      const tdBoton = tr.lastElementChild;
+      const btnTransferir = document.createElement('button');
+      btnTransferir.type = 'button';
+      btnTransferir.className = 'btn-total';
+      btnTransferir.textContent = 'Transferir';
+      btnTransferir.addEventListener('click', () => ConfirmarTransferencia(r.fila, select.value, btnTransferir));
+      tdBoton.appendChild(btnTransferir);
+      tbody.appendChild(tr);
+    });
+    tabla.appendChild(tbody);
+    contenedor.appendChild(tabla);
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Transferencia', mnsj: 'No se pudo buscar: ' + error.message });
+  } finally {
+    boton.disabled = false;
+  }
+}
+
+async function ConfirmarTransferencia(fila, sucursalDestino, boton) {
+  if (!sucursalDestino) return MostrarAlerta({ tipo: 'error', title: 'Transferencia', mnsj: 'Elegi el deposito destino' });
+  boton.disabled = true;
+  try {
+    const sesion = sesionGuardada();
+    const resp = await llamarStockWrite({ accion: 'transferir', fila, sucursalDestino, usuario: sesion ? sesion.nombre : '' });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+    MostrarAlerta({ tipo: 'success', title: 'Transferencia', mnsj: 'Equipo transferido a ' + sucursalDestino });
+    $('#transferenciaUltimosDigitos').val('');
+    document.getElementById('transferenciaResultados').innerHTML = '';
+    await actualizarStockEnVivo();
+  } catch (error) {
+    MostrarAlerta({ tipo: 'error', title: 'Transferencia', mnsj: 'No se pudo transferir: ' + error.message });
     boton.disabled = false;
   }
 }
@@ -1298,6 +1376,25 @@ function esTelefono(modelo) {
 // cada vez que se abre el modal (equipo/IMEI distintos = aviso de nuevo).
 let garantiaGenerarPendienteImei = null;
 
+// Llena un <select> con los vendedores de la sucursal actual -- se usa en
+// los modales de Garantia/Reserva/Financiacion y en el panel de Ingreso de
+// stock, para que se pueda acreditar la venta a quien realmente atendio,
+// sin depender de que cada uno se loguee con su propio usuario (que en la
+// practica no pasa). El usuario logueado queda preseleccionado, pero se
+// puede cambiar libremente antes de confirmar.
+function poblarSelectVendedor(selectId) {
+  const sesion = sesionGuardada();
+  const select = document.getElementById(selectId);
+  select.innerHTML = '';
+  const nombres = vendedoresDeSucursal(sucursalActual);
+  // El admin logueado (ej. atendiendo el mostrador el mismo) no figura en
+  // USUARIOS con rol 'vendedor', asi que no saldria en la lista -- se
+  // agrega su nombre igual, al principio, para que se pueda elegir.
+  if (sesion && nombres.indexOf(sesion.nombre) === -1) nombres.unshift(sesion.nombre);
+  nombres.forEach(n => select.appendChild(new Option(n, n)));
+  if (sesion && nombres.indexOf(sesion.nombre) !== -1) select.value = sesion.nombre;
+}
+
 function AbrirModalGarantia() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
@@ -1306,6 +1403,7 @@ function AbrirModalGarantia() {
   }
   garantiaGenerarPendienteImei = null;
   $('#gtImei, #gtColor').val('');
+  poblarSelectVendedor('gtVendedor');
   // AirPods/Apple Watch/MacBook/iPad/Apple Pencil no tienen IMEI, tienen
   // numero de serie (letras y numeros) -- se cambia el campo segun que
   // haya en el carrito, en vez de exigir siempre 15 digitos.
@@ -1387,7 +1485,10 @@ async function ConfirmarGarantia() {
     }
 
     const sesion = sesionGuardada();
-    const vendedorStock = sesion ? sesion.nombre : '';
+    // Se acredita al vendedor elegido en el modal, no necesariamente al
+    // usuario logueado (ver poblarSelectVendedor) -- asi Stock, VentasEquipos
+    // y la planilla de pagos quedan consistentes con quien atendio de verdad.
+    const vendedorStock = $('#gtVendedor').val() || (sesion ? sesion.nombre : '');
 
     if (!busqueda.resultados.length) {
       if (garantiaGenerarPendienteImei !== imei) {
@@ -1455,7 +1556,7 @@ async function ConfirmarGarantia() {
   // si hay un Trade In cargado en el carrito.
   const tradeInCarrito = tradeInDelCarrito();
   const sesion = sesionGuardada();
-  const vendedorGarantia = sesion ? sesion.nombre : '';
+  const vendedorGarantia = $('#gtVendedor').val() || (sesion ? sesion.nombre : '');
 
   // Se guarda en el Sheet de Reportes (pestana VentasEquipos) -- un
   // registro por cada venta de equipo, pensado para metricas (tendencias,
@@ -1491,7 +1592,7 @@ async function ConfirmarGarantia() {
     precio: equipo.precio + totalAccesorios,
     accesorios,
     observaciones,
-    vendedor: sesion ? sesion.nombre : '',
+    vendedor: vendedorGarantia,
     tradeIn: tradeInCarrito ? { modelo: tradeInCarrito.modelo, precio: tradeInCarrito.precio } : null
   });
   CerrarModalGarantia();
@@ -1639,6 +1740,7 @@ function AbrirModalReserva() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'No hay ningun equipo en el carrito' });
   $('#rsNombre, #rsTelefono, #rsSena, #rsImei, #rsObservaciones').val('');
+  poblarSelectVendedor('rsVendedor');
   const campoImei = document.getElementById('rsImei');
   if (esTelefono(equipo.modelo)) {
     campoImei.placeholder = 'Si ya se sabe cual se aparta -- 15 digitos';
@@ -1676,7 +1778,7 @@ async function ConfirmarReserva() {
   const total = totalCarrito();
   const sesion = sesionGuardada();
   const saldoPendiente = Math.max(0, total - sena);
-  const vendedor = sesion ? sesion.nombre : '';
+  const vendedor = $('#rsVendedor').val() || (sesion ? sesion.nombre : '');
   const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
 
   // Si hay un Trade In en el carrito, su valor ya esta descontado del
@@ -1815,6 +1917,7 @@ function AbrirModalFinanciacion() {
   const equipo = equipoPrincipalDelCarrito();
   if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No hay ningun equipo en el carrito' });
   $('#fpNombre, #fpTelefono, #fpImei').val('');
+  poblarSelectVendedor('fpVendedor');
   const montoUsd = Math.round(totalCarrito() / DATA.dolar.DolarVenta);
   document.getElementById('fpMontoInfo').textContent =
     `Monto total del plan: USD ${montoUsd} (${formatNumberArg(totalCarrito())} al dolar de hoy). ` +
@@ -1850,7 +1953,7 @@ async function ConfirmarFinanciacion() {
 
   const montoTotalUsd = Math.round(totalCarrito() / DATA.dolar.DolarVenta);
   const sesion = sesionGuardada();
-  const vendedor = sesion ? sesion.nombre : '';
+  const vendedor = $('#fpVendedor').val() || (sesion ? sesion.nombre : '');
   const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
 
   let respuesta;
@@ -2241,12 +2344,13 @@ function iniciarApp(sesion) {
   document.getElementById('selectStockModelo').addEventListener('change', actualizarVistaStockCompleto);
 
   document.getElementById('selectTipoOperacion').addEventListener('change', function () {
-    const esIngreso = this.value === 'ingreso';
-    $('#panelIngreso').toggleClass('oculto', !esIngreso);
-    $('#panelEgreso').toggleClass('oculto', esIngreso);
+    $('#panelIngreso').toggleClass('oculto', this.value !== 'ingreso');
+    $('#panelEgreso').toggleClass('oculto', this.value !== 'egreso');
+    $('#panelTransferencia').toggleClass('oculto', this.value !== 'transferencia');
   });
   document.getElementById('btnConfirmarIngreso').addEventListener('click', ConfirmarIngreso);
   document.getElementById('btnBuscarImei').addEventListener('click', BuscarImei);
+  document.getElementById('btnBuscarImeiTransferencia').addEventListener('click', BuscarImeiTransferencia);
 
   document.getElementById('btnImprimirDeclaracion').addEventListener('click', AbrirModalDeclaracion);
   document.getElementById('cerrarModalDeclaracion').addEventListener('click', CerrarModalDeclaracion);

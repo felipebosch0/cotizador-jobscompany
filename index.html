@@ -6206,11 +6206,18 @@
                   <select id="selectTipoOperacion">
                     <option value="ingreso">Ingreso (alta de equipo)</option>
                     <option value="egreso">Egreso (dar de baja por IMEI)</option>
+                    <option value="transferencia">Transferencia entre depositos</option>
                   </select>
                 </div>
 
                 <div id="panelIngreso">
                   <div class="form-line col-6 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>Vendedor / quien recibe</label>
+                      <select id="ingresoVendedor"></select>
+                    </div>
+                  </div>
+                  <div class="form-line col-6 sp-t sp-l sp-r">
                     <div class="form-group-total">
                       <label>Modelo</label>
                       <input type="text" id="ingresoModelo" placeholder="Ej. iPhone 13" autocomplete="off">
@@ -6279,6 +6286,19 @@
                     <button type="button" class="btn-total" id="btnBuscarImei" style="width:100%;">Buscar</button>
                   </div>
                   <div id="egresoResultados"></div>
+                </div>
+
+                <div id="panelTransferencia" class="oculto">
+                  <div class="form-line col-8 sp-t sp-l">
+                    <div class="form-group-total">
+                      <label>Ultimos digitos del IMEI</label>
+                      <input type="text" id="transferenciaUltimosDigitos" placeholder="Ej. 4821" autocomplete="off">
+                    </div>
+                  </div>
+                  <div class="form-line col-4 sp-t sp-l sp-r" style="display:flex; align-items:flex-end;">
+                    <button type="button" class="btn-total" id="btnBuscarImeiTransferencia" style="width:100%;">Buscar</button>
+                  </div>
+                  <div id="transferenciaResultados"></div>
                 </div>
               </div>
 
@@ -6512,6 +6532,10 @@
       <span class="close" id="cerrarModalGarantia">&times;</span>
       <h3>Datos del equipo</h3>
       <div class="form-group-total sp-t">
+        <label>Vendedor</label>
+        <select id="gtVendedor"></select>
+      </div>
+      <div class="form-group-total sp-t">
         <label>IMEI / Serie</label>
         <input type="text" id="gtImei" placeholder="15 digitos" autocomplete="off" inputmode="numeric">
       </div>
@@ -6537,6 +6561,10 @@
     <div class="modal-content" style="max-width:420px;">
       <span class="close" id="cerrarModalReserva">&times;</span>
       <h3>Datos de la reserva</h3>
+      <div class="form-group-total sp-t">
+        <label>Vendedor</label>
+        <select id="rsVendedor"></select>
+      </div>
       <div class="form-group-total sp-t">
         <label>Nombre y apellido del cliente</label>
         <input type="text" id="rsNombre" placeholder="Nombre completo" autocomplete="off">
@@ -6566,6 +6594,10 @@
       <span class="close" id="cerrarModalFinanciacion">&times;</span>
       <h3>Iniciar financiacion propia</h3>
       <p class="sm-t" id="fpMontoInfo"></p>
+      <div class="form-group-total sp-t">
+        <label>Vendedor</label>
+        <select id="fpVendedor"></select>
+      </div>
       <div class="form-group-total sp-t">
         <label>Nombre y apellido del cliente</label>
         <input type="text" id="fpNombre" placeholder="Nombre completo" autocomplete="off">

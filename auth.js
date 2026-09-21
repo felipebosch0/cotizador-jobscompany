@@ -91,3 +91,16 @@ function sesionGuardada() {
 function esAdmin(sesion) {
   return !!sesion && sesion.rol === 'admin';
 }
+
+// Lista de nombres de vendedores de una sucursal (sin duplicados -- hay mas
+// de un usuario/password para la misma persona, ej. 'agus'/'agustina' son
+// el mismo nombre). Se usa para el selector de "quien vendio esto" al
+// imprimir garantia/reserva/financiacion/ingreso, para que no haga falta
+// cambiar de usuario logueado para que quede bien acreditada la venta.
+function vendedoresDeSucursal(sucursal) {
+  const vistos = {};
+  USUARIOS.forEach(u => {
+    if (u.rol === 'vendedor' && u.sucursal === sucursal) vistos[u.nombre] = true;
+  });
+  return Object.keys(vistos).sort((a, b) => a.localeCompare(b, 'es'));
+}
