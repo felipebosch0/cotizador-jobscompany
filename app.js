@@ -406,8 +406,7 @@ function renderCarrito() {
   // El boton de garantia solo aparece si hay un equipo en el carrito Y ya
   // esta cargada la plantilla de garantia para la sucursal actual.
   const hayEquipo = !!equipoPrincipalDelCarrito();
-  const hayPlantilla = hayEquipo && GARANTIA_TEXTOS[sucursalActual] && GARANTIA_TEXTOS[sucursalActual][equipoPrincipalDelCarrito().condicion];
-  btnGarantia.classList.toggle('oculto', !hayPlantilla);
+  btnGarantia.classList.toggle('oculto', itemsGarantizables().length === 0);
 
   // El boton de declaracion jurada solo aparece si hay un canje (Trade In)
   // en el carrito.
@@ -512,7 +511,12 @@ function AgregarCarritoAccesorio() {
   agregarAlCarrito({
     tipo: 'Accesorio',
     descripcion: `${categoria} ${descripcion} - ${modelo}`,
-    precio: total
+    precio: total,
+    // JBL tiene garantia de 1 ano -- se marca para que aparezca en la cola
+    // de "Imprimir Garantia" junto con el equipo, si hay uno en el carrito
+    // (ver itemsGarantizables).
+    esJBL: categoria === 'JBL',
+    nombreProducto: descripcion
   });
 }
 
@@ -1360,6 +1364,23 @@ function equipoPrincipalDelCarrito() {
   return carrito.find(item => item.esEquipoPrincipal) || null;
 }
 
+// Todo lo que en este carrito tiene garantia para imprimir: el equipo
+// principal (si hay uno y ya esta cargada la plantilla de su condicion) y
+// cualquier parlante JBL (garantia de 1 ano, ver AgregarCarritoAccesorio).
+// Devuelve una lista en el orden en que se van a ir pidiendo los datos --
+// el equipo primero, despues los JBL en el orden en que se agregaron.
+function itemsGarantizables() {
+  const items = [];
+  const equipo = equipoPrincipalDelCarrito();
+  if (equipo && GARANTIA_TEXTOS[sucursalActual] && GARANTIA_TEXTOS[sucursalActual][equipo.condicion]) {
+    items.push({ tipoGarantia: 'equipo', equipo });
+  }
+  carrito.forEach(item => {
+    if (item.tipo === 'Accesorio' && item.esJBL) items.push({ tipoGarantia: 'jbl', item });
+  });
+  return items;
+}
+
 // AirPods/Apple Watch/MacBook/iPad no tienen IMEI (son 15 digitos, solo
 // existen en telefonos) -- tienen numero de serie, que mezcla letras y
 // numeros. Se usa para saber si el campo "IMEI / Serie" de Garantia y
@@ -1399,15 +1420,57 @@ function poblarSelectVendedor(selectId) {
   if (nombrePropio && nombres.indexOf(nombrePropio) !== -1) select.value = nombrePropio;
 }
 
+// Cola de productos con garantia pendientes de cargar datos en este modal
+// (ver itemsGarantizables) -- si el carrito tiene un equipo Y un JBL, se
+// piden uno atras del otro sin cerrar y reabrir el modal a mano.
+let colaGarantia = [];
+
+// Lo que ya se fue confirmando de esta cola (garantia de cada producto +
+// su bloque para la planilla de pagos) -- se va acumulando aca y recien se
+// imprime TODO junto (todas las garantias + 1 sola planilla de pagos con
+// la info de cada producto adentro) cuando se termina el ultimo de la cola.
+let garantiaCombinada = [];
+
 function AbrirModalGarantia() {
-  const equipo = equipoPrincipalDelCarrito();
-  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
-  if (!GARANTIA_TEXTOS[sucursalActual] || !GARANTIA_TEXTOS[sucursalActual][equipo.condicion]) {
-    return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Todavia no esta cargada la plantilla de garantia para ' + sucursalActual });
-  }
+  colaGarantia = itemsGarantizables();
+  garantiaCombinada = [];
+  if (!colaGarantia.length) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun producto con garantia en el carrito' });
+  poblarSelectVendedor('gtVendedor');
+  mostrarModalGarantiaItem(colaGarantia[0]);
+  document.getElementById('modalGarantia').style.display = 'block';
+}
+
+// Ajusta el modal (titulo, campos, placeholders) segun si el producto que
+// sigue en la cola es el equipo principal o un JBL -- mismo modal para los
+// 2 casos, solo cambia que pide.
+function mostrarModalGarantiaItem(item) {
   garantiaGenerarPendienteImei = null;
   $('#gtImei, #gtColor').val('');
-  poblarSelectVendedor('gtVendedor');
+
+  const aviso = document.getElementById('gtColaAviso');
+  if (colaGarantia.length > 1) {
+    aviso.textContent = `Producto 1 de ${colaGarantia.length} en esta venta -- se van a pedir los datos de cada uno.`;
+    aviso.classList.remove('oculto');
+  } else {
+    aviso.classList.add('oculto');
+  }
+
+  if (item.tipoGarantia === 'jbl') {
+    document.getElementById('gtTitulo').textContent = 'Datos de ' + item.item.nombreProducto;
+    document.getElementById('gtImeiLabel').textContent = 'Numero de serie';
+    document.getElementById('gtColorContenedor').classList.add('oculto');
+    document.getElementById('gtPautaContenedor').classList.add('oculto');
+    document.getElementById('gtPauta').checked = false;
+    const campoImei = document.getElementById('gtImei');
+    campoImei.placeholder = '15 digitos';
+    campoImei.setAttribute('inputmode', 'numeric');
+    return;
+  }
+
+  const equipo = item.equipo;
+  document.getElementById('gtTitulo').textContent = 'Datos del equipo';
+  document.getElementById('gtImeiLabel').textContent = 'IMEI / Serie';
+  document.getElementById('gtColorContenedor').classList.remove('oculto');
   // AirPods/Apple Watch/MacBook/iPad/Apple Pencil no tienen IMEI, tienen
   // numero de serie (letras y numeros) -- se cambia el campo segun que
   // haya en el carrito, en vez de exigir siempre 15 digitos.
@@ -1423,23 +1486,85 @@ function AbrirModalGarantia() {
   // aplica a Independencia -- se oculta y se destilda para el resto.
   document.getElementById('gtPautaContenedor').classList.toggle('oculto', sucursalActual !== 'Independencia');
   document.getElementById('gtPauta').checked = false;
-  document.getElementById('modalGarantia').style.display = 'block';
 }
 
 function CerrarModalGarantia() {
+  colaGarantia = [];
+  garantiaCombinada = [];
   document.getElementById('modalGarantia').style.display = 'none';
 }
 
+// Termino el item actual de la cola (ya se registro en reportes/Stock y se
+// guardo su bloque en garantiaCombinada) -- si queda algo mas pendiente se
+// muestra de una, sin cerrar el modal; si no, se imprime TODO junto (ver
+// imprimirGarantiaCombinada) y recien ahi se cierra.
+async function avanzarColaGarantia() {
+  colaGarantia.shift();
+  if (colaGarantia.length) {
+    mostrarModalGarantiaItem(colaGarantia[0]);
+  } else {
+    await imprimirGarantiaCombinada();
+    CerrarModalGarantia();
+  }
+}
+
 async function ConfirmarGarantia() {
+  const itemActual = colaGarantia[0];
+  if (!itemActual) return CerrarModalGarantia();
+  if (itemActual.tipoGarantia === 'jbl') return ConfirmarGarantiaJBL(itemActual.item);
+  return ConfirmarGarantiaEquipo(itemActual.equipo);
+}
+
+// Garantia de un parlante JBL (o cualquier otro accesorio marcado esJBL):
+// mucho mas simple que la del equipo -- no toca Stock (los JBL no se dan de
+// alta ahi, se venden como accesorio comun), no hay color/pauta/trade-in,
+// solo numero de serie. Igual se registra en VentasEquipos (a pedido del
+// usuario, mismo lugar que las ventas de equipos) para tener todo el
+// historial de ventas con garantia en un solo lugar.
+async function ConfirmarGarantiaJBL(item) {
+  const imei = $('#gtImei').val().trim();
+  if (!/^\d{15}$/.test(imei)) {
+    return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El numero de serie tiene que tener exactamente 15 digitos' });
+  }
+
+  const sesion = sesionGuardada();
+  const vendedor = $('#gtVendedor').val() || (sesion ? sesion.nombre : '');
+
+  if (typeof llamarReportesWrite === 'function') {
+    try {
+      const ahora = new Date();
+      const respVenta = await llamarReportesWrite({
+        accion: 'venta-equipo-crear',
+        fecha: ahora.toLocaleDateString('es-AR'),
+        hora: ahora.toLocaleTimeString('es-AR'),
+        vendedor, sucursal: sucursalActual,
+        imei, modelo: item.nombreProducto, capacidad: '',
+        condicion: 'JBL', color: '',
+        precioTotal: item.precio,
+        tradeInModelo: '', tradeInValor: 0, pauta: ''
+      });
+      if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
+    } catch (error) {
+      MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo registrar la venta en VentasEquipos: ' + error.message });
+    }
+  }
+
+  garantiaCombinada.push({
+    tipo: 'jbl',
+    nombreProducto: item.nombreProducto,
+    imei, precio: item.precio,
+    vendedor
+  });
+  await avanzarColaGarantia();
+}
+
+async function ConfirmarGarantiaEquipo(equipo) {
   const imei = $('#gtImei').val().trim();
   const color = $('#gtColor').val().trim();
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
   // checkbox esta oculto y siempre destildado.
   const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
   if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
-
-  const equipo = equipoPrincipalDelCarrito();
-  if (!equipo) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun equipo en el carrito' });
 
   // Solo los iPhone tienen IMEI (15 digitos exactos) -- el resto (AirPods,
   // Apple Watch, MacBook, iPad, Apple Pencil) tiene numero de serie, que
@@ -1452,9 +1577,11 @@ async function ConfirmarGarantia() {
   // Independencia -- en Shopping la garantia sale solo con los datos del
   // equipo. El "Valor de la operacion" de
   // Independencia tambien tiene que incluir lo que suman esos accesorios,
-  // no solo el precio del equipo.
+  // no solo el precio del equipo. Los JBL quedan afuera de esta lista --
+  // tienen su propia garantia aparte (ver itemsGarantizables), listarlos
+  // tambien aca duplicaria su precio en el "Valor de la operacion" del equipo.
   const accesoriosCarrito = sucursalActual === 'Independencia'
-    ? carrito.filter(item => item.tipo === 'Accesorio')
+    ? carrito.filter(item => item.tipo === 'Accesorio' && !item.esJBL)
     : [];
   const accesorios = accesoriosCarrito.map(item => item.descripcion);
   const totalAccesorios = accesoriosCarrito.reduce((sum, item) => sum + item.precio, 0);
@@ -1587,7 +1714,8 @@ async function ConfirmarGarantia() {
     }
   }
 
-  await imprimirGarantia({
+  garantiaCombinada.push({
+    tipo: 'equipo',
     sucursal: sucursalActual,
     modelo: equipo.modelo,
     capacidad: equipo.capacidad,
@@ -1599,19 +1727,14 @@ async function ConfirmarGarantia() {
     vendedor: vendedorGarantia,
     tradeIn: tradeInCarrito ? { modelo: tradeInCarrito.modelo, precio: tradeInCarrito.precio } : null
   });
-  CerrarModalGarantia();
+  await avanzarColaGarantia();
 }
 
-async function imprimirGarantia(datos) {
-  // window.open antes del await del logo -- mismo motivo que en
-  // imprimirDeclaracionJurada (si no, el navegador bloquea el popup).
-  const ventana = window.open('', '_blank');
-  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
-
+// Arma el contenido (paginas 1 y 2, identicas, una para el cliente y otra
+// para el local) de la garantia de un equipo -- misma plantilla legal por
+// sucursal/condicion que siempre se uso.
+function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
   const plantilla = GARANTIA_TEXTOS[datos.sucursal][datos.condicion];
-  const logo = await logoBase64(datos.sucursal);
-  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
-  const fecha = new Date().toLocaleDateString('es-AR');
   const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
   // La garantia de Shopping no muestra el precio de la operacion
   // (Independencia si).
@@ -1664,23 +1787,110 @@ async function imprimirGarantia(datos) {
     <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
   </div>`;
 
-  // Pagina 3: planilla de pagos interna (mismos campos/orden que la
-  // plantilla en Excel del negocio). Solo se completan los datos
-  // que ya tenemos de la operacion (Fecha, Vendedor, Equipo, GB, precio en
-  // USD, cotizacion, pesos y -- si el cliente entrego algo en Trade In --
-  // el equipo y la cotizacion del canje); el resto de los campos quedan en
-  // blanco para completar a mano en el local.
+  // Filas de este equipo para la planilla combinada -- si es el unico
+  // producto de la venta se usan las etiquetas de siempre (EQUIPO, GB,
+  // etc); si hay mas de uno, ver como se numeran en imprimirGarantiaCombinada.
+  const filasPlanilla = [
+    ['EQUIPO', `${datos.modelo} ${datos.capacidad}`],
+    ['PRECIO EN USD', 'USD ' + precioUsd],
+    ['PESOS', formatNumberArg(datos.precio)]
+  ];
+
+  return { contenidoGarantia, filasPlanilla, pesos: datos.precio, tradeIn: datos.tradeIn };
+}
+
+// Arma el contenido (paginas 1 y 2) de la garantia de un parlante JBL --
+// mismo formato visual que la del equipo, pero con el texto legal propio
+// (1 ano de garantia, numero de serie en vez de IMEI, sin condicion
+// sellado/seminuevo ni aviso de perdida de datos, que no aplica).
+function construirContenidoGarantiaJBL(datos, encabezadoLogo, fecha) {
+  const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
+  const contenidoGarantia = `
+  ${encabezadoLogo}
+  <h1>Cordoba, ${fecha}</h1>
+  <p>En el dia de hoy recibo de Jobs Company SAS, el producto que a continuacion se describe:</p>
+
+  <div class="campo"><strong>Marca:</strong> JBL</div>
+  <div class="campo"><strong>Modelo:</strong> ${datos.nombreProducto}</div>
+  <div class="campo"><strong>Numero de serie:</strong> ${datos.imei}</div>
+  <div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>
+
+  <p>Dando por entendido, que se entrega en conformidad un producto en perfecto funcionamiento de todos sus componentes.
+  El producto antes mencionado cuenta con 1 (un) ano de garantia a partir de la fecha de compra siempre y cuando,
+  los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del producto,
+  se debera acercar a cualquiera de las sucursales de JobsCompany para hacer valer la garantia.</p>
+
+  <div class="campo">CUIT: 30-71929577-7</div>
+
+  <div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
+  </div>`;
+
+  const filasPlanilla = [
+    ['PRODUCTO', datos.nombreProducto],
+    ['PRECIO EN USD', 'USD ' + precioUsd],
+    ['PESOS', formatNumberArg(datos.precio)]
+  ];
+
+  return { contenidoGarantia, filasPlanilla, pesos: datos.precio, tradeIn: null };
+}
+
+// Imprime TODO lo que se fue acumulando en garantiaCombinada de una sola
+// vez: 2 copias (cliente + local) de la garantia de cada producto, y AL
+// FINAL una sola planilla de pagos con la info de todos los productos
+// adentro (a pedido del usuario -- antes salia 1 planilla por cada
+// "Confirmar e imprimir", ahora sale 1 sola por venta aunque haya varios
+// productos con garantia en el carrito).
+async function imprimirGarantiaCombinada() {
+  if (!garantiaCombinada.length) return;
+
+  // window.open antes de los await de abajo (logo) -- mismo motivo que en
+  // imprimirDeclaracionJurada, si no el navegador bloquea el popup.
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const logo = await logoBase64(sucursalActual);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  const paginasGarantia = [];
+  const bloquesPlanilla = [];
+  let totalPesos = 0;
+  let tradeInVenta = null;
+  const vendedoresVistos = [];
+
+  garantiaCombinada.forEach((datos, i) => {
+    const construido = datos.tipo === 'jbl'
+      ? construirContenidoGarantiaJBL(datos, encabezadoLogo, fecha)
+      : construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha);
+
+    // 2 copias de cada garantia (cliente + local), una despues de la otra.
+    paginasGarantia.push(construido.contenidoGarantia, construido.contenidoGarantia);
+    totalPesos += construido.pesos;
+    if (construido.tradeIn) tradeInVenta = construido.tradeIn;
+    if (datos.vendedor && vendedoresVistos.indexOf(datos.vendedor) === -1) vendedoresVistos.push(datos.vendedor);
+
+    // Si hay mas de un producto, se numeran las etiquetas (EQUIPO 1, EQUIPO
+    // 2, PRODUCTO 1, etc) para no confundir cual fila es de cual -- con uno
+    // solo queda igual que siempre.
+    const sufijo = garantiaCombinada.length > 1 ? ' ' + (i + 1) : '';
+    bloquesPlanilla.push(construido.filasPlanilla.map(([label, valor]) => [label + sufijo, valor]));
+  });
+
+  // Pagina final: planilla de pagos interna (mismos campos/orden que la
+  // plantilla en Excel del negocio), con un bloque por cada producto de la
+  // venta y despues los campos comunes (una sola vez) que se completan a
+  // mano en el local.
   const filasPlanilla = [
     ['FECHA', fecha],
-    ['VENDEDORES', datos.vendedor || ''],
+    ['VENDEDORES', vendedoresVistos.join(' / ')],
     ['CLIENTES', ''],
-    ['EQUIPO', datos.modelo],
-    ['GB', datos.capacidad],
+    ...bloquesPlanilla.flat(),
+    ...(garantiaCombinada.length > 1 ? [['TOTAL PESOS', formatNumberArg(totalPesos)]] : []),
     ['BATERIA', ''],
-    ['PRECIO DEL EQUIPO EN USD', 'USD ' + precioUsd],
     ['USD BILLETE', ''],
     ['COTIZACION DE USD', formatNumberArg(DATA.dolar.DolarVenta)],
-    ['PESOS', formatNumberArg(datos.precio)],
     ['TRANSFERENCIA EN PESOS', ''],
     ['CUENTA', ''],
     ['TRANSFERENCIA EN USD', ''],
@@ -1689,8 +1899,8 @@ async function imprimirGarantia(datos) {
     ['CANTIDAD DE CUOTAS', ''],
     ['USDT', ''],
     ['CUENTA', ''],
-    ['EQUIPO EN PLAN CANJE', datos.tradeIn ? datos.tradeIn.modelo : ''],
-    ['COTIZACION DEL CANJE', datos.tradeIn ? formatNumberArg(datos.tradeIn.precio) : '']
+    ['EQUIPO EN PLAN CANJE', tradeInVenta ? tradeInVenta.modelo : ''],
+    ['COTIZACION DEL CANJE', tradeInVenta ? formatNumberArg(tradeInVenta.precio) : '']
   ];
   const contenidoPlanilla = `
   ${encabezadoLogo}
@@ -1723,8 +1933,7 @@ async function imprimirGarantia(datos) {
   .planilla td.valor { min-height: 20px; }
 </style></head>
 <body>
-  <div class="pagina">${contenidoGarantia}</div>
-  <div class="pagina">${contenidoGarantia}</div>
+  ${paginasGarantia.map(p => `<div class="pagina">${p}</div>`).join('\n  ')}
   <div class="pagina">${contenidoPlanilla}</div>
 
   <script>window.onload = () => window.print();</script>
