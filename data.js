@@ -352,6 +352,31 @@ window.COTIZADOR_DATA = {
   },
 
   // --------------------------------------------------------------
+  // JBL: viven en Venta > Equipo (no en Accesorios) porque tienen garantia
+  // de 1 ano igual que un equipo -- ver ConfirmarGarantiaJBL en app.js. A
+  // diferencia del resto de "Equipo" (iPhone/iPad/etc, todos en USD y
+  // atados a la cotizacion del dolar), el JBL se compra en pesos fijos a
+  // Cianbox y asi se vende -- "precioFijoArs: true" le dice a PreciosVentaE
+  // que NO multiplique ese numero por el dolar, se usa tal cual esta.
+  // Precio distinto por sucursal, por eso su propia tabla (igual que iPad).
+  jblPorSucursal: {
+    'Shopping': [
+      { modelo: 'JBL', capacidades: {
+          'Flip 7': { seminuevo: null, sellado: 300000, precioFijoArs: true },
+          'Go 4': { seminuevo: null, sellado: 95000, precioFijoArs: true },
+          'Go Essential': { seminuevo: null, sellado: 80000, precioFijoArs: true }
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'JBL', capacidades: {
+          'Flip 7': { seminuevo: null, sellado: 225000, precioFijoArs: true },
+          'Go 4': { seminuevo: null, sellado: 71300, precioFijoArs: true },
+          'Go Essential': { seminuevo: null, sellado: 60000, precioFijoArs: true }
+        } }
+    ]
+  },
+
+  // --------------------------------------------------------------
   // REPARACIONES: precio por falla. MOCK (mismo precio para cualquier
   // modelo, para poder probar la pantalla). Reemplazar por precios reales
   // por modelo cuando esten disponibles.
@@ -802,9 +827,6 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Magnetic charging Dock', modelo: 'Universal', precio: 80000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 38/40/41', modelo: 'Universal', precio: 25000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 42-49', modelo: 'Universal', precio: 25000 },
-    { categoria: 'JBL', descripcion: 'JBL Flip 7', modelo: 'Universal', precio: 300000 },
-    { categoria: 'JBL', descripcion: 'JBL Go 4', modelo: 'Universal', precio: 95000 },
-    { categoria: 'JBL', descripcion: 'JBL Go Essential', modelo: 'Universal', precio: 80000 },
     { categoria: 'Varios', descripcion: 'Pencil - APPLE', modelo: 'Universal', precio: 370000 },
     { categoria: 'Vidrio templado', descripcion: 'Camara 17', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro', modelo: 'Universal', precio: 13000 },
@@ -1083,9 +1105,6 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Combo Cargador APPLE + adaptador', modelo: 'Universal', precio: 67500 },
     { categoria: 'Funda', descripcion: 'Antishock transparente', modelo: 'Todos', precio: 0 },
     { categoria: 'Varios', descripcion: 'Adaptador internacional', modelo: 'Universal', precio: 6400 },
-    { categoria: 'JBL', descripcion: 'JBL Flip 7', modelo: 'Universal', precio: 225000 },
-    { categoria: 'JBL', descripcion: 'JBL Go 4', modelo: 'Universal', precio: 71300 },
-    { categoria: 'JBL', descripcion: 'JBL Go Essential', modelo: 'Universal', precio: 60000 },
     { categoria: 'Varios', descripcion: 'Pencil - APPLE', modelo: 'Universal', precio: 277500 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 - APPLE', modelo: 'Universal', precio: 300000 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 con cancelador de ruido - APPLE', modelo: 'Universal', precio: 322499 },

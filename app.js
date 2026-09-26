@@ -97,7 +97,8 @@ function buscarEquipo(modelo) {
 // fijarse una sola vez al cargar la pagina.
 function otrosEquiposVenta() {
   const ipad = (DATA.iPadPorSucursal || {})[sucursalActual] || [];
-  return (DATA.otrosEquiposUniversales || []).concat(ipad);
+  const jbl = (DATA.jblPorSucursal || {})[sucursalActual] || [];
+  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl);
 }
 
 function equiposParaVenta() {
@@ -463,21 +464,32 @@ function AgregarCarritoEquipo() {
 
   const condicionTexto = NOMBRE_CONDICION[condicion] || condicion;
 
+  // JBL: precio fijo en pesos, no tiene sentido aclarar un equivalente en
+  // USD como el resto de Independencia (ver PreciosVentaE).
+  const esJBL = equipo && equipo.modelo === 'JBL';
+
   // Independencia: como el precio se puede editar a mano, se aclara al
   // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
   // como si se pagara en efectivo con dolares).
-  const sufijoUsd = sucursalActual === 'Independencia'
+  const sufijoUsd = sucursalActual === 'Independencia' && !esJBL
     ? ` (USD ${Math.round(total / DATA.dolar.DolarVenta)})`
     : '';
 
+  // JBL tiene garantia propia de 1 ano (ver itemsGarantizables/
+  // ConfirmarGarantiaJBL) -- no es "el equipo principal" de la venta (eso
+  // sigue siendo el telefono/iPad si hay uno), asi que no se marca
+  // esEquipoPrincipal ni compite con el para Reserva/Financiacion, que
+  // siguen siendo solo para telefonos.
   agregarAlCarrito({
     tipo: 'Equipo',
     descripcion: `${modelo} ${capacidad} (${condicionTexto})${sufijoUsd}`,
     precio: total + adelanto,
-    // Estos 3 campos son los que usa la garantia (ver imprimirGarantia) --
+    // Estos 3 campos son los que usa la garantia (ver itemsGarantizables) --
     // esEquipoPrincipal distingue este renglon de los de "Entrega en
     // efectivo" de abajo, que tambien quedan con tipo "Equipo".
-    esEquipoPrincipal: true,
+    esEquipoPrincipal: !esJBL,
+    esJBL,
+    nombreProducto: capacidad,
     modelo, capacidad, condicion
   });
 
@@ -511,12 +523,7 @@ function AgregarCarritoAccesorio() {
   agregarAlCarrito({
     tipo: 'Accesorio',
     descripcion: `${categoria} ${descripcion} - ${modelo}`,
-    precio: total,
-    // JBL tiene garantia de 1 ano -- se marca para que aparezca en la cola
-    // de "Imprimir Garantia" junto con el equipo, si hay uno en el carrito
-    // (ver itemsGarantizables).
-    esJBL: categoria === 'JBL',
-    nombreProducto: descripcion
+    precio: total
   });
 }
 
@@ -962,6 +969,10 @@ function PreciosVentaE() {
 
   if (!(condicion && capacidad && modelo)) return;
   const equipo = buscarEquipoVenta(modelo);
+  // JBL: precio fijo en pesos, no en USD (ver jblPorSucursal en data.js) --
+  // no se multiplica por el dolar como el resto de Equipo.
+  const capInfoFijo = equipo && equipo.capacidades[capacidad];
+  const esFijoArs = !!(capInfoFijo && capInfoFijo.precioFijoArs);
   const tiers = condicion === 'seminuevo' ? tiersDisponibles(equipo, capacidad) : [];
   let precioUsd;
   if (tiers.length) {
@@ -981,7 +992,8 @@ function PreciosVentaE() {
   // Si el vendedor ya edito el precio a mano (solo Independencia), ese
   // numero manda -- no se vuelve a tomar el de la lista. Asi, cargar la
   // entrega en efectivo despues de editar el precio no revierte el cambio.
-  if (precioVentaEditadoManual && sucursalActual === 'Independencia') {
+  // No aplica a JBL (precio fijo, no se edita a mano).
+  if (precioVentaEditadoManual && sucursalActual === 'Independencia' && !esFijoArs) {
     const usdManual = Number(String($('#formVenta input[name="PVentaEquipo"]').val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
     if (usdManual > 0) precioUsd = usdManual;
   }
@@ -992,10 +1004,10 @@ function PreciosVentaE() {
     return;
   }
 
-  const precioArs = precioUsd * DATA.dolar.DolarVenta;
+  const precioArs = esFijoArs ? precioUsd : precioUsd * DATA.dolar.DolarVenta;
   const total = precioArs - descuentoTotal;
-  $('#formVenta input[name="PVentaEquipo"]').val('USD' + precioUsd);
-  $('#dolarVentaE').text('cotizacion USD ' + DATA.dolar.DolarVenta);
+  $('#formVenta input[name="PVentaEquipo"]').val(esFijoArs ? formatNumberArg(precioArs) : 'USD' + precioUsd);
+  $('#dolarVentaE').text(esFijoArs ? '' : 'cotizacion USD ' + DATA.dolar.DolarVenta);
   $('#formVenta input[name="totalVentaEquipo"]').val(formatNumberArg(total > 0 ? total : 0));
   TablaFinancia(total > 0 ? total : 0, 'equipo');
   promociones_disp(total > 0 ? total : 0);
@@ -1366,9 +1378,10 @@ function equipoPrincipalDelCarrito() {
 
 // Todo lo que en este carrito tiene garantia para imprimir: el equipo
 // principal (si hay uno y ya esta cargada la plantilla de su condicion) y
-// cualquier parlante JBL (garantia de 1 ano, ver AgregarCarritoAccesorio).
-// Devuelve una lista en el orden en que se van a ir pidiendo los datos --
-// el equipo primero, despues los JBL en el orden en que se agregaron.
+// cualquier parlante JBL (viven en Venta > Equipo, garantia de 1 ano, ver
+// AgregarCarritoEquipo). Devuelve una lista en el orden en que se van a ir
+// pidiendo los datos -- el equipo primero, despues los JBL en el orden en
+// que se agregaron.
 function itemsGarantizables() {
   const items = [];
   const equipo = equipoPrincipalDelCarrito();
@@ -1376,7 +1389,7 @@ function itemsGarantizables() {
     items.push({ tipoGarantia: 'equipo', equipo });
   }
   carrito.forEach(item => {
-    if (item.tipo === 'Accesorio' && item.esJBL) items.push({ tipoGarantia: 'jbl', item });
+    if (item.esJBL) items.push({ tipoGarantia: 'jbl', item });
   });
   return items;
 }
