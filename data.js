@@ -1189,6 +1189,7 @@ window.COTIZADOR_DATA = {
     { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 297000 },
     { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 364500 },
     { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 364500 },
+    { categoria: 'Varios', descripcion: 'Magic Mouse', modelo: 'Universal', precio: 324000 },
     // PlayStation -- linea nueva en Independencia. Lista pasada en USD,
     // convertida a pesos al dolar de hoy (precio fijo, igual criterio que
     // el resto de Accesorios).
