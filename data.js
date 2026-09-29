@@ -458,15 +458,15 @@ window.COTIZADOR_DATA = {
   playstationPorSucursal: {
     'Shopping': [
       { modelo: 'PlayStation', capacidades: {
-          'PlayStation 5 Digital': { seminuevo: null, sellado: 1566000, precioFijoArs: true },
-          'PlayStation 5 Pro': { seminuevo: null, sellado: 2457000, precioFijoArs: true },
+          'PlayStation 5 Digital 1TB': { seminuevo: null, sellado: 1566000, precioFijoArs: true },
+          'PlayStation 5 Pro Digital 2TB': { seminuevo: null, sellado: 2457000, precioFijoArs: true },
           'Joystick': { seminuevo: null, sellado: 418500, precioFijoArs: true }
         } }
     ],
     'Independencia': [
       { modelo: 'PlayStation', capacidades: {
-          'PlayStation 5 Digital': { seminuevo: null, sellado: 1161000, precioFijoArs: true },
-          'PlayStation 5 Pro': { seminuevo: null, sellado: 2052000, precioFijoArs: true },
+          'PlayStation 5 Digital 1TB': { seminuevo: null, sellado: 1161000, precioFijoArs: true },
+          'PlayStation 5 Pro Digital 2TB': { seminuevo: null, sellado: 2052000, precioFijoArs: true },
           'Joystick': { seminuevo: null, sellado: 283500, precioFijoArs: true }
         } }
     ]
