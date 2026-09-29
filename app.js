@@ -100,7 +100,8 @@ function otrosEquiposVenta() {
   const jbl = (DATA.jblPorSucursal || {})[sucursalActual] || [];
   const watch = (DATA.watchPorSucursal || {})[sucursalActual] || [];
   const macbook = (DATA.macbookPorSucursal || {})[sucursalActual] || [];
-  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl, watch, macbook);
+  const playstation = (DATA.playstationPorSucursal || {})[sucursalActual] || [];
+  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl, watch, macbook, playstation);
 }
 
 function equiposParaVenta() {
@@ -466,32 +467,39 @@ function AgregarCarritoEquipo() {
 
   const condicionTexto = NOMBRE_CONDICION[condicion] || condicion;
 
-  // JBL: precio fijo en pesos, no tiene sentido aclarar un equivalente en
-  // USD como el resto de Independencia (ver PreciosVentaE).
-  const esJBL = equipo && equipo.modelo === 'JBL';
+  // JBL y PlayStation: precio fijo en pesos, no tiene sentido aclarar un
+  // equivalente en USD como el resto de Independencia (ver PreciosVentaE).
+  // Marca de fabrica para el papel de garantia -- ver
+  // construirContenidoGarantiaAccesorio.
+  const MARCA_POR_MODELO_CON_GARANTIA_PROPIA = { 'JBL': 'JBL', 'PlayStation': 'Sony' };
+  const marcaGarantia = equipo && MARCA_POR_MODELO_CON_GARANTIA_PROPIA[equipo.modelo];
+  const tieneGarantiaPropia = !!marcaGarantia;
 
   // Independencia: como el precio se puede editar a mano, se aclara al
   // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
   // como si se pagara en efectivo con dolares).
-  const sufijoUsd = sucursalActual === 'Independencia' && !esJBL
+  const sufijoUsd = sucursalActual === 'Independencia' && !tieneGarantiaPropia
     ? ` (USD ${Math.round(total / DATA.dolar.DolarVenta)})`
     : '';
 
-  // JBL tiene garantia propia de 1 ano (ver itemsGarantizables/
-  // ConfirmarGarantiaJBL) -- no es "el equipo principal" de la venta (eso
-  // sigue siendo el telefono/iPad si hay uno), asi que no se marca
-  // esEquipoPrincipal ni compite con el para Reserva/Financiacion, que
-  // siguen siendo solo para telefonos.
+  // JBL/PlayStation tienen garantia propia de 1 ano (ver itemsGarantizables/
+  // ConfirmarGarantiaOtroProducto) -- no son "el equipo principal" de la
+  // venta (eso sigue siendo el telefono/iPad si hay uno), asi que no se
+  // marcan esEquipoPrincipal ni compiten con el para Reserva/Financiacion,
+  // que siguen siendo solo para telefonos.
   agregarAlCarrito({
     tipo: 'Equipo',
     descripcion: `${modelo} ${capacidad} (${condicionTexto})${sufijoUsd}`,
     precio: total + adelanto,
-    // Estos 3 campos son los que usa la garantia (ver itemsGarantizables) --
+    // Estos campos son los que usa la garantia (ver itemsGarantizables) --
     // esEquipoPrincipal distingue este renglon de los de "Entrega en
     // efectivo" de abajo, que tambien quedan con tipo "Equipo".
-    esEquipoPrincipal: !esJBL,
-    esJBL,
-    nombreProducto: capacidad,
+    esEquipoPrincipal: !tieneGarantiaPropia,
+    tieneGarantiaPropia, marcaGarantia,
+    // Evita nombres duplicados tipo "PlayStation PlayStation 5 Digital" --
+    // el JBL usa capacidades cortas ("Flip 7"), PlayStation ya trae el
+    // nombre completo en la capacidad.
+    nombreProducto: capacidad.startsWith(modelo) ? capacidad : `${modelo} ${capacidad}`,
     modelo, capacidad, condicion
   });
 
@@ -522,10 +530,20 @@ function AgregarCarritoAccesorio() {
     return MostrarAlerta({ tipo: 'error', title: 'Carrito', mnsj: 'Completa el accesorio antes de agregarlo al carrito' });
   }
 
+  // Apple Pencil y Magic Mouse tienen garantia propia de 1 ano (a pedido
+  // del usuario, igual que JBL/PlayStation) -- se detectan por descripcion
+  // porque comparten categoria 'Varios' con un monton de otros accesorios
+  // sin garantia. Si se agregan mas productos Apple con garantia, sumar el
+  // prefijo/nombre aca.
+  const marcaGarantia = /^Apple Pencil/.test(descripcion) || descripcion === 'Magic Mouse' ? 'Apple' : null;
+
   agregarAlCarrito({
     tipo: 'Accesorio',
     descripcion: `${categoria} ${descripcion} - ${modelo}`,
-    precio: total
+    precio: total,
+    tieneGarantiaPropia: !!marcaGarantia,
+    marcaGarantia,
+    nombreProducto: descripcion
   });
 }
 
@@ -1391,7 +1409,7 @@ function itemsGarantizables() {
     items.push({ tipoGarantia: 'equipo', equipo });
   }
   carrito.forEach(item => {
-    if (item.esJBL) items.push({ tipoGarantia: 'jbl', item });
+    if (item.tieneGarantiaPropia) items.push({ tipoGarantia: 'accesorio', item });
   });
   return items;
 }
@@ -1470,15 +1488,23 @@ function mostrarModalGarantiaItem(item) {
     aviso.classList.add('oculto');
   }
 
-  if (item.tipoGarantia === 'jbl') {
+  if (item.tipoGarantia === 'accesorio') {
     document.getElementById('gtTitulo').textContent = 'Datos de ' + item.item.nombreProducto;
     document.getElementById('gtImeiLabel').textContent = 'Numero de serie';
     document.getElementById('gtColorContenedor').classList.add('oculto');
     document.getElementById('gtPautaContenedor').classList.add('oculto');
     document.getElementById('gtPauta').checked = false;
     const campoImei = document.getElementById('gtImei');
-    campoImei.placeholder = '15 digitos';
-    campoImei.setAttribute('inputmode', 'numeric');
+    // JBL pide especificamente 15 digitos (a pedido del usuario); el resto
+    // (Apple Pencil, Magic Mouse, PlayStation) tiene numero de serie
+    // alfanumerico de Apple/Sony, sin un largo fijo.
+    if (item.item.marcaGarantia === 'JBL') {
+      campoImei.placeholder = '15 digitos';
+      campoImei.setAttribute('inputmode', 'numeric');
+    } else {
+      campoImei.placeholder = 'Numero de serie (letras y numeros)';
+      campoImei.setAttribute('inputmode', 'text');
+    }
     return;
   }
 
@@ -1526,19 +1552,24 @@ async function avanzarColaGarantia() {
 async function ConfirmarGarantia() {
   const itemActual = colaGarantia[0];
   if (!itemActual) return CerrarModalGarantia();
-  if (itemActual.tipoGarantia === 'jbl') return ConfirmarGarantiaJBL(itemActual.item);
+  if (itemActual.tipoGarantia === 'accesorio') return ConfirmarGarantiaAccesorio(itemActual.item);
   return ConfirmarGarantiaEquipo(itemActual.equipo);
 }
 
-// Garantia de un parlante JBL (o cualquier otro accesorio marcado esJBL):
-// mucho mas simple que la del equipo -- no toca Stock (los JBL no se dan de
-// alta ahi, se venden como accesorio comun), no hay color/pauta/trade-in,
-// solo numero de serie. Igual se registra en VentasEquipos (a pedido del
-// usuario, mismo lugar que las ventas de equipos) para tener todo el
-// historial de ventas con garantia en un solo lugar.
-async function ConfirmarGarantiaJBL(item) {
+// Garantia de un producto marcado tieneGarantiaPropia (JBL, PlayStation,
+// Apple Pencil, Magic Mouse) -- mucho mas simple que la del equipo: no toca
+// Stock (no se dan de alta ahi, se venden como equipo/accesorio comun), no
+// hay color/pauta/trade-in, solo numero de serie. Igual se registra en
+// VentasEquipos (a pedido del usuario, mismo lugar que las ventas de
+// equipos) para tener todo el historial de ventas con garantia en un solo
+// lugar.
+async function ConfirmarGarantiaAccesorio(item) {
   const imei = $('#gtImei').val().trim();
-  if (!/^\d{15}$/.test(imei)) {
+  if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie' });
+  // JBL: 15 digitos exactos (a pedido del usuario). El resto (Apple
+  // Pencil/Magic Mouse/PlayStation) tiene numero de serie alfanumerico, sin
+  // largo fijo -- alcanza con que no este vacio.
+  if (item.marcaGarantia === 'JBL' && !/^\d{15}$/.test(imei)) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El numero de serie tiene que tener exactamente 15 digitos' });
   }
 
@@ -1554,7 +1585,7 @@ async function ConfirmarGarantiaJBL(item) {
         hora: ahora.toLocaleTimeString('es-AR'),
         vendedor, sucursal: sucursalActual,
         imei, modelo: item.nombreProducto, capacidad: '',
-        condicion: 'JBL', color: '',
+        condicion: item.marcaGarantia || 'Accesorio', color: '',
         precioTotal: item.precio,
         tradeInModelo: '', tradeInValor: 0, pauta: ''
       });
@@ -1565,8 +1596,9 @@ async function ConfirmarGarantiaJBL(item) {
   }
 
   garantiaCombinada.push({
-    tipo: 'jbl',
+    tipo: 'accesorio',
     nombreProducto: item.nombreProducto,
+    marca: item.marcaGarantia || 'Apple',
     imei, precio: item.precio,
     vendedor
   });
@@ -1592,11 +1624,12 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // Independencia -- en Shopping la garantia sale solo con los datos del
   // equipo. El "Valor de la operacion" de
   // Independencia tambien tiene que incluir lo que suman esos accesorios,
-  // no solo el precio del equipo. Los JBL quedan afuera de esta lista --
+  // no solo el precio del equipo. Los que tienen garantia propia (JBL,
+  // PlayStation, Apple Pencil, Magic Mouse) quedan afuera de esta lista --
   // tienen su propia garantia aparte (ver itemsGarantizables), listarlos
   // tambien aca duplicaria su precio en el "Valor de la operacion" del equipo.
   const accesoriosCarrito = sucursalActual === 'Independencia'
-    ? carrito.filter(item => item.tipo === 'Accesorio' && !item.esJBL)
+    ? carrito.filter(item => item.tipo === 'Accesorio' && !item.tieneGarantiaPropia)
     : [];
   const accesorios = accesoriosCarrito.map(item => item.descripcion);
   const totalAccesorios = accesoriosCarrito.reduce((sum, item) => sum + item.precio, 0);
@@ -1814,18 +1847,19 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
   return { contenidoGarantia, filasPlanilla, pesos: datos.precio, tradeIn: datos.tradeIn };
 }
 
-// Arma el contenido (paginas 1 y 2) de la garantia de un parlante JBL --
-// mismo formato visual que la del equipo, pero con el texto legal propio
-// (1 ano de garantia, numero de serie en vez de IMEI, sin condicion
-// sellado/seminuevo ni aviso de perdida de datos, que no aplica).
-function construirContenidoGarantiaJBL(datos, encabezadoLogo, fecha) {
+// Arma el contenido (paginas 1 y 2) de la garantia de un producto con
+// garantia propia (JBL, PlayStation, Apple Pencil, Magic Mouse) -- mismo
+// formato visual que la del equipo, pero con el texto legal propio (1 ano
+// de garantia, numero de serie en vez de IMEI, sin condicion sellado/
+// seminuevo ni aviso de perdida de datos, que no aplica).
+function construirContenidoGarantiaAccesorio(datos, encabezadoLogo, fecha) {
   const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
   const contenidoGarantia = `
   ${encabezadoLogo}
   <h1>Cordoba, ${fecha}</h1>
   <p>En el dia de hoy recibo de Jobs Company SAS, el producto que a continuacion se describe:</p>
 
-  <div class="campo"><strong>Marca:</strong> JBL</div>
+  <div class="campo"><strong>Marca:</strong> ${datos.marca}</div>
   <div class="campo"><strong>Modelo:</strong> ${datos.nombreProducto}</div>
   <div class="campo"><strong>Numero de serie:</strong> ${datos.imei}</div>
   <div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>
@@ -1876,8 +1910,8 @@ async function imprimirGarantiaCombinada() {
   const vendedoresVistos = [];
 
   garantiaCombinada.forEach((datos, i) => {
-    const construido = datos.tipo === 'jbl'
-      ? construirContenidoGarantiaJBL(datos, encabezadoLogo, fecha)
+    const construido = datos.tipo === 'accesorio'
+      ? construirContenidoGarantiaAccesorio(datos, encabezadoLogo, fecha)
       : construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha);
 
     // 2 copias de cada garantia (cliente + local), una despues de la otra.

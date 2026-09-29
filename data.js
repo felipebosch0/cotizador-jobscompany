@@ -452,6 +452,27 @@ window.COTIZADOR_DATA = {
   },
 
   // --------------------------------------------------------------
+  // PlayStation: se movio de Accesorios a Equipo (a pedido del usuario),
+  // mismo criterio que JBL -- precio fijo en pesos (precioFijoArs), no
+  // atado al dolar. Precio distinto por sucursal.
+  playstationPorSucursal: {
+    'Shopping': [
+      { modelo: 'PlayStation', capacidades: {
+          'PlayStation 5 Digital': { seminuevo: null, sellado: 1566000, precioFijoArs: true },
+          'PlayStation 5 Pro': { seminuevo: null, sellado: 2457000, precioFijoArs: true },
+          'Joystick': { seminuevo: null, sellado: 418500, precioFijoArs: true }
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'PlayStation', capacidades: {
+          'PlayStation 5 Digital': { seminuevo: null, sellado: 1161000, precioFijoArs: true },
+          'PlayStation 5 Pro': { seminuevo: null, sellado: 2052000, precioFijoArs: true },
+          'Joystick': { seminuevo: null, sellado: 283500, precioFijoArs: true }
+        } }
+    ]
+  },
+
+  // --------------------------------------------------------------
   // REPARACIONES: precio por falla. MOCK (mismo precio para cualquier
   // modelo, para poder probar la pantalla). Reemplazar por precios reales
   // por modelo cuando esten disponibles.
@@ -912,9 +933,6 @@ window.COTIZADOR_DATA = {
     { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 499500 },
     { categoria: 'Varios', descripcion: 'Magic Mouse', modelo: 'Universal', precio: 459000 },
     // PlayStation -- linea nueva, +USD 300 sobre el precio de Independencia.
-    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Digital', modelo: 'Universal', precio: 1566000 },
-    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Pro', modelo: 'Universal', precio: 2457000 },
-    { categoria: 'PlayStation', descripcion: 'Joystick', modelo: 'Universal', precio: 418500 },
     { categoria: 'Vidrio templado', descripcion: 'Camara 17', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro max', modelo: 'Universal', precio: 13000 },
@@ -1205,9 +1223,6 @@ window.COTIZADOR_DATA = {
     // PlayStation -- linea nueva en Independencia. Lista pasada en USD,
     // convertida a pesos al dolar de hoy (precio fijo, igual criterio que
     // el resto de Accesorios).
-    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Digital', modelo: 'Universal', precio: 1161000 },
-    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Pro', modelo: 'Universal', precio: 2052000 },
-    { categoria: 'PlayStation', descripcion: 'Joystick', modelo: 'Universal', precio: 283500 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 - APPLE', modelo: 'Universal', precio: 300000 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 con cancelador de ruido - APPLE', modelo: 'Universal', precio: 322499 },
     { categoria: 'Cargador', descripcion: 'Fuente Mophie essentials 30W - Original', modelo: 'Universal', precio: 45000 },
