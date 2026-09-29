@@ -98,7 +98,9 @@ function buscarEquipo(modelo) {
 function otrosEquiposVenta() {
   const ipad = (DATA.iPadPorSucursal || {})[sucursalActual] || [];
   const jbl = (DATA.jblPorSucursal || {})[sucursalActual] || [];
-  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl);
+  const watch = (DATA.watchPorSucursal || {})[sucursalActual] || [];
+  const macbook = (DATA.macbookPorSucursal || {})[sucursalActual] || [];
+  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl, watch, macbook);
 }
 
 function equiposParaVenta() {

@@ -180,10 +180,29 @@ window.COTIZADOR_DATA = {
       // Sellado del mismo modelo/capacidad -- asi se puede armar la venta
       // e imprimir la garantia de un 17 semi nuevo, que antes no tenia
       // ningun precio cargado (solo estaba el Sellado).
-      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1060, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
-      { modelo: 'iPhone 17 Pro',     capacidades: { '256Gb': { sellado: 1290, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] } } },
-      { modelo: 'iPhone 17 Pro Max', capacidades: { '256Gb': { sellado: 1390, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] } } },
-      { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 980 }] } } }
+      //
+      // Precios Sellado actualizados con la lista nueva (29/09/2026). Varios
+      // modelos traen precio distinto por color -- se cargo el mas barato de
+      // cada capacidad (decision del usuario), el color premium no se
+      // refleja en el cotizador por ahora.
+      { modelo: 'iPhone 16E',        capacidades: { '128Gb': { sellado: 740, seminuevoTiers: [] } } },
+      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1100, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
+      { modelo: 'iPhone 17 Pro',     capacidades: {
+        '256Gb': { sellado: 1310, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
+        '512Gb': { sellado: 1540, seminuevoTiers: [] }
+      } },
+      { modelo: 'iPhone 17 Pro Max', capacidades: {
+        '256Gb': { sellado: 1400, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
+        '512Gb': { sellado: 1680, seminuevoTiers: [] },
+        '1Tb':   { sellado: 1880, seminuevoTiers: [] }
+      } },
+      { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 980 }] } } },
+      // iPhone 18 -- recien agregado, todavia no hay precio de Semi Nuevo.
+      { modelo: 'iPhone 18 Pro',     capacidades: { '256Gb': { sellado: 1550, seminuevoTiers: [] } } },
+      { modelo: 'iPhone 18 Pro Max', capacidades: {
+        '256Gb': { sellado: 1850, seminuevoTiers: [] },
+        '512Gb': { sellado: 2080, seminuevoTiers: [] }
+      } }
     ]
   },
 
@@ -269,9 +288,10 @@ window.COTIZADOR_DATA = {
   // mensaje, asi que no lo cargue. Y "MacBook Neo" lo pasaste con "$" en vez
   // de "USD" — asumi que tambien es USD (si es ARS, avisame y lo corrijo).
   otrosEquiposUniversales: [
-    // Igual que MacBook: antes cada generacion era un modelo separado, ahora
-    // es un solo modelo por familia (AirPods/Apple Watch/iPad) con cada
-    // generacion+tamano como variante (capacidad) distinta.
+    // Igual que MacBook/Watch: antes cada generacion era un modelo separado,
+    // ahora es un solo modelo (AirPods) con cada generacion como variante
+    // (capacidad) distinta. AirPods sigue con el mismo precio en las 2
+    // sucursales (no vino diferenciado todavia).
     { modelo: 'AirPods', capacidades: {
         '3ra Generacion': { seminuevo: null, sellado: 340 },
         '4ta Generacion': { seminuevo: null, sellado: 355 },
@@ -279,43 +299,93 @@ window.COTIZADOR_DATA = {
         'Pro 2da Generacion': { seminuevo: null, sellado: 420 },
         'Pro 3ra Generacion': { seminuevo: null, sellado: 510 },
         'Max': { seminuevo: null, sellado: 780 }
-      } },
-
-    { modelo: 'Apple Watch', capacidades: {
-        'SE 2da Gen (GPS) - 40mm': { seminuevo: null, sellado: 450 },
-        'SE 2da Gen (GPS) - 44mm': { seminuevo: null, sellado: 450 },
-        'SE 3ra Gen (GPS) - 40mm': { seminuevo: null, sellado: 550 },
-        'SE 3ra Gen (GPS) - 44mm': { seminuevo: null, sellado: 560 },
-        'Serie 10 (GPS) - 42mm': { seminuevo: null, sellado: 550 },
-        'Serie 10 (GPS) - 46mm': { seminuevo: null, sellado: 600 },
-        'Serie 10 (GPS + Celular) - 46mm': { seminuevo: null, sellado: 950 },
-        'Serie 11 (GPS) - 42mm': { seminuevo: null, sellado: 640 },
-        'Serie 11 (GPS) - 46mm': { seminuevo: null, sellado: 660 }
-        // Ultra 3 (GPS + Celular): SIN PRECIO, falta que lo pases.
-      } },
-
-
-    // Antes eran 7 modelos separados (uno por linea/generacion de MacBook);
-    // se unificaron en un solo modelo "MacBook", con cada linea/generacion
-    // +specs como una variante (capacidad) distinta.
-    { modelo: 'MacBook', capacidades: {
-        'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1380 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1850 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1850 },
-        'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1850 },
-        'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 2060 },
-        'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 2140 }, // ver nota de conflicto arriba (vs 1900) -- +300 aplicado sobre 1840
-        'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 2140 },
-        'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 2140 },
-        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2930 },
-        'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2930 },
-        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 3180 },
-        'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 3180 },
-        // Neo -- sin cambios, a proposito (quedan afuera del aumento de +300).
-        'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
-        'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
       } }
   ],
+
+  // --------------------------------------------------------------
+  // Apple Watch: tenia el mismo precio en las 2 sucursales hasta que
+  // Independencia mando su propia lista (29/09/2026), bastante mas barata
+  // -- se separo en tabla por sucursal (mismo criterio que iPad). Shopping
+  // se queda con los precios de siempre; Independencia arranca copiando esos
+  // mismos y se pisan los que vinieron en la lista nueva.
+  watchPorSucursal: {
+    'Shopping': [
+      { modelo: 'Apple Watch', capacidades: {
+          'SE 2da Gen (GPS) - 40mm': { seminuevo: null, sellado: 450 },
+          'SE 2da Gen (GPS) - 44mm': { seminuevo: null, sellado: 450 },
+          'SE 3ra Gen (GPS) - 40mm': { seminuevo: null, sellado: 550 },
+          'SE 3ra Gen (GPS) - 44mm': { seminuevo: null, sellado: 560 },
+          'Serie 10 (GPS) - 42mm': { seminuevo: null, sellado: 550 },
+          'Serie 10 (GPS) - 46mm': { seminuevo: null, sellado: 600 },
+          'Serie 10 (GPS + Celular) - 46mm': { seminuevo: null, sellado: 950 },
+          'Serie 11 (GPS) - 42mm': { seminuevo: null, sellado: 640 },
+          'Serie 11 (GPS) - 46mm': { seminuevo: null, sellado: 660 }
+          // Ultra 2/Ultra 3 (GPS + Celular): SIN PRECIO en Shopping todavia.
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'Apple Watch', capacidades: {
+          'SE 2da Gen (GPS) - 40mm': { seminuevo: null, sellado: 450 },
+          'SE 2da Gen (GPS) - 44mm': { seminuevo: null, sellado: 450 },
+          'SE 3ra Gen (GPS) - 40mm': { seminuevo: null, sellado: 450 },
+          'SE 3ra Gen (GPS) - 44mm': { seminuevo: null, sellado: 460 },
+          'Serie 10 (GPS) - 42mm': { seminuevo: null, sellado: 550 },
+          'Serie 10 (GPS) - 46mm': { seminuevo: null, sellado: 600 },
+          'Serie 10 (GPS + Celular) - 46mm': { seminuevo: null, sellado: 950 },
+          'Serie 11 (GPS) - 42mm': { seminuevo: null, sellado: 540 },
+          'Serie 11 (GPS) - 46mm': { seminuevo: null, sellado: 580 },
+          'Ultra 2 (GPS + Celular) - 49mm': { seminuevo: null, sellado: 790 },
+          'Ultra 3 (GPS + Celular) - 49mm': { seminuevo: null, sellado: 920 }
+        } }
+    ]
+  },
+
+  // --------------------------------------------------------------
+  // MacBook: mismo criterio que Apple Watch de arriba -- Independencia mando
+  // su propia lista (29/09/2026, bastante mas barata) para Neo y Air M5, se
+  // separo en tabla por sucursal. Air 13" M1 y Pro 14" no vinieron en la
+  // lista nueva -- Independencia los mantiene al precio de Shopping hasta
+  // que llegue un numero propio.
+  macbookPorSucursal: {
+    'Shopping': [
+      { modelo: 'MacBook', capacidades: {
+          'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1380 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1850 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1850 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1850 },
+          'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 2060 },
+          'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 2140 }, // ver nota de conflicto arriba (vs 1900) -- +300 aplicado sobre 1840
+          'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 2140 },
+          'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 2140 },
+          'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2930 },
+          'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2930 },
+          'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 3180 },
+          'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 3180 },
+          // Neo -- sin cambios, a proposito (quedan afuera del aumento de +300).
+          'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
+          'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'MacBook', capacidades: {
+          'Air 13" M1 - 8CPU/7GPU 256GB 8GB Space Gray (teclado espanol)': { seminuevo: null, sellado: 1380 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Silver':    { seminuevo: null, sellado: 1640 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Midnight':  { seminuevo: null, sellado: 1640 },
+          'Air 13" M5 - 10CPU/8GPU 512GB 16GB Starlight': { seminuevo: null, sellado: 1640 },
+          'Air 15" M3 - 512GB 24GB RAM Plata': { seminuevo: null, sellado: 2060 },
+          'Air 15" M5 - 512GB 16GB Silver':    { seminuevo: null, sellado: 1880 },
+          'Air 15" M5 - 512GB 16GB Starlight': { seminuevo: null, sellado: 1880 },
+          'Air 15" M5 - 512GB 16GB Sky Blue':  { seminuevo: null, sellado: 1880 },
+          'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 2930 },
+          'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2930 },
+          'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 3180 },
+          'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 3180 },
+          // Neo -- precio nuevo de la lista (mas barato de cada color).
+          'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 960 },
+          'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1070 }
+        } }
+    ]
+  },
 
   // --------------------------------------------------------------
   // iPad: a diferencia del resto de "otros equipos" (AirPods/Watch/
@@ -339,10 +409,15 @@ window.COTIZADOR_DATA = {
     ],
     'Independencia': [
       { modelo: 'iPad', capacidades: {
-          'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 665 },
-          'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 760 },
+          // Precios actualizados con la lista nueva (29/09/2026).
+          'A16 (2025) - 11" 128GB Azul/Rosa': { seminuevo: null, sellado: 630 },
+          'A16 (2025) - 11" 256GB': { seminuevo: null, sellado: 740 },
           'Air M3 - 11" 256GB Azul': { seminuevo: null, sellado: 1150 },
+          'Air M3 - 13" 128GB': { seminuevo: null, sellado: 950 },
           'Air M3 - 13" 256GB Azul/Morado': { seminuevo: null, sellado: 1300 },
+          // Air M4 -- recien agregado a la lista.
+          'Air M4 - 11" 128GB': { seminuevo: null, sellado: 950 },
+          'Air M4 - 11" 256GB': { seminuevo: null, sellado: 1050 },
           'Pro M4 - 11" 256GB': { seminuevo: null, sellado: 1355 },
           'Pro M5 - 11" 256GB': { seminuevo: null, sellado: 1380 },
           // Promo: A16 128GB + Apple Pencil (certificado) + funda incluidos.
