@@ -1180,7 +1180,15 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Combo Cargador APPLE + adaptador', modelo: 'Universal', precio: 67500 },
     { categoria: 'Funda', descripcion: 'Antishock transparente', modelo: 'Todos', precio: 0 },
     { categoria: 'Varios', descripcion: 'Adaptador internacional', modelo: 'Universal', precio: 6400 },
-    { categoria: 'Varios', descripcion: 'Pencil - APPLE', modelo: 'Universal', precio: 277500 },
+    // Apple Pencil original: antes era una sola linea generica ("Pencil -
+    // APPLE") sin distinguir generacion -- ahora son 4 lineas, una por
+    // modelo, con precio propio (lista pasada en USD, convertida a pesos al
+    // dolar de hoy -- igual que el resto de Accesorios, es un precio FIJO
+    // en pesos, no flota con el dolar despues).
+    { categoria: 'Varios', descripcion: 'Apple Pencil (1ra Gen)', modelo: 'Universal', precio: 303750 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 297000 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 364500 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 364500 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 - APPLE', modelo: 'Universal', precio: 300000 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 con cancelador de ruido - APPLE', modelo: 'Universal', precio: 322499 },
     { categoria: 'Cargador', descripcion: 'Fuente Mophie essentials 30W - Original', modelo: 'Universal', precio: 45000 },
