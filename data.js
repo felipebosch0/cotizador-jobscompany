@@ -1189,6 +1189,12 @@ window.COTIZADOR_DATA = {
     { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 297000 },
     { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 364500 },
     { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 364500 },
+    // PlayStation -- linea nueva en Independencia. Lista pasada en USD,
+    // convertida a pesos al dolar de hoy (precio fijo, igual criterio que
+    // el resto de Accesorios).
+    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Digital', modelo: 'Universal', precio: 1161000 },
+    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Pro', modelo: 'Universal', precio: 2052000 },
+    { categoria: 'PlayStation', descripcion: 'Joystick', modelo: 'Universal', precio: 283500 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 - APPLE', modelo: 'Universal', precio: 300000 },
     { categoria: 'Auriculares', descripcion: 'Airpods 4 con cancelador de ruido - APPLE', modelo: 'Universal', precio: 322499 },
     { categoria: 'Cargador', descripcion: 'Fuente Mophie essentials 30W - Original', modelo: 'Universal', precio: 45000 },
