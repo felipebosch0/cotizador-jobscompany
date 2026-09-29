@@ -902,7 +902,19 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Magnetic charging Dock', modelo: 'Universal', precio: 80000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 38/40/41', modelo: 'Universal', precio: 25000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 42-49', modelo: 'Universal', precio: 25000 },
-    { categoria: 'Varios', descripcion: 'Pencil - APPLE', modelo: 'Universal', precio: 370000 },
+    // Apple Pencil: mismo criterio que Independencia (4 variantes en vez de
+    // una linea generica), pero con USD 100 mas por sucursal (a pedido del
+    // usuario: "a todo le sumamos 300, menos joystick/pencil/magic mouse,
+    // a esos 100"). Precio fijo en pesos, convertido al dolar de hoy.
+    { categoria: 'Varios', descripcion: 'Apple Pencil (1ra Gen)', modelo: 'Universal', precio: 438750 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 432000 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 499500 },
+    { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 499500 },
+    { categoria: 'Varios', descripcion: 'Magic Mouse', modelo: 'Universal', precio: 459000 },
+    // PlayStation -- linea nueva, +USD 300 sobre el precio de Independencia.
+    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Digital', modelo: 'Universal', precio: 1566000 },
+    { categoria: 'PlayStation', descripcion: 'PlayStation 5 Pro', modelo: 'Universal', precio: 2457000 },
+    { categoria: 'PlayStation', descripcion: 'Joystick', modelo: 'Universal', precio: 418500 },
     { categoria: 'Vidrio templado', descripcion: 'Camara 17', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro max', modelo: 'Universal', precio: 13000 },
