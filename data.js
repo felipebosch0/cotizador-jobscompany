@@ -238,10 +238,13 @@ window.COTIZADOR_DATA = {
       'iPhone 16': 650, 'iPhone 16 Plus': 650,
       'iPhone 16E': 400,
       'iPhone 16 Pro': 750,
-      'iPhone 16 Pro Max': 900
-      // iPhone 17/17 Air/17 Pro/17 Pro Max todavia no se toman en Trade In
-      // (decision del negocio) -- no van en esta tabla a proposito, aunque
-      // ya tengan precio de reparacion cargado para Face ID/Cambio chasis.
+      'iPhone 16 Pro Max': 900,
+      // Iphone 17/17 Pro/17 Pro Max (30/09/2026): valores pasados por el
+      // usuario para los equipos nuevos que recibieron. 17 Air sigue sin
+      // tomarse en Trade In (no vino en la lista).
+      'iPhone 17': 700,
+      'iPhone 17 Pro': 800,
+      'iPhone 17 Pro Max': 900
     },
     'Independencia': {
       'iPhone XR': 50,
@@ -261,7 +264,12 @@ window.COTIZADOR_DATA = {
       'iPhone 16': 580, 'iPhone 16 Plus': 580,
       'iPhone 16E': 300,
       'iPhone 16 Pro': 700,
-      'iPhone 16 Pro Max': 850
+      'iPhone 16 Pro Max': 850,
+      // Iphone 17/17 Pro/17 Pro Max (30/09/2026): mismos valores que
+      // Shopping, el usuario los paso para las 2 sucursales.
+      'iPhone 17': 700,
+      'iPhone 17 Pro': 800,
+      'iPhone 17 Pro Max': 900
     }
   },
 
