@@ -197,10 +197,11 @@ window.COTIZADOR_DATA = {
         '1Tb':   { sellado: 1880, seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 980 }] } } },
-      // iPhone 18 -- recien agregado, todavia no hay precio de Semi Nuevo.
-      { modelo: 'iPhone 18 Pro',     capacidades: { '256Gb': { sellado: 1550, seminuevoTiers: [] } } },
+      // iPhone 18 -- todavia no hay precio de Semi Nuevo. Precios Sellado
+      // actualizados (30/09/2026).
+      { modelo: 'iPhone 18 Pro',     capacidades: { '256Gb': { sellado: 1660, seminuevoTiers: [] } } },
       { modelo: 'iPhone 18 Pro Max', capacidades: {
-        '256Gb': { sellado: 1850, seminuevoTiers: [] },
+        '256Gb': { sellado: 1920, seminuevoTiers: [] },
         '512Gb': { sellado: 2080, seminuevoTiers: [] }
       } }
     ]
