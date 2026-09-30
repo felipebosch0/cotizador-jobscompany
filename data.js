@@ -63,7 +63,11 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 17 Air',        capacidades: { '128Gb': { seminuevo: null, sellado: null }, '256Gb': { seminuevo: null, sellado: 1200 }, '512Gb': { seminuevo: null, sellado: null }, '1Tb': { seminuevo: null, sellado: null } } },
       { modelo: 'iPhone 17',           capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1150, sellado: 1250 }, '512Gb': { seminuevo: 1300, sellado: 1350 }, '1Tb': { seminuevo: 1350, sellado: 1550 } } },
       { modelo: 'iPhone 17 Pro',       capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1556, sellado: 1656 }, '512Gb': { seminuevo: 1796, sellado: 1756 }, '1Tb': { seminuevo: 1846, sellado: 1956 } } },
-      { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1700, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } }
+      { modelo: 'iPhone 17 Pro Max',   capacidades: { '128Gb': { seminuevo: null,  sellado: null }, '256Gb': { seminuevo: 1700, sellado: 1800 }, '512Gb': { seminuevo: 1950, sellado: 1900 }, '1Tb': { seminuevo: 2000, sellado: 2100 } } },
+      // iPhone 18 -- recien agregado a Shopping (30/09/2026), todavia no
+      // hay precio de Semi Nuevo.
+      { modelo: 'iPhone 18 Pro',       capacidades: { '256Gb': { seminuevo: null, sellado: 1900 } } },
+      { modelo: 'iPhone 18 Pro Max',   capacidades: { '256Gb': { seminuevo: null, sellado: 2100 } } }
     ],
 
     // Independencia: lista real (excel con 2 tablas: "Sellados" y "Semi
