@@ -156,15 +156,15 @@ window.COTIZADOR_DATA = {
         '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
-        // Excel Tio Jobs: 128Gb 80%+ -> $600, menos de 80% -> $550.
-        // 256Gb 81%+ -> $680, menos de 81% -> $650 (no hay unidades 100%).
+        // Precios actualizados (30/09/2026), por bateria segun las
+        // unidades que tienen en stock.
         '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 80%', precio: 550 },
-          { etiqueta: '80% a 100%',  precio: 600 }
+          { etiqueta: '78% a 80%',  precio: 600 },
+          { etiqueta: '85% a 100%', precio: 650 }
         ] },
         '256Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 81%', precio: 650 },
-          { etiqueta: '81% a 100%',  precio: 680 }
+          { etiqueta: '81% a 83%', precio: 600 },
+          { etiqueta: '100%',      precio: 650 }
         ] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
