@@ -188,11 +188,11 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 16E',        capacidades: { '128Gb': { sellado: 740, seminuevoTiers: [] } } },
       { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1100, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
       { modelo: 'iPhone 17 Pro',     capacidades: {
-        '256Gb': { sellado: 1310, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
+        '256Gb': { sellado: 1340, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
         '512Gb': { sellado: 1540, seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 17 Pro Max', capacidades: {
-        '256Gb': { sellado: 1400, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
+        '256Gb': { sellado: 1440, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
         '512Gb': { sellado: 1680, seminuevoTiers: [] },
         '1Tb':   { sellado: 1880, seminuevoTiers: [] }
       } },
