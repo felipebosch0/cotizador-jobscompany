@@ -239,12 +239,13 @@ window.COTIZADOR_DATA = {
       'iPhone 16E': 400,
       'iPhone 16 Pro': 750,
       'iPhone 16 Pro Max': 900,
-      // Iphone 17/17 Pro/17 Pro Max (30/09/2026): valores pasados por el
-      // usuario para los equipos nuevos que recibieron. 17 Air sigue sin
-      // tomarse en Trade In (no vino en la lista).
-      'iPhone 17': 700,
-      'iPhone 17 Pro': 800,
-      'iPhone 17 Pro Max': 900
+      // Iphone 17/17 Pro/17 Pro Max (30/09/2026): valor pasado por el
+      // usuario para Independencia (700/800/900) + USD 100 en Shopping (a
+      // pedido del usuario). 17 Air sigue sin tomarse en Trade In (no vino
+      // en la lista).
+      'iPhone 17': 800,
+      'iPhone 17 Pro': 900,
+      'iPhone 17 Pro Max': 1000
     },
     'Independencia': {
       'iPhone XR': 50,
