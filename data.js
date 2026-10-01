@@ -478,9 +478,13 @@ window.COTIZADOR_DATA = {
         } }
     ],
     'Independencia': [
+      // PlayStation 5 Digital/Pro (01/10/2026): a pedido del usuario pasan a
+      // precio en USD, atado a la cotizacion del dolar (sin precioFijoArs),
+      // a diferencia de Shopping que sigue en pesos fijos. El Joystick
+      // sigue en pesos fijos, no vino en el pedido.
       { modelo: 'PlayStation', capacidades: {
-          'PlayStation 5 Digital 1TB': { seminuevo: null, sellado: 1161000, precioFijoArs: true },
-          'PlayStation 5 Pro Digital 2TB': { seminuevo: null, sellado: 2052000, precioFijoArs: true },
+          'PlayStation 5 Digital 1TB': { seminuevo: null, sellado: 860 },
+          'PlayStation 5 Pro Digital 2TB': { seminuevo: null, sellado: 1520 },
           'Joystick': { seminuevo: null, sellado: 283500, precioFijoArs: true }
         } }
     ]
