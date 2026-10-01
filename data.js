@@ -485,7 +485,8 @@ window.COTIZADOR_DATA = {
       { modelo: 'PlayStation', capacidades: {
           'PlayStation 5 Digital 1TB': { seminuevo: null, sellado: 860 },
           'PlayStation 5 Pro Digital 2TB': { seminuevo: null, sellado: 1520 },
-          'Joystick': { seminuevo: null, sellado: 283500, precioFijoArs: true }
+          // Joystick (01/10/2026): tambien pasa a USD, mismo criterio.
+          'Joystick': { seminuevo: null, sellado: 210 }
         } }
     ]
   },
