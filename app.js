@@ -2248,18 +2248,105 @@ async function ConfirmarFinanciacion() {
     }
   }
 
+  await imprimirFinanciacion({
+    vendedor, cliente: nombre, telefono,
+    equipo: equipoTexto,
+    montoTotalUsd,
+    montoTotalArs: totalCarrito()
+  });
+
   MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Plan iniciado para ${nombre} -- USD ${montoTotalUsd}` });
   CerrarModalFinanciacion();
   if (typeof cargarFinanciacion === 'function' && $('#vistaFinanciacion').hasClass('vista')) cargarFinanciacion();
 }
 
+// Texto de politicas del plan -- mismo que se muestra en el modal al
+// iniciarlo (ver AbrirModalFinanciacion), se repite en los 2 papeles
+// (inicio del plan y cada pago) para que el cliente siempre lo tenga a mano.
+const FINANCIACION_POLITICAS = 'El cliente elige cuanto y cada cuanto paga, con un plazo maximo de 6 meses. ' +
+  'Si cancela antes de terminar, se le devuelve lo pagado menos un 15% por gastos administrativos. ' +
+  'El equipo se entrega recien cuando el plan queda completamente saldado.';
+
+// Papel que se lleva el cliente al iniciar el plan -- monto total y
+// politicas, para que quede claro desde el primer dia en cuanto quedo el
+// plan y las condiciones (mismo criterio que Reserva: 2 copias, cliente y
+// local).
+async function imprimirFinanciacion(datos) {
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const logo = await logoBase64(sucursalActual);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  const contenido = `
+  ${encabezadoLogo}
+  <h1>Financiacion propia</h1>
+  <div class="campo"><strong>Fecha:</strong> ${fecha}</div>
+  <div class="campo"><strong>Vendedor:</strong> ${datos.vendedor}</div>
+  <div class="campo"><strong>Cliente:</strong> ${datos.cliente}</div>
+  <div class="campo"><strong>Telefono:</strong> ${datos.telefono}</div>
+
+  <div class="box">
+    <strong>Equipo</strong>
+    <p>${datos.equipo}</p>
+  </div>
+
+  <div class="campo" style="margin-top:16px;"><strong>Monto total del plan:</strong> USD ${datos.montoTotalUsd} (${formatNumberArg(datos.montoTotalArs)} al dolar de hoy)</div>
+
+  <p style="margin-top:16px;">${FINANCIACION_POLITICAS}</p>
+
+  <div class="campo">CUIT: 30-71929577-7</div>
+
+  <div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
+  </div>`;
+
+  ventana.document.write(paginaFinanciacionHtml('Financiacion propia', contenido));
+  ventana.document.close();
+}
+
+// HTML/CSS compartido entre el papel de inicio del plan y el de cada pago
+// -- mismo estilo que el resto de los papeles del cotizador (Reserva,
+// Garantia).
+function paginaFinanciacionHtml(titulo, contenido) {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>${titulo}</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; }
+  h1 { font-size: 18px; text-align: center; }
+  p { text-align: justify; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 180px; }
+  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
+  .box strong { display: block; margin-bottom: 4px; }
+  .box p { margin: 4px 0 0; }
+  .pagina { max-width: 700px; min-height: 950px; margin: 40px auto; padding-bottom: 40px; display: flex; flex-direction: column; page-break-after: always; }
+  .pagina:last-child { page-break-after: auto; }
+  .pagina > *:not(.firma) { flex-shrink: 0; }
+  .firma { margin-top: auto; padding-top: 40px; }
+  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
+</style></head>
+<body>
+  <div class="pagina">${contenido}</div>
+  <div class="pagina">${contenido}</div>
+
+  <script>window.onload = () => window.print();</script>
+</body></html>`;
+}
+
 // Fila (en la pestana FinanciacionPropia) del plan al que se le esta por
 // registrar un pago -- se setea al abrir el modal desde la lista (ver
-// reportes.js) y se usa recien al confirmar.
+// reportes.js) y se usa recien al confirmar. financiacionPagoDatos guarda
+// el resto de los datos del plan (cliente/telefono/equipo/saldo antes de
+// este pago) que necesita el papel que se imprime al confirmar.
 let financiacionPagoPlanFila = null;
+let financiacionPagoDatos = null;
 
-function AbrirModalPagoFinanciacion(fila, infoTexto) {
+function AbrirModalPagoFinanciacion(fila, infoTexto, datos) {
   financiacionPagoPlanFila = fila;
+  financiacionPagoDatos = datos || null;
   $('#fppMonto').val('');
   document.getElementById('fppInfo').textContent = infoTexto || '';
   document.getElementById('modalPagoFinanciacion').style.display = 'block';
@@ -2267,6 +2354,7 @@ function AbrirModalPagoFinanciacion(fila, infoTexto) {
 
 function CerrarModalPagoFinanciacion() {
   financiacionPagoPlanFila = null;
+  financiacionPagoDatos = null;
   document.getElementById('modalPagoFinanciacion').style.display = 'none';
 }
 
@@ -2293,9 +2381,69 @@ async function ConfirmarPagoFinanciacion() {
     return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo registrar el pago: ' + error.message });
   }
 
+  // Papel para el cliente con cuanto pago hoy y cuanto le queda -- a pedido
+  // del usuario, para poder entregarselo/mandarselo en cada pago. Si por
+  // algun motivo no llegaron los datos del plan (ver AbrirModalPagoFinanciacion)
+  // no se imprime nada, pero el pago ya quedo registrado igual.
+  if (financiacionPagoDatos) {
+    const saldoRestanteUsd = Math.max(0, financiacionPagoDatos.saldoUsdAntes - montoUsd);
+    await imprimirPagoFinanciacion({
+      vendedor,
+      cliente: financiacionPagoDatos.cliente,
+      telefono: financiacionPagoDatos.telefono,
+      equipo: financiacionPagoDatos.equipo,
+      montoPagadoArs: montoArs,
+      montoPagadoUsd: montoUsd,
+      saldoRestanteUsd,
+      saldoRestanteArs: saldoRestanteUsd * dolarDelDia
+    });
+  }
+
   MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Pago registrado: ${formatNumberArg(montoArs)} (USD ${montoUsd.toFixed(2)})` });
   CerrarModalPagoFinanciacion();
   if (typeof cargarFinanciacion === 'function') cargarFinanciacion();
+}
+
+// Papel que se lleva el cliente cada vez que hace un pago -- cuanto pago
+// hoy y cuanto le queda para terminar el plan, con las mismas politicas
+// que el papel inicial para que las tenga siempre a mano.
+async function imprimirPagoFinanciacion(datos) {
+  const ventana = window.open('', '_blank');
+  if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
+
+  const logo = await logoBase64(sucursalActual);
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const fecha = new Date().toLocaleDateString('es-AR');
+
+  const contenido = `
+  ${encabezadoLogo}
+  <h1>Pago de financiacion propia</h1>
+  <div class="campo"><strong>Fecha:</strong> ${fecha}</div>
+  <div class="campo"><strong>Vendedor:</strong> ${datos.vendedor}</div>
+  <div class="campo"><strong>Cliente:</strong> ${datos.cliente}</div>
+  <div class="campo"><strong>Telefono:</strong> ${datos.telefono}</div>
+
+  <div class="box">
+    <strong>Equipo</strong>
+    <p>${datos.equipo}</p>
+  </div>
+
+  <div class="campo" style="margin-top:16px;"><strong>Monto pagado hoy:</strong> ${formatNumberArg(datos.montoPagadoArs)} (USD ${datos.montoPagadoUsd.toFixed(2)})</div>
+  <div class="campo"><strong>Saldo pendiente:</strong> ${datos.saldoRestanteUsd > 0
+    ? `USD ${datos.saldoRestanteUsd.toFixed(2)} (${formatNumberArg(datos.saldoRestanteArs)} al dolar de hoy)`
+    : 'Plan saldado -- equipo listo para retirar'}</div>
+
+  <p style="margin-top:16px;">${FINANCIACION_POLITICAS}</p>
+
+  <div class="campo">CUIT: 30-71929577-7</div>
+
+  <div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
+  </div>`;
+
+  ventana.document.write(paginaFinanciacionHtml('Pago financiacion', contenido));
+  ventana.document.close();
 }
 
 // ============================ REPARACION ============================

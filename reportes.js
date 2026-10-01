@@ -747,7 +747,7 @@ async function cargarFinanciacion() {
       : `USD ${saldoUsd.toFixed(2)}`;
 
     const acciones = esActivo
-      ? `<button type="button" class="btn-total" data-fp-pago="${f._fila}" data-fp-cliente="${f['Cliente'] || ''}" data-fp-equipo="${f['Equipo'] || ''}" data-fp-saldo="${saldoUsd.toFixed(2)}" style="width:auto; padding:4px 10px; margin-right:6px;">Registrar pago</button>
+      ? `<button type="button" class="btn-total" data-fp-pago="${f._fila}" data-fp-cliente="${f['Cliente'] || ''}" data-fp-telefono="${f['Telefono'] || ''}" data-fp-equipo="${f['Equipo'] || ''}" data-fp-saldo="${saldoUsd.toFixed(2)}" style="width:auto; padding:4px 10px; margin-right:6px;">Registrar pago</button>
          <button type="button" class="btn-total" data-fp-whatsapp="${f._fila}" style="width:auto; padding:4px 10px; margin-right:6px; background:#25D366;">WhatsApp</button>
          <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Completado" style="width:auto; padding:4px 10px; margin-right:6px;">Completado</button>
          <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Cancelado" data-fp-imei="${f['Imei'] || ''}" data-fp-pagado="${pagadoUsd.toFixed(2)}" data-fp-cliente="${f['Cliente'] || ''}" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelado</button>`
@@ -780,7 +780,15 @@ async function cargarFinanciacion() {
   tbody.querySelectorAll('[data-fp-pago]').forEach(boton => {
     boton.addEventListener('click', () => {
       const info = `${boton.dataset.fpCliente} -- ${boton.dataset.fpEquipo} -- saldo actual: USD ${boton.dataset.fpSaldo}`;
-      AbrirModalPagoFinanciacion(Number(boton.dataset.fpPago), info);
+      // Se pasan los datos del plan (no solo el texto) para poder armar el
+      // papel de pago al confirmar -- ver ConfirmarPagoFinanciacion en app.js.
+      const datos = {
+        cliente: boton.dataset.fpCliente,
+        telefono: boton.dataset.fpTelefono,
+        equipo: boton.dataset.fpEquipo,
+        saldoUsdAntes: Number(boton.dataset.fpSaldo) || 0
+      };
+      AbrirModalPagoFinanciacion(Number(boton.dataset.fpPago), info, datos);
     });
   });
   tbody.querySelectorAll('[data-fp-whatsapp]').forEach(boton => {
