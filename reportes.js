@@ -746,11 +746,32 @@ async function cargarFinanciacion() {
       ? `USD ${saldoUsd.toFixed(2)} (${formatNumberArg(saldoUsd * dolarHoy)})`
       : `USD ${saldoUsd.toFixed(2)}`;
 
+    // Ultimo pago de este plan (si tiene alguno) -- para poder reimprimir
+    // ese recibo puntual sin tener que cargar un pago nuevo de mentira.
+    const pagosDelPlan = pagos.filter(p => Number(p['PlanFila']) === f._fila);
+    const ultimoPago = pagosDelPlan.length ? pagosDelPlan[pagosDelPlan.length - 1] : null;
+
     const acciones = esActivo
       ? `<button type="button" class="btn-total" data-fp-pago="${f._fila}" data-fp-cliente="${f['Cliente'] || ''}" data-fp-telefono="${f['Telefono'] || ''}" data-fp-equipo="${f['Equipo'] || ''}" data-fp-saldo="${saldoUsd.toFixed(2)}" style="width:auto; padding:4px 10px; margin-right:6px;">Registrar pago</button>
          <button type="button" class="btn-total" data-fp-whatsapp="${f._fila}" style="width:auto; padding:4px 10px; margin-right:6px; background:#25D366;">WhatsApp</button>
          <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Completado" style="width:auto; padding:4px 10px; margin-right:6px;">Completado</button>
          <button type="button" class="btn-total" data-fp-estado="${f._fila}" data-fp-nuevo-estado="Cancelado" data-fp-imei="${f['Imei'] || ''}" data-fp-pagado="${pagadoUsd.toFixed(2)}" data-fp-cliente="${f['Cliente'] || ''}" style="width:auto; padding:4px 10px; background:#e74c3c;">Cancelado</button>`
+      : '';
+
+    // Reimprimir: por si se traba la impresora o se necesita otra copia --
+    // no registra nada nuevo, solo vuelve a armar el mismo papel con los
+    // datos que ya estan guardados (plan inicial, y el ultimo pago si hay
+    // alguno, con el saldo ACTUAL -- que ya refleja ese pago).
+    const botonReimprimirPlan = `<button type="button" class="btn-total" data-fp-reimp-plan="${f._fila}"
+        data-rp-cliente="${f['Cliente'] || ''}" data-rp-telefono="${f['Telefono'] || ''}" data-rp-equipo="${f['Equipo'] || ''}"
+        data-rp-vendedor="${f['Vendedor'] || ''}" data-rp-total="${totalUsd}"
+        style="width:auto; padding:4px 10px; margin-right:6px; background:#7f8c8d;">Reimprimir plan</button>`;
+    const botonReimprimirPago = ultimoPago
+      ? `<button type="button" class="btn-total" data-fp-reimp-pago="${f._fila}"
+          data-rp-cliente="${f['Cliente'] || ''}" data-rp-telefono="${f['Telefono'] || ''}" data-rp-equipo="${f['Equipo'] || ''}"
+          data-rp-vendedor="${ultimoPago['Vendedor'] || ''}" data-rp-monto-ars="${ultimoPago['MontoArs'] || 0}" data-rp-monto-usd="${ultimoPago['MontoUsd'] || 0}"
+          data-rp-saldo-usd="${saldoUsd.toFixed(2)}" data-rp-saldo-ars="${(saldoUsd * (dolarHoy || 0)).toFixed(2)}"
+          style="width:auto; padding:4px 10px; background:#7f8c8d;">Reimprimir ultimo pago</button>`
       : '';
 
     // Alerta de plazo: igual que Reservas, solo tiene sentido para planes
@@ -772,7 +793,7 @@ async function cargarFinanciacion() {
         }
       }
     }
-    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>USD ${totalUsd}</td><td>USD ${pagadoUsd.toFixed(2)}</td><td>${saldoTexto}</td><td>${estadoCelda}</td><td>${acciones}</td>`;
+    tr.innerHTML = `<td>${f['Fecha']}</td><td>${f['Cliente']}</td><td>${f['Telefono']}</td><td>${f['Equipo']}</td><td>USD ${totalUsd}</td><td>USD ${pagadoUsd.toFixed(2)}</td><td>${saldoTexto}</td><td>${estadoCelda}</td><td>${acciones}${botonReimprimirPlan}${botonReimprimirPago}</td>`;
     fragm.appendChild(tr);
   });
   tbody.appendChild(fragm);
@@ -793,6 +814,34 @@ async function cargarFinanciacion() {
   });
   tbody.querySelectorAll('[data-fp-whatsapp]').forEach(boton => {
     boton.addEventListener('click', () => copiarMensajeFinanciacion(Number(boton.dataset.fpWhatsapp)));
+  });
+  tbody.querySelectorAll('[data-fp-reimp-plan]').forEach(boton => {
+    boton.addEventListener('click', () => {
+      if (typeof imprimirFinanciacion !== 'function') return;
+      imprimirFinanciacion({
+        vendedor: boton.dataset.rpVendedor,
+        cliente: boton.dataset.rpCliente,
+        telefono: boton.dataset.rpTelefono,
+        equipo: boton.dataset.rpEquipo,
+        montoTotalUsd: Number(boton.dataset.rpTotal) || 0,
+        montoTotalArs: (Number(boton.dataset.rpTotal) || 0) * (DATA.dolar ? DATA.dolar.DolarVenta : 0)
+      });
+    });
+  });
+  tbody.querySelectorAll('[data-fp-reimp-pago]').forEach(boton => {
+    boton.addEventListener('click', () => {
+      if (typeof imprimirPagoFinanciacion !== 'function') return;
+      imprimirPagoFinanciacion({
+        vendedor: boton.dataset.rpVendedor,
+        cliente: boton.dataset.rpCliente,
+        telefono: boton.dataset.rpTelefono,
+        equipo: boton.dataset.rpEquipo,
+        montoPagadoArs: Number(boton.dataset.rpMontoArs) || 0,
+        montoPagadoUsd: Number(boton.dataset.rpMontoUsd) || 0,
+        saldoRestanteUsd: Number(boton.dataset.rpSaldoUsd) || 0,
+        saldoRestanteArs: Number(boton.dataset.rpSaldoArs) || 0
+      });
+    });
   });
   tbody.querySelectorAll('[data-fp-estado]').forEach(boton => {
     boton.addEventListener('click', () => marcarEstadoFinanciacion(Number(boton.dataset.fpEstado), boton.dataset.fpNuevoEstado, boton.dataset.fpImei, Number(boton.dataset.fpPagado) || 0, boton.dataset.fpCliente || '', boton));
