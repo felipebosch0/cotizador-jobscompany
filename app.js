@@ -1405,10 +1405,10 @@ const GARANTIA_TEXTOS = {
       garantiaTexto: 'garantia de 3 meses'
     }
   },
-  // Independencia: mismo texto base que Shopping, pero el Semi-Nuevo tiene
-  // solo 1 mes de garantia (distinto a Shopping que son 3). El Sellado/
-  // Nuevo se asume igual (garantia oficial Apple de 12 meses, es un tema
-  // de Apple, no de la sucursal) -- confirmar si no.
+  // Independencia: mismo texto que Shopping. El Semi-Nuevo tenia 1 mes de
+  // garantia, desde 04/10/2026 son 3 meses (igual que Shopping). El Sellado/
+  // Nuevo es garantia oficial Apple de 12 meses (tema de Apple, no de la
+  // sucursal).
   Independencia: {
     sellado: {
       condicionTexto: 'Nuevo',
@@ -1416,7 +1416,7 @@ const GARANTIA_TEXTOS = {
     },
     seminuevo: {
       condicionTexto: 'Semi-Nuevo',
-      garantiaTexto: 'garantia de 1 mes'
+      garantiaTexto: 'garantia de 3 meses'
     }
   }
 };
