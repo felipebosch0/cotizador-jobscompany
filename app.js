@@ -385,6 +385,11 @@ function renderCarrito() {
   const btnFinanciacion = document.getElementById('btnIniciarFinanciacion');
   const badge = document.getElementById('badgeCarrito');
 
+  // Promo: con al menos 1 equipo en el carrito (cualquier renglon "Equipo"
+  // con modelo -- no cuentan las lineas de "Entrega en efectivo", que son
+  // tipo "Equipo" pero sin modelo) se avisa que hay AirPods de regalo.
+  document.getElementById('avisoPromoAirpods').classList.toggle('oculto', !carrito.some(item => item.tipo === 'Equipo' && item.modelo));
+
   badge.textContent = carrito.length;
   badge.classList.toggle('oculto', carrito.length === 0);
 
