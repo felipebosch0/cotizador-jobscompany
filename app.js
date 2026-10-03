@@ -1131,21 +1131,45 @@ function evaluarChecklistTradeIn(modelo) {
   return { descuento, detalle, base, costoFallas };
 }
 
+// Independencia: ademas del calculo automatico, el vendedor puede escribir
+// directo el valor del canje en USD (campo "precioTradeInUsd") y ese numero
+// es el que queda en el carrito. Shopping no cambia: el campo esta oculto y
+// siempre manda el calculo automatico.
+function tradeInUsdEditable() {
+  return sucursalActual === 'Independencia';
+}
+
+function leerTradeInUsdManual() {
+  const n = Number(String($('#formTradeIn input[name="precioTradeInUsd"]').val()).replace(/[^0-9.,]/g, '').replace(',', '.'));
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function CalcularTradeIn() {
   const modelo = $('#formTradeIn select[name="modeloTI"]').val();
   if (!modelo) {
     $('#formTradeIn input[name="totalDescuentoTradeIn"]').val('');
+    $('#formTradeIn input[name="precioTradeInUsd"]').val('');
     return;
   }
   const { descuento } = evaluarChecklistTradeIn(modelo);
   $('#formTradeIn input[name="totalDescuentoTradeIn"]').val(formatNumberArg(descuento));
+  // Cambiar modelo o un check recalcula y pisa lo que se haya escrito a mano.
+  if (tradeInUsdEditable()) {
+    $('#formTradeIn input[name="precioTradeInUsd"]').val(Math.round(descuento / DATA.dolar.DolarVenta));
+  }
 }
 
 function AgregarCarritoTradeIn() {
   const modelo = $('#formTradeIn select[name="modeloTI"]').val();
   if (!modelo) return MostrarAlerta({ tipo: 'error', title: 'Trade In', mnsj: 'Elegi un modelo antes de agregar el canje' });
 
-  const { descuento, detalle } = evaluarChecklistTradeIn(modelo);
+  const { detalle, descuento: descuentoAuto } = evaluarChecklistTradeIn(modelo);
+  let descuento = descuentoAuto;
+  if (tradeInUsdEditable()) {
+    const usdManual = leerTradeInUsdManual();
+    if (usdManual === null) return MostrarAlerta({ tipo: 'error', title: 'Trade In', mnsj: 'El valor del canje en USD no es valido' });
+    descuento = usdManual * DATA.dolar.DolarVenta;
+  }
   // Se muestra entre parentesis en cuantos USD se toma el equipo (el
   // "descuento" ya esta en ARS, se vuelve a pasar a USD solo para
   // mostrarlo -- no se usa para calcular nada mas).
@@ -2675,6 +2699,7 @@ function cargarSucursal(sucursal) {
   $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
   $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
 
+  document.getElementById('grupoTradeInUsd').classList.toggle('oculto', sucursal !== 'Independencia');
   // Financiacion propia: solo Independencia (ver AbrirModalFinanciacion).
   document.getElementById('btnCFinanciacion').classList.toggle('oculto', sucursal !== 'Independencia');
 
@@ -2835,6 +2860,10 @@ function iniciarApp(sesion) {
   poblarChecks('checksFallasReparacion', '#formReparacion');
   $('#formTradeIn :checkbox').on('change', CalcularTradeIn);
   $('#formTradeIn select[name="modeloTI"]').on('change', CalcularTradeIn);
+  $('#formTradeIn input[name="precioTradeInUsd"]').on('input', function () {
+    const usd = leerTradeInUsdManual();
+    $('#formTradeIn input[name="totalDescuentoTradeIn"]').val(usd === null ? '' : formatNumberArg(usd * DATA.dolar.DolarVenta));
+  });
 
   $('#formVenta select[name="tipoVenta"]').change(function () {
     const met = $(this).val();

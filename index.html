@@ -5973,6 +5973,12 @@
                   </div>
 
                   <hr>
+                  <!-- Solo Independencia: el vendedor puede pisar el valor del
+                       canje directo en USD (ver CalcularTradeIn en app.js). -->
+                  <div class="form-group-total oculto" id="grupoTradeInUsd">
+                    <label><strong>Valor del canje (USD) -- editable</strong></label>
+                    <input type="text" name="precioTradeInUsd" placeholder="USD 0" autocomplete="off" inputmode="decimal">
+                  </div>
                   <div class="form-group-total">
                     <label><strong>Descuento total del canje</strong></label>
                     <input type="text" name="totalDescuentoTradeIn" class="total" placeholder="$0" autocomplete="off" readonly>
