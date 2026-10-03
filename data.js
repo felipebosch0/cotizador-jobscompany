@@ -117,12 +117,11 @@ window.COTIZADOR_DATA = {
       } },
       { modelo: 'iPhone 13',         capacidades: {
         // Excel Tio Jobs: 98% ya vale igual que 100% ($380), no hay tramo
-        // intermedio a $350 -- se saco. Bajado USD 100 en todos los tramos
-        // (03/10/2026): 300/330/380 -> 200/230/280.
+        // intermedio a $350 -- se saco.
         '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 80%', precio: 200 },
-          { etiqueta: '80% a 90%',   precio: 230 },
-          { etiqueta: '90% a 100%',  precio: 280 }
+          { etiqueta: 'Menor a 80%', precio: 300 },
+          { etiqueta: '80% a 90%',   precio: 330 },
+          { etiqueta: '90% a 100%',  precio: 380 }
         ] }
       } },
       { modelo: 'iPhone 13 Pro',     capacidades: {
@@ -141,12 +140,10 @@ window.COTIZADOR_DATA = {
       } },
       { modelo: 'iPhone 14 Pro',     capacidades: {
         // Excel Tio Jobs: 100% -> $520, ~86-99% -> $500, menos de 86% -> $470.
-        // Bajado USD 100 en todos los tramos (03/10/2026): 470/500/520 ->
-        // 370/400/420.
         '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: 'Menor a 86%', precio: 370 },
-          { etiqueta: '86% a 99%',   precio: 400 },
-          { etiqueta: '100%',        precio: 420 }
+          { etiqueta: 'Menor a 86%', precio: 470 },
+          { etiqueta: '86% a 99%',   precio: 500 },
+          { etiqueta: '100%',        precio: 520 }
         ] }
       } },
       { modelo: 'iPhone 14 Pro Max', capacidades: {
