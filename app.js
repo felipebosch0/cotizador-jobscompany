@@ -1726,7 +1726,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // como parte de pago de esta misma operacion -- sin mostrar el IMEI de
   // ese equipo entregado, solo el aviso.
   const observaciones = [];
-  if (falla) observaciones.push('Falla del equipo: ' + falla);
+  if (falla) observaciones.push(falla);
   const tradeIn = sucursalActual === 'Independencia' ? tradeInDelCarrito() : null;
   if (tradeIn) observaciones.push('El cliente entrego un equipo (' + tradeIn.modelo + ') en Trade In como parte de pago.');
 
@@ -1799,7 +1799,7 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
   // la lista en ConfirmarGarantia. Mismo tratamiento visual que el box de
   // accesorios.
   const boxObservacion = (datos.observaciones && datos.observaciones.length)
-    ? `<div class="box"><strong>Observacion</strong>${datos.observaciones.map(o => `<p>${o}</p>`).join('')}</div>`
+    ? `<div class="box"><strong>Observaciones</strong>${datos.observaciones.map(o => `<p>${o}</p>`).join('')}</div>`
     : '';
 
   // Contenido de la garantia en si (paginas 1 y 2 son identicas -- 2 copias,
