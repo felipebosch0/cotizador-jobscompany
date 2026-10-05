@@ -3051,6 +3051,7 @@ function iniciarApp(sesion) {
         'btnCIngresoEgreso': () => IngresoEgreso(),
         'btnCReportes': () => Reportes(),
         'btnCReservas': () => Reservas(),
+        'btnCComparar': () => abrirComparador(),
         'btnCFinanciacion': () => Financiacion(),
         'AgregarCarritoEquipo': () => AgregarCarritoEquipo(),
         'AgregarCarritoAccesorio': () => AgregarCarritoAccesorio(),
