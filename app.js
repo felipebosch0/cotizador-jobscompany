@@ -435,7 +435,9 @@ function renderCarrito() {
     fragm.appendChild(tr);
   });
   body.appendChild(fragm);
-  document.getElementById('totalCarrito').value = formatNumberArg(totalCarrito());
+  // Independencia: el total se muestra en pesos y en dolares.
+  document.getElementById('totalCarrito').value = formatNumberArg(totalCarrito()) +
+    (sucursalActual === 'Independencia' ? ` (USD ${Math.round(totalCarrito() / DATA.dolar.DolarVenta)})` : '');
 
   // La financiacion del carrito no se muestra en vivo mientras se navega
   // otras pestanas -- solo se calcula/actualiza si la pestana Carrito esta
@@ -2748,6 +2750,9 @@ function cargarSucursal(sucursal) {
 
   ResetFormCotizador();
   actualizarModuloStock('');
+  // El carrito sobrevive al cambio de sucursal -- se vuelve a dibujar para
+  // que el total muestre (o saque) los dolares segun la sucursal nueva.
+  renderCarrito();
 
   if (!equipos.length) {
     MostrarAlerta({ tipo: 'warning', title: 'Sucursal', mnsj: sucursal + ' todavia no tiene lista de precios de iPhone cargada. AirPods/Watch/iPad/MacBook si estan disponibles.' });
