@@ -339,7 +339,7 @@
     const m = porId(id); const p = m && precioCotizador(m);
     if (!p || !p.modelo) return;
     cerrar();
-    if (typeof Venta === 'function') Venta();
+    if (typeof Venta === 'function') Venta(); if (typeof marcarMenuActivo === 'function') marcarMenuActivo('btnCVenta');
     if (window.jQuery) {
       window.jQuery('#formVenta select[name="tipoVenta"]').val('venta equipo').change();
       window.jQuery('#formVenta select[name="modeloV"]').val(p.modelo).change();

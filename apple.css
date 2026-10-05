@@ -299,3 +299,30 @@ tr.totalRows td, tr.totalRows-2 td { font-weight: 600; }
 hr, label.title-l, .form-group-total { clear: both; }
 .form-line.col-6 .form-group-total { clear: none; }
 [id^="NotiflixReportWrap"] > div[class*="-overlay"], [id^="NotiflixConfirmWrap"] > div[class*="-overlay"] { background: transparent !important; }
+
+/* ---------- botones chicos dentro de tablas y botones secundarios ---------- */
+td .btn-total, td .btn-action, .btn-total[style*="width:auto"] {
+  height: 32px; padding: 0 14px !important; font-size: 13px; margin-top: 0; border-radius: 999px;
+}
+.btn-total[style*="#e74c3c"] { background: var(--ap-red) !important; }
+.btn-total[style*="#25D366"] { background: #25d366 !important; color: #fff; }
+.btn-total[style*="#7f8c8d"], .btn-total[style*="#333"] {
+  background: var(--ap-fill) !important; color: var(--main-color) !important;
+}
+.btn-total[style*="#7f8c8d"]:hover, .btn-total[style*="#333"]:hover { background: var(--ap-fill-hover) !important; }
+
+/* ---------- menu del cotizador: barra centrada, la opcion elegida se pinta de azul ---------- */
+.cot-menu {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
+  width: fit-content; max-width: 100%;
+  margin: 4px auto 22px; padding: 6px;
+  background: var(--ap-fill); border-radius: 999px;
+}
+.cot-menu .btn-act { margin: 0; height: 40px; padding: 0 20px; background: transparent; color: var(--main-color); }
+.cot-menu .btn-act:hover { background: var(--ap-fill-hover); }
+.cot-menu .btn-act.activo { background: var(--ap-accent); color: #fff; box-shadow: 0 2px 10px var(--ap-accent-soft); }
+.cot-menu .btn-act.oculto { display: none; }
+@media (max-width: 760px) {
+  .cot-menu { border-radius: 22px; }
+  .cot-menu .btn-act { flex: 0 1 auto; padding: 0 16px; }
+}

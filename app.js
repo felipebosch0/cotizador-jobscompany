@@ -3059,13 +3059,23 @@ function iniciarApp(sesion) {
         'ExportarCarrito': () => ExportarCarrito()
       };
       if (accion && acciones[accion]) node.dataset.param ? acciones[accion](node.dataset.param) : acciones[accion]();
+      if (node.classList.contains('btn-act') && accion !== 'btnCComparar') marcarMenuActivo(accion);
     }
-    if (node.matches('.fa-eraser')) ResetFormCotizador();
+    if (node.matches('.fa-eraser')) { ResetFormCotizador(); marcarMenuActivo(null); }
     if (node.matches('.fa-trash')) VaciarCarrito();
     if (node.matches('[data-quitar-carrito]')) quitarDelCarrito(Number(node.dataset.quitarCarrito));
   });
 
   renderCarrito();
+}
+
+// Pinta de azul la opcion elegida en el menu del cotizador.
+function marcarMenuActivo(accion) {
+  document.querySelectorAll('.cot-menu .btn-act').forEach(b => {
+    const on = !!accion && b.dataset.action === accion;
+    b.classList.toggle('activo', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
 
 // ============================ ARRANQUE (login) ============================

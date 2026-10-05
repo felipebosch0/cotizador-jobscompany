@@ -401,7 +401,7 @@ function renderTendenciaSemanal(ventas) {
 // ============================ CHART.JS: helpers genericos ============================
 
 const instanciasCharts = {};
-const PALETA_COLORES = ['#4834d4', '#6ab04c', '#f0932b', '#eb4d4b', '#22a6b3', '#be2edd', '#7ed6df', '#e056fd'];
+const PALETA_COLORES = ['#0071e3', '#30a14e', '#ff9f0a', '#ff3b30', '#5ac8fa', '#af52de', '#64d2ff', '#ff2d55'];
 
 function destruirChartSiExiste(id) {
   if (instanciasCharts[id]) { instanciasCharts[id].destroy(); delete instanciasCharts[id]; }
