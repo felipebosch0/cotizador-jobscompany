@@ -388,7 +388,7 @@ function renderCarrito() {
   // Promo: con al menos 1 equipo en el carrito (cualquier renglon "Equipo"
   // con modelo -- no cuentan las lineas de "Entrega en efectivo", que son
   // tipo "Equipo" pero sin modelo) se avisa que hay AirPods de regalo.
-  document.getElementById('avisoPromoAirpods').classList.toggle('oculto', !carrito.some(item => item.tipo === 'Equipo' && item.modelo));
+  document.getElementById('avisoPromoAirpods').classList.toggle('oculto', !promoAirpodsHabilitada());
 
   badge.textContent = carrito.length;
   badge.classList.toggle('oculto', carrito.length === 0);
@@ -446,6 +446,19 @@ function renderCarrito() {
   }
 }
 
+// Si ese modelo/capacidad (Semi Nuevo) tuvo una baja de precio en la sucursal
+// actual, devuelve el precio de lista anterior en pesos (el precio actual
+// del carrito + la diferencia en USD al dolar del dia); si no, null.
+function precioOriginalBaja(modelo, capacidad, condicion, precioActualArs) {
+  if (condicion !== 'seminuevo') return null;
+  const tabla = ((DATA.preciosAnterioresBaja || {})[sucursalActual] || {})[modelo];
+  const anteriorUsd = tabla && tabla[capacidad];
+  const equipo = buscarEquipoVenta(modelo);
+  const actualUsd = equipo && equipo.capacidades[capacidad] && equipo.capacidades[capacidad].seminuevo;
+  if (!anteriorUsd || actualUsd == null || anteriorUsd <= actualUsd) return null;
+  return precioActualArs + (anteriorUsd - actualUsd) * DATA.dolar.DolarVenta;
+}
+
 function AgregarCarritoEquipo() {
   const modelo = $('#formVenta select[name="modeloV"]').val();
   const capacidad = $('#formVenta select[name="capacidadV"]').val();
@@ -499,6 +512,10 @@ function AgregarCarritoEquipo() {
     // Estos campos son los que usa la garantia (ver itemsGarantizables) --
     // esEquipoPrincipal distingue este renglon de los de "Entrega en
     // efectivo" de abajo, que tambien quedan con tipo "Equipo".
+    // Si el modelo tuvo una baja de precio (ver preciosAnterioresBaja en
+    // data.js), se guarda cuanto salia antes para mostrarlo tachado en el
+    // mensaje de WhatsApp.
+    precioOriginal: precioOriginalBaja(modelo, capacidad, condicion, total + adelanto),
     esEquipoPrincipal: !tieneGarantiaPropia,
     tieneGarantiaPropia, marcaGarantia,
     // Evita nombres duplicados tipo "PlayStation PlayStation 5 Digital" --
@@ -560,6 +577,12 @@ function VaciarCarrito() {
   }, function () {});
 }
 
+// La promo de AirPods de regalo vale con al menos 1 equipo en el carrito
+// (renglones "Equipo" con modelo -- no cuentan las entregas en efectivo).
+function promoAirpodsHabilitada() {
+  return carrito.some(item => item.tipo === 'Equipo' && item.modelo);
+}
+
 function ExportarCarrito() {
   if (!carrito.length) return MostrarAlerta({ tipo: 'error', title: 'Carrito', mnsj: 'El carrito esta vacio' });
   const hh = new Date().getHours();
@@ -569,7 +592,18 @@ function ExportarCarrito() {
 
   // La financiacion se calcula sobre el total sumado del carrito (ver
   // TablaFinancia) y se incluye aca con las distintas cotizaciones/planes.
-  const lineas = carrito.map(item => `- ${item.descripcion}: ${formatNumberArg(item.precio)}`).join('\n');
+  // Con baja de precio: el original tachado (~texto~ en WhatsApp) y al lado
+  // el actual.
+  const listaLineas = carrito.map(item => item.precioOriginal
+    ? `- ${item.descripcion}: ~${formatNumberArg(item.precioOriginal)}~ ${formatNumberArg(item.precio)}`
+    : `- ${item.descripcion}: ${formatNumberArg(item.precio)}`);
+  // Promo habilitada (hay al menos 1 equipo): AirPods de regalo, con el
+  // precio de lista tachado si lo tenemos. No suma al total.
+  if (promoAirpodsHabilitada()) {
+    const airpods = accesoriosSucursal().find(a => a.descripcion === 'AirPods Gen 4' && a.modelo === 'Certificado');
+    listaLineas.push(`- AirPods${airpods && airpods.precio ? ': ~' + formatNumberArg(airpods.precio) + '~' : ':'} *DE REGALO* \u{1F381}`);
+  }
+  const lineas = listaLineas.join('\n');
 
   // Si hay un Trade In en el carrito, se agrega un parrafo personalizado
   // aclarando en cuanto se toma el equipo. Antes decia "con un descuento de

@@ -18,6 +18,17 @@ window.COTIZADOR_DATA = {
   // que scrapea infodolar.com server-side y refresca esto cada 5 min.
   dolar: { DolarCompra: 1300, DolarVenta: 1350 }, // MOCK, se pisa al cargar
 
+  // Precio ANTERIOR (USD, Semi Nuevo) de los modelos a los que se les bajo
+  // el precio -- en el mensaje de WhatsApp del carrito se muestra tachado
+  // al lado del precio actual (ver ExportarCarrito en app.js). Sacar el
+  // modelo de aca cuando termine la promocion.
+  preciosAnterioresBaja: {
+    'Shopping': {
+      'iPhone 13':     { '128Gb': 520, '256Gb': 620, '512Gb': 670, '1Tb': 720 },
+      'iPhone 14 Pro': { '128Gb': 700, '256Gb': 800, '512Gb': 850, '1Tb': 900 }
+    }
+  },
+
   // Quedaron 2 sucursales (antes habia varias mas, se descartaron).
   sucursales: ['Shopping', 'Independencia'],
 
