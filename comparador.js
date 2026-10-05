@@ -12,7 +12,15 @@
   const ABIERTAS_POR_DEFECTO = ['Resumen', 'Pantalla', 'Chip', 'Cámara', 'Energía y batería'];
 
   const CATEGORIAS = {
-    iphone: { etiqueta: 'iPhone', titulo: 'Compará iPhone', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.' }
+    iphone: { etiqueta: 'iPhone', titulo: 'Compará iPhone', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.', pref: ['iphone-17-pro-max', 'iphone-17-pro'] },
+    ipad: { etiqueta: 'iPad', titulo: 'Compará iPad', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.', pref: ['ipad-pro-13-m5', 'ipad-air-13-m4'],
+      resumen: [['Pantalla', 'Pantalla'], ['Chip', 'Chip'], ['Capacidad', 'Capacidad', null, true], ['Cámara', 'Cámara'], ['Conector', 'Conector'], ['Autenticación', 'Autenticación segura'], ['Apple Pencil', 'Apple Pencil']] },
+    mac: { etiqueta: 'Mac', titulo: 'Compará Mac', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.', pref: ['macbook-air-13-m5', 'macbook-pro-14-m5'],
+      resumen: [['Chip', 'Lo más destacado', /^Chip/], ['Pantalla', 'Pantalla'], ['Memoria', 'Memoria'], ['Almacenamiento', 'Almacenamiento'], ['Puertos', 'Puertos'], ['Batería', 'Energía y batería'], ['Peso', 'Tamaño y peso', /\bkg\b/]] },
+    watch: { etiqueta: 'Apple Watch', titulo: 'Compará Apple Watch', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.', pref: ['apple-watch-series-11', 'apple-watch-ultra-3'],
+      resumen: [['Pantalla', 'Pantalla'], ['Chip', 'Chip'], ['Caja', 'Caja'], ['Batería', 'Energía y batería', /^Hasta/], ['Conectividad', 'Conectividad'], ['Durabilidad', 'Durabilidad']] },
+    airpods: { etiqueta: 'AirPods', titulo: 'Compará AirPods', subtitulo: 'Elegí hasta tres modelos y mirá en qué se diferencian.', pref: ['airpods-pro-3', 'airpods-4'],
+      resumen: [['Chip', 'Chip'], ['Audio', 'Tecnología de audio'], ['Batería (auriculares)', 'Batería', /^Hasta/], ['Resistencia', 'Resistencia al polvo, al agua y al sudor'], ['Conectividad', 'Conectividad'], ['Peso', 'Tamaño y peso', /Peso/]] }
   };
 
   const estado = { categoria: 'iphone', seleccion: [], color: {}, soloDif: false, abiertas: new Set(ABIERTAS_POR_DEFECTO) };
@@ -36,7 +44,20 @@
   }
 
   // Filas del "Resumen": lo que mas se pregunta en el mostrador.
+  function resumenGenerico(m, spec) {
+    const corto = t => { const x = t.replace(/\s+/g, ' ').trim(); return x.length > 110 ? x.slice(0, 107).replace(/\s+\S*$/, '') + '…' : x; };
+    const filas = spec.map(([etq, sec, re, unir]) => {
+      let items = seccionDe(m, sec);
+      if (re) items = items.filter(x => re.test(x));
+      return [etq, items.length ? corto(unir ? items.join(' · ') : items[0]) : '—'];
+    });
+    if (m.colores && m.colores.length) filas.push(['Colores', m.colores.map(c => c.nombre).join(', ')]);
+    return filas;
+  }
+
   function resumenDe(m) {
+    const spec = CATEGORIAS[estado.categoria].resumen;
+    if (spec) return resumenGenerico(m, spec);
     const filas = [];
     const pulgadas = [];
     seccionDe(m, 'Pantalla').forEach(x => { const r = x.match(/([\d.]+)\s*pulgadas/); if (r) pulgadas.push(r[1] + '″'); });
@@ -130,6 +151,8 @@
   }
 
   function opcionesModelo(excluidos, seleccionado) {
+    const opt = m => `<option value="${m.id}" ${m.id === seleccionado ? 'selected' : ''} ${excluidos.includes(m.id) && m.id !== seleccionado ? 'disabled' : ''}>${esc(m.nombre)}</option>`;
+    if (estado.categoria !== 'iphone') return modelos().map(opt).join('');
     const grupos = {};
     modelos().forEach(m => {
       const anio = m.anio || (/\b12\b/.test(m.nombre) ? 2020 : 2019);
@@ -148,7 +171,7 @@
 
   function fotoSrc(m) {
     const c = colorActual(m);
-    return c ? `${m.imagen}${c.id}.jpg` : '';
+    return c ? `${m.imagen}${c.id}.${c.ext || 'jpg'}` : '';
   }
 
   function renderColumnas() {
@@ -219,8 +242,8 @@
     // 2) Secciones completas
     const titulos = [];
     sel.forEach(m => m.secciones.forEach(s => { if (!titulos.includes(s.titulo)) titulos.push(s.titulo); }));
-    const ORDEN = ['Acabado', 'Capacidad', 'Tamaño y peso', 'Pantalla', 'Resistencia a las salpicaduras, al agua y al polvo', 'Chip', 'Apple Intelligence', 'Cámara', 'Cámara frontal', 'Grabación de video', 'Energía y batería', 'MagSafe y carga inalámbrica', 'Carga y expansión', 'Conexión celular e inalámbrica', 'Botones y conectores externos', 'Face ID', 'Touch ID', 'Sensores', 'Tarjeta SIM', 'Seguridad y emergencias', 'En la caja'];
-    titulos.sort((a, b) => ORDEN.indexOf(a) - ORDEN.indexOf(b));
+    const ORDEN = estado.categoria !== 'iphone' ? null : ['Acabado', 'Capacidad', 'Tamaño y peso', 'Pantalla', 'Resistencia a las salpicaduras, al agua y al polvo', 'Chip', 'Apple Intelligence', 'Cámara', 'Cámara frontal', 'Grabación de video', 'Energía y batería', 'MagSafe y carga inalámbrica', 'Carga y expansión', 'Conexión celular e inalámbrica', 'Botones y conectores externos', 'Face ID', 'Touch ID', 'Sensores', 'Tarjeta SIM', 'Seguridad y emergencias', 'En la caja'];
+    if (ORDEN) titulos.sort((a, b) => ORDEN.indexOf(a) - ORDEN.indexOf(b));
     titulos.forEach(t => {
       const listas = sel.map(m => seccionDe(m, t));
       const conjuntos = listas.map(l => new Set(l.map(norm)));
@@ -325,7 +348,7 @@
   }
 
   function seleccionInicial() {
-    const pref = ['iphone-17-pro-max', 'iphone-17-pro'];
+    const pref = CATEGORIAS[estado.categoria].pref || [];
     const ok = pref.filter(id => porId(id));
     return ok.length ? ok : modelos().slice(0, 2).map(m => m.id);
   }
