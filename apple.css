@@ -326,3 +326,29 @@ td .btn-total, td .btn-action, .btn-total[style*="width:auto"] {
   .cot-menu { border-radius: 22px; }
   .cot-menu .btn-act { flex: 0 1 auto; padding: 0 16px; }
 }
+
+/* ---------- formularios del cotizador: centrados y bien anchos ---------- */
+#ventaYrenov, #formReparacion > .form-line, #formTradeIn > .form-line {
+  float: none !important; width: 100% !important; max-width: 760px; margin: 0 auto; padding-left: 10px; padding-right: 10px;
+}
+#ventaYrenov::after, #formReparacion > .form-line::after, #formTradeIn > .form-line::after { content: ""; display: block; clear: both; }
+
+/* ---------- Venta: campos en grilla, todos alineados y del mismo ancho ---------- */
+#ventaEquipo:not(.oculto), #ventaAccesorio:not(.oculto) {
+  display: grid; grid-template-columns: repeat(6, 1fr); column-gap: 14px; align-items: start;
+}
+#ventaEquipo > *, #ventaAccesorio > * { grid-column: 1 / -1; min-width: 0; }
+#ventaEquipo > .form-line.col-6, #ventaAccesorio > .form-line.col-6 {
+  grid-column: span 3; float: none; width: auto; padding: 0;
+}
+#ventaEquipo > .form-line:has([name="PVentaEquipo"]),
+#ventaEquipo > .form-line:has([name="EntregaAdelantoUsd"]),
+#ventaEquipo > .form-line:has([name="EntregaAdelanto"]) { grid-column: span 2; }
+#ventaEquipo > .form-line.col-12 { padding: 0; float: none; width: auto; }
+#ventaEquipo .form-group-total, #ventaAccesorio .form-group-total { margin: 0; }
+#ventaEquipo label, #ventaAccesorio label { min-height: 18px; margin-top: 12px; }
+@media (max-width: 520px) {
+  #ventaEquipo > .form-line.col-6, #ventaAccesorio > .form-line.col-6,
+  #ventaEquipo > .form-line:has([name="PVentaEquipo"]), #ventaEquipo > .form-line:has([name="EntregaAdelantoUsd"]),
+  #ventaEquipo > .form-line:has([name="EntregaAdelanto"]) { grid-column: 1 / -1; }
+}
