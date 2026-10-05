@@ -2556,7 +2556,10 @@ function TablaFinancia(value, categoria) {
 
   if (pagoUnicoEfectivo.length) {
     const totalSinRecargo = value;
-    infoFinanciacion += `Efectivo: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
+    // En el mensaje de WhatsApp, si tambien hay Debito/QR/Transferencia, van
+    // todos juntos en UN renglon (ver mas abajo) -- ahi no se repite el
+    // renglon de Efectivo con los dolares.
+    if (!pagoUnicoResto.length) infoFinanciacion += `Efectivo: ${formatNumberArg(totalSinRecargo)} (En dolares: ${formatNumberUsd(totalSinRecargo / DATA.dolar.DolarVenta)})\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>Efectivo</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
@@ -2567,7 +2570,8 @@ function TablaFinancia(value, categoria) {
     const nombrePlanes = pagoUnicoResto.map(f => f.plan).join(' / ');
     // Aviso de que el efectivo tiene descuento -- solo texto, no cambia el
     // precio de Debito/QR/Transferencia.
-    infoFinanciacion += `${nombrePlanes}: ${formatNumberArg(totalSinRecargo)} (Descuento pagando en efectivo)\n`;
+    const nombresMensaje = (pagoUnicoEfectivo.length ? ['Efectivo'] : []).concat(pagoUnicoResto.map(f => f.plan)).join(' / ');
+    infoFinanciacion += `${nombresMensaje}: ${formatNumberArg(totalSinRecargo)} (Descuento pagando en efectivo)\n`;
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${nombrePlanes}</td><td>${formatNumberArg(totalSinRecargo)}</td><td><strong>${formatNumberArg(totalSinRecargo)}</strong></td>`;
     fragm.appendChild(tr);
