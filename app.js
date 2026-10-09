@@ -122,6 +122,19 @@ function tieneSeminuevo(c) {
   return c.seminuevo != null || !!(c.seminuevoTiers && c.seminuevoTiers.length);
 }
 
+// Independencia, equipos Sellados: algunas capacidades traen el precio por
+// color ("coloresSellado": [{ color, precio }]). Devuelve esa lista (vacia si
+// no aplica). "colorObligatorio" = el precio cambia segun el color, asi que
+// hay que elegirlo antes de cotizar; si todos valen lo mismo es opcional.
+function coloresSelladoDe(equipo, capacidad) {
+  const c = equipo && capacidad && equipo.capacidades[capacidad];
+  return (c && c.coloresSellado) || [];
+}
+
+function colorObligatorio(colores) {
+  return new Set(colores.map(c => c.precio)).size > 1;
+}
+
 // Tiers de bateria disponibles para un modelo+capacidad (solo tiene sentido
 // con condicion Semi Nuevo). Vacio si ese modelo usa el esquema simple de
 // Shopping (un solo precio de "seminuevo", sin tiers).
@@ -480,8 +493,11 @@ function AgregarCarritoEquipo() {
 
   const equipo = buscarEquipoVenta(modelo);
   const requiereBateria = condicion === 'seminuevo' && tiersDisponibles(equipo, capacidad).length > 0;
+  const colores = condicion === 'sellado' ? coloresSelladoDe(equipo, capacidad) : [];
+  const color = colores.length ? $('#formVenta select[name="colorV"]').val() : '';
+  const requiereColor = colores.length > 0 && colorObligatorio(colores);
 
-  if (!(modelo && capacidad && condicion) || (requiereBateria && !bateria) || !total) {
+  if (!(modelo && capacidad && condicion) || (requiereBateria && !bateria) || (requiereColor && !color) || !total) {
     return MostrarAlerta({ tipo: 'error', title: 'Carrito', mnsj: 'Completa el equipo antes de agregarlo al carrito' });
   }
 
@@ -509,7 +525,7 @@ function AgregarCarritoEquipo() {
   // que siguen siendo solo para telefonos.
   agregarAlCarrito({
     tipo: 'Equipo',
-    descripcion: `${modelo} ${capacidad} (${condicionTexto})${sufijoUsd}`,
+    descripcion: `${modelo} ${capacidad}${color ? ' ' + color : ''} (${condicionTexto})${sufijoUsd}`,
     precio: total + adelanto,
     // Estos campos son los que usa la garantia (ver itemsGarantizables) --
     // esEquipoPrincipal distingue este renglon de los de "Entrega en
@@ -639,6 +655,7 @@ function ResetFormCotizador() {
   principalDiv.querySelector('#formVenta').reset();
   principalDiv.querySelector('#formTradeIn').reset();
   principalDiv.querySelector('#formReparacion').reset();
+  $('#grupoColorSellado').addClass('oculto');
   principalDiv.querySelectorAll('.vista').forEach(el => { el.classList.remove('vista'); el.classList.add('oculto'); });
   document.getElementById('promo-cotizacion').classList.add('oculto');
   document.getElementById('moduloStock').classList.add('oculto');
@@ -1048,6 +1065,19 @@ function PreciosVentaE() {
     precioUsd = tier ? tier.precio : null;
   } else {
     precioUsd = equipo && equipo.capacidades[capacidad] ? equipo.capacidades[capacidad][condicion] : null;
+    const colores = condicion === 'sellado' ? coloresSelladoDe(equipo, capacidad) : [];
+    if (colores.length) {
+      const color = $('#formVenta select[name="colorV"]').val();
+      const elegido = colores.find(c => c.color === color);
+      if (elegido) {
+        precioUsd = elegido.precio;
+      } else if (colorObligatorio(colores)) {
+        // El precio depende del color: no hay precio hasta que se elija.
+        $('#formVenta input[name="PVentaEquipo"]').val('');
+        $('#formVenta input[name="totalVentaEquipo"]').val('$0');
+        return;
+      }
+    }
   }
 
   // Si el vendedor ya edito el precio a mano (solo Independencia), ese
@@ -2678,6 +2708,8 @@ function ExportarInfo(actividad) {
   } else if (actividad === 'VentaEquipo') {
     const bateria = $('#formVenta select[name="estadoBateria"]').val();
     const lineaBateria = bateria ? `\n*Estado de bateria*: ${bateria}` : '';
+    const colorV = $('#formVenta select[name="colorV"]').val();
+    const lineaColor = colorV ? `\n*Color*: ${colorV}` : '';
     // "Precio final" en el mensaje de WhatsApp muestra el precio de "3
     // cuotas sin interes" (no el de efectivo que se ve en pantalla) --
     // solo cambia lo que se manda por WhatsApp, no el campo en pantalla ni
@@ -2685,7 +2717,7 @@ function ExportarInfo(actividad) {
     const totalEfectivo = Number(String($('#formVenta input[name="totalVentaEquipo"]').val()).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
     const plan3Cuotas = DATA.financiacion.find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
     const precioFinalMsj = plan3Cuotas ? totalEfectivo * (1 + plan3Cuotas.interes) : totalEfectivo;
-    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaBateria}\n\n*Precio final*: ${formatNumberArg(precioFinalMsj)}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
+    mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaColor}${lineaBateria}\n\n*Precio final*: ${formatNumberArg(precioFinalMsj)}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   }
 
   const el = document.createElement('textarea');
@@ -2960,6 +2992,11 @@ function iniciarApp(sesion) {
     });
   }
 
+  function ocultarColorSellado() {
+    $('#formVenta select[name="colorV"]').val('').children('option:not(:first)').remove();
+    $('#grupoColorSellado').addClass('oculto');
+  }
+
   function ocultarEstadoBateria() {
     $('#formVenta select[name="estadoBateria"]').val('').children('option:not(:first)').remove();
     $('#grupoEstadoBateria').addClass('oculto');
@@ -2972,6 +3009,7 @@ function iniciarApp(sesion) {
     selectCondicion.children('option:not(:first)').remove();
     $('#formVenta select[name="capacidadV"]').val('').children('option:not(:first)').remove();
     ocultarEstadoBateria();
+    ocultarColorSellado();
     condicionesDisponibles(equipo).forEach(cond => selectCondicion.append(new Option(NOMBRE_CONDICION[cond], cond)));
     selectCondicion.val('');
     actualizarModuloStock($(this).val());
@@ -2984,6 +3022,7 @@ function iniciarApp(sesion) {
     const selectCapacidad = $('#formVenta select[name="capacidadV"]');
     selectCapacidad.val('').children('option:not(:first)').remove();
     ocultarEstadoBateria();
+    ocultarColorSellado();
     capacidadesDisponibles(equipo, condicion).forEach(cap => selectCapacidad.append(new Option(cap, cap)));
     PreciosVentaE();
   });
@@ -3002,6 +3041,19 @@ function iniciarApp(sesion) {
     } else {
       $('#grupoEstadoBateria').addClass('oculto');
     }
+    // Sellado con precio por color (Independencia): se arma el selector de color.
+    ocultarColorSellado();
+    const colores = condicion === 'sellado' ? coloresSelladoDe(equipo, capacidad) : [];
+    if (colores.length) {
+      const selectColor = $('#formVenta select[name="colorV"]');
+      colores.forEach(c => selectColor.append(new Option(c.color, c.color)));
+      $('#grupoColorSellado').removeClass('oculto');
+    }
+    PreciosVentaE();
+  });
+
+  $('#formVenta select[name="colorV"]').on('change', function () {
+    precioVentaEditadoManual = false;
     PreciosVentaE();
   });
 

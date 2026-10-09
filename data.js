@@ -164,7 +164,7 @@ window.COTIZADOR_DATA = {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 680 }] }
       } },
       { modelo: 'iPhone 15',         capacidades: {
-        '128Gb': { sellado: 850, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
+        '128Gb': { sellado: 950, coloresSellado: [{ color: 'Negro', precio: 950 }, { color: 'Azul', precio: 950 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
         // Precios actualizados (30/09/2026), por bateria segun las
@@ -183,7 +183,7 @@ window.COTIZADOR_DATA = {
         '512Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 850 }] }
       } },
       { modelo: 'iPhone 16',         capacidades: {
-        '128Gb': { sellado: 950, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 725 }] }
+        '128Gb': { sellado: 1030, coloresSellado: [{ color: 'Negro', precio: 1030 }, { color: 'Rosa', precio: 1030 }, { color: 'Teal', precio: 1030 }, { color: 'Blanco', precio: 1030 }, { color: 'Ultramarine', precio: 1030 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 725 }] }
       } },
       { modelo: 'iPhone 16 Pro',     capacidades: {
         '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 780 }] }
@@ -196,28 +196,31 @@ window.COTIZADOR_DATA = {
       // e imprimir la garantia de un 17 semi nuevo, que antes no tenia
       // ningun precio cargado (solo estaba el Sellado).
       //
-      // Precios Sellado actualizados con la lista nueva (29/09/2026). Varios
-      // modelos traen precio distinto por color -- se cargo el mas barato de
-      // cada capacidad (decision del usuario), el color premium no se
-      // refleja en el cotizador por ahora.
-      { modelo: 'iPhone 16E',        capacidades: { '128Gb': { sellado: 740, seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1100, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
+      // Sellado: lista de precios del 09/10/2026. 'coloresSellado' trae el precio por
+      // color (selector 'Color' del cotizador); 'sellado' queda como el mas barato
+      // (lo usan Precios, Stock y el comparador). Si el color no cambia el
+      // precio, el selector es opcional; si lo cambia, hay que elegirlo.
+      { modelo: 'iPhone 16E',        capacidades: { '128Gb': { sellado: 840, coloresSellado: [{ color: 'Negro', precio: 840 }], seminuevoTiers: [] } } },
+      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1190, coloresSellado: [{ color: 'Sage', precio: 1190 }, { color: 'Lavender', precio: 1190 }, { color: 'Blanco', precio: 1190 }, { color: 'Blue', precio: 1190 }, { color: 'Negro', precio: 1190 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
       { modelo: 'iPhone 17 Pro',     capacidades: {
-        '256Gb': { sellado: 1340, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
-        '512Gb': { sellado: 1540, seminuevoTiers: [] }
+        '256Gb': { sellado: 1400, coloresSellado: [{ color: 'Orange', precio: 1400 }, { color: 'Blue', precio: 1410 }, { color: 'Silver', precio: 1430 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
+        '512Gb': { sellado: 1670, coloresSellado: [{ color: 'Orange', precio: 1670 }, { color: 'Silver', precio: 1690 }], seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 17 Pro Max', capacidades: {
-        '256Gb': { sellado: 1440, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
-        '512Gb': { sellado: 1680, seminuevoTiers: [] },
-        '1Tb':   { sellado: 1880, seminuevoTiers: [] }
+        '256Gb': { sellado: 1490, coloresSellado: [{ color: 'Orange', precio: 1490 }, { color: 'Blue', precio: 1490 }, { color: 'Silver', precio: 1510 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
+        '512Gb': { sellado: 1820, coloresSellado: [{ color: 'Silver', precio: 1820 }], seminuevoTiers: [] },
+        '1Tb':   { sellado: 1980, coloresSellado: [{ color: 'Silver', precio: 1980 }], seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 17 Air',      capacidades: { '256Gb': { sellado: 1130, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 980 }] } } },
       // iPhone 18 -- todavia no hay precio de Semi Nuevo. Precios Sellado
       // actualizados (30/09/2026).
-      { modelo: 'iPhone 18 Pro',     capacidades: { '256Gb': { sellado: 1660, seminuevoTiers: [] } } },
+      { modelo: 'iPhone 18 Pro',     capacidades: {
+        '256Gb': { sellado: 1570, coloresSellado: [{ color: 'Silver', precio: 1570 }, { color: 'Glacier', precio: 1570 }, { color: 'Burgundy', precio: 1660 }], seminuevoTiers: [] },
+        '512Gb': { sellado: 1870, coloresSellado: [{ color: 'Glacier', precio: 1870 }, { color: 'Silver', precio: 1870 }, { color: 'Burgundy', precio: 1990 }], seminuevoTiers: [] }
+      } },
       { modelo: 'iPhone 18 Pro Max', capacidades: {
-        '256Gb': { sellado: 1920, seminuevoTiers: [] },
-        '512Gb': { sellado: 2080, seminuevoTiers: [] }
+        '256Gb': { sellado: 1830, coloresSellado: [{ color: 'Silver', precio: 1830 }, { color: 'Negro', precio: 1830 }, { color: 'Glacier', precio: 1830 }, { color: 'Burgundy', precio: 2010 }], seminuevoTiers: [] },
+        '512Gb': { sellado: 2060, coloresSellado: [{ color: 'Silver', precio: 2060 }, { color: 'Negro', precio: 2060 }], seminuevoTiers: [] }
       } }
     ]
   },
