@@ -1495,9 +1495,9 @@ window.COTIZADOR_DATA = {
   // dos (0 = sin descuento; ej. 10 = 10% menos).
   promosCarrito: {
     promos: [
-      { id: 'original', etiqueta: 'Original',  nombre: 'Promo Cargador original', fuente: 'fuenteOriginal',    cable: 'cableOriginal',    descuentoPct: 0 },
-      { id: 'premium',  etiqueta: 'Premium',   nombre: 'Promo Premium',           fuente: 'fuenteOriginal',    cable: 'cableCertificado', descuentoPct: 0 },
-      { id: 'ahorro',   etiqueta: 'Ahorro',    nombre: 'Promo Ahorro',            fuente: 'fuenteCertificada', cable: 'cableCertificado', descuentoPct: 0 }
+      { id: 'original', etiqueta: 'Original',  nombre: 'Promo Original', emoji: '😎', fuente: 'fuenteOriginal',    cable: 'cableOriginal',    descuentoPct: 0 },
+      { id: 'premium',  etiqueta: 'Premium',   nombre: 'Promo Premium', emoji: '🔝',           fuente: 'fuenteOriginal',    cable: 'cableCertificado', descuentoPct: 0 },
+      { id: 'ahorro',   etiqueta: 'Ahorro',    nombre: 'Promo Ahorro', emoji: '💸',            fuente: 'fuenteCertificada', cable: 'cableCertificado', descuentoPct: 0 }
     ],
     componentes: {
       'Shopping': {

@@ -422,12 +422,12 @@ function renderPromosCarrito() {
         <button type="button" data-promo-cable="${p.id}|cl" aria-pressed="${tipo === 'cl'}">USB-C a Lightning</button>
       </div>`;
     if (!a) {
-      return `<div class="promo-card promo-${p.id} promo-off"><span class="promo-tag">${p.etiqueta}</span><h4>${p.nombre}</h4><p class="promo-nodisp">No disponible en esta sucursal</p></div>`;
+      return `<div class="promo-card promo-${p.id} promo-off"><span class="promo-tag">${p.etiqueta}</span><h4>${p.nombre} ${p.emoji || ''}</h4><p class="promo-nodisp">No disponible en esta sucursal</p></div>`;
     }
     const tachado = a.total < a.totalLista ? `<s>${formatNumberArg(a.totalLista)}</s>` : '';
     return `<div class="promo-card promo-${p.id}">
       <span class="promo-tag">${p.etiqueta}</span>
-      <h4>${p.nombre}</h4>
+      <h4>${p.nombre} ${p.emoji || ''}</h4>
       <ul class="promo-items">${a.items.map(i => `<li>${i.nombre}</li>`).join('')}</ul>
       ${selector}
       <div class="promo-precio">${tachado}<strong>${formatNumberArg(a.total)}</strong></div>
