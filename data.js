@@ -128,11 +128,13 @@ window.COTIZADOR_DATA = {
       } },
       { modelo: 'iPhone 13',         capacidades: {
         // Excel Tio Jobs: 98% ya vale igual que 100%, no hay tramo
-        // intermedio -- se saco. 90% a 100% bajado de $380 a $350 (09/10/2026).
+        // intermedio -- se saco. Solo el 100% de bateria bajo de $380 a $350 (09/10/2026);
+        // 90% a 99% sigue en $380.
         '128Gb': { sellado: null, seminuevoTiers: [
           { etiqueta: 'Menor a 80%', precio: 300 },
           { etiqueta: '80% a 90%',   precio: 330 },
-          { etiqueta: '90% a 100%',  precio: 350 }
+          { etiqueta: '90% a 99%',   precio: 380 },
+          { etiqueta: '100%',        precio: 350 }
         ] }
       } },
       { modelo: 'iPhone 13 Pro',     capacidades: {
