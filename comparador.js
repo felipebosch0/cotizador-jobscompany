@@ -23,7 +23,10 @@
       resumen: [['Chip', 'Chip'], ['Audio', 'Tecnología de audio'], ['Batería (auriculares)', 'Batería', /^Hasta/], ['Resistencia', 'Resistencia al polvo, al agua y al sudor'], ['Conectividad', 'Conectividad'], ['Peso', 'Tamaño y peso', /Peso/]] }
   };
 
-  const estado = { categoria: 'iphone', seleccion: [], color: {}, soloDif: false, abiertas: new Set(ABIERTAS_POR_DEFECTO) };
+  // "Ocultar precios": boton discreto arriba a la derecha, para mostrarle el
+  // comparador al cliente sin que se vea ningun precio. Se recuerda en el equipo.
+  const leerOcultarPrecios = () => { try { return localStorage.getItem('cmpOcultarPrecios') === '1'; } catch (e) { return false; } };
+  const estado = { categoria: 'iphone', seleccion: [], color: {}, soloDif: false, ocultarPrecios: leerOcultarPrecios(), abiertas: new Set(ABIERTAS_POR_DEFECTO) };
   let raiz = null;
   let observador = null;
 
@@ -35,6 +38,8 @@
   const usd = n => 'USD ' + Math.round(n).toLocaleString('es-AR');
 
   const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  const ICON_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const ICON_EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 6.1A10.9 10.9 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.2 3.9M6.6 7.7C3.9 9.3 2 12 2 12s3.6 6 10 6c1.5 0 2.9-.3 4.1-.8"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
   const ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>';
 
   // ---------------------------------------------------------- datos derivados
@@ -122,6 +127,7 @@
         <button type="button" class="cmp-close" data-cmp="cerrar">${ICON_BACK}Volver</button>
         <div class="cmp-title">Comparar</div>
         <div class="cmp-tabs" role="tablist" data-cmp-tabs></div>
+        <button type="button" class="cmp-eye" data-cmp="precios" data-cmp-eye></button>
       </div></header>
       <div class="cmp-wrap">
         <div class="cmp-head"><h1 data-cmp-h1></h1><p data-cmp-sub></p></div>
@@ -274,8 +280,19 @@
       <div class="cmp-sec-body"><div><div class="cmp-grid" style="--n:${n}">${celdas}</div></div></div></section>`;
   }
 
+  function aplicarOcultarPrecios() {
+    raiz.classList.toggle('cmp-sin-precios', estado.ocultarPrecios);
+    const b = el('[data-cmp-eye]');
+    b.innerHTML = estado.ocultarPrecios ? ICON_EYE_OFF : ICON_EYE;
+    b.setAttribute('aria-pressed', String(estado.ocultarPrecios));
+    const txt = estado.ocultarPrecios ? 'Mostrar precios' : 'Ocultar precios';
+    b.setAttribute('aria-label', txt);
+    b.title = txt;
+  }
+
   function render() {
     const cat = CATEGORIAS[estado.categoria];
+    aplicarOcultarPrecios();
     el('[data-cmp-h1]').textContent = cat.titulo;
     el('[data-cmp-sub]').textContent = cat.subtitulo;
     renderTabs();
@@ -298,6 +315,11 @@
     const t = e.target.closest('[data-cmp],[data-cmp-cat],[data-cmp-quitar],[data-cmp-color],[data-cmp-toggle],[data-cmp-cotizar]');
     if (!t) return;
     if (t.dataset.cmp === 'cerrar') return cerrar();
+    if (t.dataset.cmp === 'precios') {
+      estado.ocultarPrecios = !estado.ocultarPrecios;
+      try { localStorage.setItem('cmpOcultarPrecios', estado.ocultarPrecios ? '1' : '0'); } catch (e) { /* sin storage: queda solo en esta sesion */ }
+      return aplicarOcultarPrecios();
+    }
     if (t.dataset.cmp === 'todo' || t.dataset.cmp === 'dif') { estado.soloDif = t.dataset.cmp === 'dif'; return renderSecciones(), raiz.querySelectorAll('[data-cmp="todo"],[data-cmp="dif"]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.cmp === 'dif') === estado.soloDif))); }
     if (t.dataset.cmpCat) { estado.categoria = t.dataset.cmpCat; estado.seleccion = seleccionInicial(); return render(); }
     if (t.dataset.cmpQuitar) { estado.seleccion = estado.seleccion.filter(id => id !== t.dataset.cmpQuitar); return render(); }

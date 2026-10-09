@@ -48,6 +48,17 @@ body.dark #comparador {
 #comparador *, #comparador *::before, #comparador *::after { box-sizing: border-box; }
 #comparador button { font-family: inherit; cursor: pointer; }
 
+/* ---------- ocultar precios (boton discreto + estado) ---------- */
+.cmp-eye {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--cmp-muted); opacity: .55;
+  transition: opacity .2s, background .2s var(--cmp-ease), color .2s;
+}
+.cmp-eye:hover, .cmp-eye:focus-visible { opacity: 1; background: var(--cmp-surface); color: var(--cmp-text); }
+.cmp-eye[aria-pressed="true"] { opacity: 1; color: var(--cmp-accent); }
+.cmp-eye svg { width: 19px; height: 19px; }
+#comparador.cmp-sin-precios .cmp-price, #comparador.cmp-sin-precios .cmp-cta { display: none; }
+
 /* ---------- barra superior (vidrio esmerilado) ---------- */
 .cmp-top {
   position: sticky; top: 0; z-index: 30;
