@@ -1483,6 +1483,51 @@ window.COTIZADOR_DATA = {
   },
 
   // --------------------------------------------------------------
+  // PROMOS DEL CARRITO (cuadros "Promociones" arriba del Carrito). Cada promo
+  // = 1 fuente + 1 cable, tomados de la lista de accesorios de la sucursal
+  // (por eso el precio siempre sale actualizado: si cambia el precio de la
+  // fuente o el cable en accesoriosPorSucursal, cambia la promo sola).
+  // "componentes" dice QUE accesorio de cada lista es "la fuente original",
+  // "el cable certificado", etc. -- la referencia es { categoria, descripcion,
+  // modelo } exactamente como figura en accesoriosPorSucursal. El cable tiene
+  // 2 versiones: 'cc' = USB-C a USB-C, 'cl' = USB-C a Lightning (el vendedor
+  // elige en la tarjeta). "descuentoPct" es un descuento sobre la suma de los
+  // dos (0 = sin descuento; ej. 10 = 10% menos).
+  promosCarrito: {
+    promos: [
+      { id: 'original', etiqueta: 'Original',  nombre: 'Promo Cargador original', fuente: 'fuenteOriginal',    cable: 'cableOriginal',    descuentoPct: 0 },
+      { id: 'premium',  etiqueta: 'Premium',   nombre: 'Promo Premium',           fuente: 'fuenteOriginal',    cable: 'cableCertificado', descuentoPct: 0 },
+      { id: 'ahorro',   etiqueta: 'Ahorro',    nombre: 'Promo Ahorro',            fuente: 'fuenteCertificada', cable: 'cableCertificado', descuentoPct: 0 }
+    ],
+    componentes: {
+      'Shopping': {
+        fuenteOriginal:    { nombre: 'Fuente USB-C original',    ref: { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C - Original' } },
+        fuenteCertificada: { nombre: 'Fuente USB-C certificada', ref: { categoria: 'Cargador', descripcion: 'Fuente', modelo: 'USB C - Certificada' } },
+        cableOriginal: {
+          cc: { nombre: 'Cable USB-C a USB-C original',       ref: { categoria: 'Cable', descripcion: 'Type C - C', modelo: 'Original' } },
+          cl: { nombre: 'Cable USB-C a Lightning original',    ref: { categoria: 'Cable', descripcion: 'Type C - L', modelo: 'Original' } }
+        },
+        cableCertificado: {
+          cc: { nombre: 'Cable USB-C a USB-C certificado',     ref: { categoria: 'Cable', descripcion: 'Type C - C', modelo: 'Certificado' } },
+          cl: { nombre: 'Cable USB-C a Lightning certificado', ref: { categoria: 'Cable', descripcion: 'Type C - L', modelo: 'Certificado' } }
+        }
+      },
+      'Independencia': {
+        fuenteOriginal:    { nombre: 'Fuente USB-C original',    ref: { categoria: 'Cargador', descripcion: 'Fuentes APPLE - Fuente USB C', modelo: 'Universal' } },
+        fuenteCertificada: { nombre: 'Fuente USB-C certificada', ref: { categoria: 'Cargador', descripcion: 'Fuentes Fuente USB C Certificada', modelo: 'Universal' } },
+        cableOriginal: {
+          cc: { nombre: 'Cable USB-C a USB-C original',       ref: { categoria: 'Cable', descripcion: 'Cables APPLE - Cable C - C', modelo: 'Universal' } },
+          cl: { nombre: 'Cable USB-C a Lightning original',    ref: { categoria: 'Cable', descripcion: 'Cables APPLE - Cable USB C - L', modelo: 'Universal' } }
+        },
+        cableCertificado: {
+          cc: { nombre: 'Cable USB-C a USB-C certificado',     ref: { categoria: 'Cable', descripcion: 'Cables Cable USB C - C (1 m)', modelo: 'Universal' } },
+          cl: { nombre: 'Cable USB-C a Lightning certificado', ref: { categoria: 'Cable', descripcion: 'Cables Cable USB C  L (1 m)', modelo: 'Universal' } }
+        }
+      }
+    }
+  },
+
+  // --------------------------------------------------------------
   // FINANCIACION: 4 medios de pago sin recargo (precio de lista, 1 pago) +
   // 3 promos en cuotas con recargo (3 cuotas = 20%, 6 = 30%, 12 = 58%).
   // Si hay algo en el carrito, la financiacion se muestra sobre el total

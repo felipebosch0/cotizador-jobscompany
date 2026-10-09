@@ -377,6 +377,84 @@ function agregarAlCarrito(item) {
   MostrarAlerta({ tipo: 'success', title: 'Carrito', mnsj: 'Se agrego: ' + item.descripcion });
 }
 
+// ============================ PROMOS DEL CARRITO ============================
+// Cuadros "Promo ..." arriba del Carrito: fuente + cable de la lista de
+// accesorios de la sucursal (config en DATA.promosCarrito). Un toque suma los
+// 2 renglones al carrito, cada uno como un Accesorio comun.
+
+// Tipo de cable elegido en cada tarjeta ('cc' = USB-C a USB-C, 'cl' = Lightning).
+const cablePromoElegido = {};
+
+function precioAccesorioPorRef(ref) {
+  const lista = (DATA.accesoriosPorSucursal || {})[sucursalActual] || [];
+  const a = lista.find(x => x.categoria === ref.categoria && x.descripcion === ref.descripcion && x.modelo === ref.modelo);
+  return a ? a.precio : null;
+}
+
+// Arma una promo para la sucursal actual: { promo, items:[{nombre, precio}], total } o null si falta algun precio.
+function armarPromo(promo) {
+  const comp = ((DATA.promosCarrito || {}).componentes || {})[sucursalActual];
+  if (!comp) return null;
+  const tipoCable = cablePromoElegido[promo.id] || 'cc';
+  const fuente = comp[promo.fuente];
+  const cable = comp[promo.cable] && comp[promo.cable][tipoCable];
+  if (!fuente || !cable) return null;
+  const pFuente = precioAccesorioPorRef(fuente.ref);
+  const pCable = precioAccesorioPorRef(cable.ref);
+  if (pFuente == null || pCable == null) return null;
+  const k = 1 - (promo.descuentoPct || 0) / 100;
+  const items = [
+    { nombre: fuente.nombre, precioLista: pFuente, precio: Math.round(pFuente * k) },
+    { nombre: cable.nombre, precioLista: pCable, precio: Math.round(pCable * k) }
+  ];
+  return { promo, items, total: items[0].precio + items[1].precio, totalLista: pFuente + pCable };
+}
+
+function renderPromosCarrito() {
+  const cont = document.getElementById('promosCarrito');
+  if (!cont) return;
+  const promos = ((DATA.promosCarrito || {}).promos) || [];
+  cont.innerHTML = promos.map(p => {
+    const a = armarPromo(p);
+    const tipo = cablePromoElegido[p.id] || 'cc';
+    const selector = `<div class="promo-cable" role="group" aria-label="Tipo de cable">
+        <button type="button" data-promo-cable="${p.id}|cc" aria-pressed="${tipo === 'cc'}">USB-C a USB-C</button>
+        <button type="button" data-promo-cable="${p.id}|cl" aria-pressed="${tipo === 'cl'}">USB-C a Lightning</button>
+      </div>`;
+    if (!a) {
+      return `<div class="promo-card promo-${p.id} promo-off"><span class="promo-tag">${p.etiqueta}</span><h4>${p.nombre}</h4><p class="promo-nodisp">No disponible en esta sucursal</p></div>`;
+    }
+    const tachado = a.total < a.totalLista ? `<s>${formatNumberArg(a.totalLista)}</s>` : '';
+    return `<div class="promo-card promo-${p.id}">
+      <span class="promo-tag">${p.etiqueta}</span>
+      <h4>${p.nombre}</h4>
+      <ul class="promo-items">${a.items.map(i => `<li>${i.nombre}</li>`).join('')}</ul>
+      ${selector}
+      <div class="promo-precio">${tachado}<strong>${formatNumberArg(a.total)}</strong></div>
+      <button type="button" class="btn-total promo-add" data-promo-agregar="${p.id}">Agregar al carrito</button>
+    </div>`;
+  }).join('');
+}
+
+function agregarPromoAlCarrito(id) {
+  const promo = ((DATA.promosCarrito || {}).promos || []).find(p => p.id === id);
+  const a = promo && armarPromo(promo);
+  if (!a) return MostrarAlerta({ tipo: 'error', title: 'Promo', mnsj: 'Esta promo no esta disponible en esta sucursal' });
+  a.items.forEach(i => carrito.push({
+    tipo: 'Accesorio',
+    descripcion: `${promo.nombre} - ${i.nombre}`,
+    precio: i.precio,
+    tieneGarantiaPropia: false,
+    nombreProducto: i.nombre
+  }));
+  renderCarrito();
+  if ($('#vistaCarrito').hasClass('vista') && carrito.length) {
+    $('#tablaFinancia').removeClass('oculto').addClass('vista');
+    TablaFinancia(totalCarrito(), 'equipo');
+  }
+  MostrarAlerta({ tipo: 'success', title: 'Carrito', mnsj: 'Se agrego: ' + promo.nombre });
+}
+
 function quitarDelCarrito(index) {
   carrito.splice(index, 1);
   renderCarrito();
@@ -387,6 +465,7 @@ function totalCarrito() {
 }
 
 function renderCarrito() {
+  renderPromosCarrito();
   const tabla = document.getElementById('tablaCarrito');
   const body = document.getElementById('bodyCarrito');
   const vacio = document.getElementById('carritoVacio');
@@ -3140,6 +3219,14 @@ function iniciarApp(sesion) {
     }
     if (node.matches('.fa-eraser')) { ResetFormCotizador(); marcarMenuActivo(null); }
     if (node.matches('.fa-trash')) VaciarCarrito();
+    const btnPromoCable = node.closest('[data-promo-cable]');
+    if (btnPromoCable) {
+      const [idPromo, tipoCable] = btnPromoCable.dataset.promoCable.split('|');
+      cablePromoElegido[idPromo] = tipoCable;
+      renderPromosCarrito();
+    }
+    const btnPromoAgregar = node.closest('[data-promo-agregar]');
+    if (btnPromoAgregar) agregarPromoAlCarrito(btnPromoAgregar.dataset.promoAgregar);
     if (node.matches('[data-quitar-carrito]')) quitarDelCarrito(Number(node.dataset.quitarCarrito));
   });
 
