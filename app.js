@@ -1564,6 +1564,7 @@ function AbrirModalGarantia() {
   garantiaCombinada = [];
   if (!colaGarantia.length) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun producto con garantia en el carrito' });
   poblarSelectVendedor('gtVendedor');
+  $('#gtNombre, #gtDni').val('');
   mostrarModalGarantiaItem(colaGarantia[0]);
   document.getElementById('modalGarantia').style.display = 'block';
 }
@@ -1658,7 +1659,27 @@ async function ConfirmarGarantia() {
 // VentasEquipos (a pedido del usuario, mismo lugar que las ventas de
 // equipos) para tener todo el historial de ventas con garantia en un solo
 // lugar.
+// Nombre y DNI del cliente (ambas sucursales, equipo y accesorio): se piden
+// en el modal de Garantia pero NO se imprimen -- solo se guardan en la
+// pestana VentasEquipos de Reportes. Devuelve null (y avisa) si falta o esta
+// mal alguno, para cortar antes de tocar Stock o Reportes.
+function datosClienteGarantia() {
+  const cliente = $('#gtNombre').val().replace(/\s+/g, ' ').trim();
+  const dni = $('#gtDni').val().replace(/[.\s-]/g, '');
+  if (cliente.length < 3) {
+    MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el nombre y apellido del cliente' });
+    return null;
+  }
+  if (!/^\d{7,8}$/.test(dni)) {
+    MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El DNI tiene que tener 7 u 8 numeros' });
+    return null;
+  }
+  return { cliente, dni };
+}
+
 async function ConfirmarGarantiaAccesorio(item) {
+  const datosCliente = datosClienteGarantia();
+  if (!datosCliente) return;
   const imei = $('#gtImei').val().trim();
   if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie' });
   // JBL: 15 digitos exactos (a pedido del usuario). El resto (Apple
@@ -1682,7 +1703,8 @@ async function ConfirmarGarantiaAccesorio(item) {
         imei, modelo: item.nombreProducto, capacidad: '',
         condicion: item.marcaGarantia || 'Accesorio', color: '',
         precioTotal: item.precio,
-        tradeInModelo: '', tradeInValor: 0, pauta: ''
+        tradeInModelo: '', tradeInValor: 0, pauta: '',
+        cliente: datosCliente.cliente, dni: datosCliente.dni
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
     } catch (error) {
@@ -1701,6 +1723,8 @@ async function ConfirmarGarantiaAccesorio(item) {
 }
 
 async function ConfirmarGarantiaEquipo(equipo) {
+  const datosCliente = datosClienteGarantia();
+  if (!datosCliente) return;
   const imei = $('#gtImei').val().trim();
   const color = $('#gtColor').val().trim();
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
@@ -1849,7 +1873,8 @@ async function ConfirmarGarantiaEquipo(equipo) {
         precioTotal: equipo.precio,
         tradeInModelo: tradeInCarrito ? tradeInCarrito.modelo : '',
         tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0,
-        pauta: pauta ? 'Pauta' : ''
+        pauta: pauta ? 'Pauta' : '',
+        cliente: datosCliente.cliente, dni: datosCliente.dni
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
     } catch (error) {
