@@ -53,7 +53,6 @@ const USUARIOS = [
   { usuario: 'agustina',  password: 'Shopping123',         rol: 'vendedor', nombre: 'Agus Mendoza',     sucursal: 'Shopping' },
   { usuario: 'manzanelli', password: 'Shopping123',        rol: 'vendedor', nombre: 'Agus Manzanelli',  sucursal: 'Shopping' },
   { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Shopping' },
-  { usuario: 'nai',       password: 'Shopping123',         rol: 'vendedor', nombre: 'naileth',   sucursal: 'Shopping' },
   { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Shopping' },
   { usuario: 'ro',        password: 'Shopping123',         rol: 'vendedor', nombre: 'ro',        sucursal: 'Shopping' },
   { usuario: 'ludmi',     password: 'Independencia123',    rol: 'vendedor', nombre: 'ludmi',     sucursal: 'Independencia' }
