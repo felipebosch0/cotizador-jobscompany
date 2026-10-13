@@ -3231,6 +3231,41 @@ function iniciarApp(sesion) {
   });
 
   renderCarrito();
+  iniciarAutoRefreshPorInactividad();
+}
+
+// ============================ AUTO-REFRESH POR INACTIVIDAD ============================
+// Las tablets del mostrador quedan con una pestana abierta dias enteros --
+// si nadie la toca, se puede ir quedando atras de los ultimos cambios
+// publicados (aunque ya haya una version nueva en Cloudflare). Para que se
+// actualicen solas, si pasan 5 minutos sin ningun toque/click/tecla, se
+// recarga la pagina -- pero SOLO si no hay nada que se pueda perder: carrito
+// vacio, sin ningun modal abierto y sin el comparador abierto (que ademas
+// tiene su propio modo vidriera, con su propio timer -- no se pisan).
+const INACTIVIDAD_REFRESH_MS = 5 * 60 * 1000;
+let timerInactividadRefresh = null;
+
+function haySinCuidarAbierto() {
+  if (carrito.length) return true;
+  if ([...document.querySelectorAll('.modal')].some(m => getComputedStyle(m).display !== 'none')) return true;
+  const cmp = document.getElementById('comparador');
+  if (cmp && !cmp.classList.contains('oculto')) return true;
+  return false;
+}
+
+function reprogramarAutoRefresh() {
+  if (timerInactividadRefresh) clearTimeout(timerInactividadRefresh);
+  timerInactividadRefresh = setTimeout(() => {
+    if (haySinCuidarAbierto()) { reprogramarAutoRefresh(); return; }
+    location.reload();
+  }, INACTIVIDAD_REFRESH_MS);
+}
+
+function iniciarAutoRefreshPorInactividad() {
+  ['click', 'touchstart', 'keydown', 'pointerdown', 'scroll'].forEach(ev => {
+    document.addEventListener(ev, reprogramarAutoRefresh, { passive: true });
+  });
+  reprogramarAutoRefresh();
 }
 
 // Pinta de azul la opcion elegida en el menu del cotizador.
