@@ -60,6 +60,12 @@ const USUARIOS = [
 
 const SESION_STORAGE_KEY = 'cotizador_sesion';
 
+// Los nombres de vendedor siempre se muestran (y se guardan en Stock/Reportes)
+// con la primera letra de cada palabra en mayuscula: "yoko" -> "Yoko".
+function capitalizarNombre(nombre) {
+  return String(nombre || '').trim().replace(/(^|\s)(\S)/g, (m, sep, letra) => sep + letra.toUpperCase());
+}
+
 function iniciarSesion(usuario, password) {
   const encontrado = USUARIOS.find(u => u.usuario === usuario && u.password === password);
   if (!encontrado) return { ok: false, error: 'Usuario o contrasena incorrectos' };
@@ -82,7 +88,9 @@ function sesionGuardada() {
   try {
     const sesion = JSON.parse(data);
     const sigueExistiendo = USUARIOS.some(u => u.usuario === sesion.usuario && u.rol === sesion.rol);
-    return sigueExistiendo ? sesion : null;
+    if (!sigueExistiendo) return null;
+    sesion.nombre = capitalizarNombre(sesion.nombre);
+    return sesion;
   } catch (error) {
     return null;
   }
@@ -100,7 +108,7 @@ function esAdmin(sesion) {
 function vendedoresDeSucursal(sucursal) {
   const vistos = {};
   USUARIOS.forEach(u => {
-    if (u.rol === 'vendedor' && u.sucursal === sucursal) vistos[u.nombre] = true;
+    if (u.rol === 'vendedor' && u.sucursal === sucursal) vistos[capitalizarNombre(u.nombre)] = true;
   });
   return Object.keys(vistos).sort((a, b) => a.localeCompare(b, 'es'));
 }

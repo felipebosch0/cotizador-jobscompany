@@ -1621,7 +1621,7 @@ function poblarSelectVendedor(selectId) {
   // vendedor real, no tiene sentido acreditarle una venta) se ofrece
   // "vicky" como opcion por defecto -- es quien suele atender el mostrador
   // con la cuenta de administrador.
-  const nombrePropio = sesion && sesion.rol === 'admin' ? 'vicky' : (sesion ? sesion.nombre : null);
+  const nombrePropio = sesion && sesion.rol === 'admin' ? 'Vicky' : (sesion ? sesion.nombre : null);
   if (nombrePropio && nombres.indexOf(nombrePropio) === -1) nombres.unshift(nombrePropio);
   nombres.forEach(n => select.appendChild(new Option(n, n)));
   if (nombrePropio && nombres.indexOf(nombrePropio) !== -1) select.value = nombrePropio;
