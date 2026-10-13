@@ -1537,7 +1537,7 @@ window.COTIZADOR_DATA = {
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'equipo' },
     { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'equipo' },
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'equipo' },
-    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo' },
+    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo' },
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
     { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'equipo' },
 
@@ -1552,7 +1552,7 @@ window.COTIZADOR_DATA = {
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'accesorio' },
-    { plan: '3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio' },
+    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio' },
     { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'accesorio' },
     { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'accesorio' }
   ],
