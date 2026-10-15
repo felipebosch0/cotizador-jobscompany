@@ -261,6 +261,8 @@ tr.totalRows td, tr.totalRows-2 td { font-weight: 600; }
 /* ---------- pantallas chicas ---------- */
 @media (max-width: 760px) {
   .topbar.card { margin: 8px 10px 10px !important; top: 6px; border-radius: 16px; }
+  .topbar.card > div { flex-wrap: wrap; row-gap: 8px; }
+  .topbar.card > div:last-child { gap: 12px !important; }
   .wrapper-simple { padding: 6px 12px 40px; }
   .btn-act { flex: 1 1 calc(50% - 6px); margin-right: 6px; }
   .card-header h3 { font-size: 20px; }

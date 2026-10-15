@@ -99,6 +99,10 @@ body.dark #comparador {
 .cmp-scroller::-webkit-scrollbar { display: none; }
 .cmp-cols { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 20px; }
 @media (max-width: 760px) {
+  .cmp-top-in { flex-wrap: wrap; height: auto; padding: 8px 14px; gap: 8px 10px; }
+  .cmp-tabs { order: 3; flex: 1 0 100%; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .cmp-tabs::-webkit-scrollbar { display: none; }
+  .cmp-tab { flex: 0 0 auto; }
   .cmp-cols { grid-template-columns: repeat(var(--n, 2), minmax(min(70vw, 280px), 1fr)); gap: 12px; }
   .cmp-col, .cmp-cell { scroll-snap-align: start; }
 }
