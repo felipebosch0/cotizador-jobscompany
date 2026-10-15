@@ -842,7 +842,7 @@ window.COTIZADOR_DATA = {
     { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad 4/5 Air/AIR11', precio: 50200 },
     { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad Mini 6/7', precio: 50200 },
     { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad 9.7', precio: 50200 },
-    { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad 10.2', precio: 50200 },
+    { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad 10.2', precio: 50000 },
     { categoria: 'Funda', descripcion: 'Estandar', modelo: 'iPad 10 - A16', precio: 50000 },
     { categoria: 'Funda', descripcion: 'Syndee Silicone Leather Case', modelo: 'iPhone 13', precio: 20000 },
     { categoria: 'Funda', descripcion: 'Syndee Silicone Leather Case', modelo: 'iPhone 16 Pro Max', precio: 20000 },
