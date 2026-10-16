@@ -6523,6 +6523,18 @@
     <div class="modal-content" style="max-width:420px;">
       <span class="close" id="cerrarModalDeclaracion">&times;</span>
       <h3>Datos del cliente</h3>
+      <!-- Sucursal donde se recibio el canje: es lo que se guarda en la
+           columna Sucursal del Stock y en la pestana TRADEIN. -->
+      <div class="form-group-total sp-t">
+        <label>Sucursal donde se recibe el equipo</label>
+        <select id="djSucursal">
+          <option value="OLMOS">OLMOS</option>
+          <option value="DINO">DINO</option>
+          <option value="NUEVO CENTRO">NUEVO CENTRO</option>
+          <option value="INDEPENDENCIA">INDEPENDENCIA</option>
+          <option value="DEPO">DEPO</option>
+        </select>
+      </div>
       <div class="form-group-total sp-t">
         <label>Nombre y apellido</label>
         <input type="text" id="djNombre" placeholder="Nombre completo" autocomplete="off">

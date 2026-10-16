@@ -1354,6 +1354,9 @@ function AbrirModalDeclaracion() {
   const tradeIn = tradeInDelCarrito();
   if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
   $('#djNombre, #djDni, #djDomicilio, #djImei, #djBateria, #djColor, #djCapacidad').val('');
+  // Arranca en el primer deposito de la sucursal actual; se puede cambiar.
+  const depositoInicial = ((DATA.depositoPorSucursal || {})[sucursalActual] || [])[0];
+  if (depositoInicial) $('#djSucursal').val(depositoInicial);
   document.getElementById('modalDeclaracionJurada').style.display = 'block';
 }
 
@@ -1369,6 +1372,7 @@ async function ConfirmarDeclaracionJurada() {
   const bateriaTexto = $('#djBateria').val().trim();
   const color = $('#djColor').val().trim();
   const capacidad = $('#djCapacidad').val().trim();
+  const sucursalTradeIn = $('#djSucursal').val();
   if (!nombre || !dni || !domicilio || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI, domicilio e IMEI del cliente' });
   if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
 
@@ -1393,7 +1397,7 @@ async function ConfirmarDeclaracionJurada() {
   try {
     const resp = await llamarStockWrite({
       accion: 'ingreso', modelo, capacidad, bateria, color, imei,
-      sucursal: sucursalActual, observaciones: 'Trade-in', falla, propietario
+      sucursal: sucursalTradeIn, observaciones: 'Trade-in', falla, propietario
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     await actualizarStockEnVivo();
@@ -1407,7 +1411,7 @@ async function ConfirmarDeclaracionJurada() {
         const respTradeIn = await llamarReportesWrite({
           accion: 'tradein-crear',
           fecha: new Date().toLocaleDateString('es-AR'),
-          vendedor: propietario, sucursal: sucursalActual,
+          vendedor: propietario, sucursal: sucursalTradeIn,
           nombre, dni, domicilio, imei,
           modelo, capacidad, color, bateria,
           valor: descuento, falla
@@ -1780,7 +1784,10 @@ async function iniciarGarantiaDesdeStock(equipo) {
   // Arranca en el primero que pertenece a la sucursal de venta actual.
   const selSuc = $('#gtSucursalSel').empty();
   const depositos = {};
+  // "SHOPPING" suelto en la columna F no es un deposito real (es el nombre de
+  // la sucursal de venta): no se ofrece como opcion.
   garantiaUnidades.forEach(u => { depositos[u.sucursal.trim().toUpperCase()] = u.sucursal.trim(); });
+  delete depositos.SHOPPING;
   const claves = Object.keys(depositos).sort();
   claves.forEach(k => selSuc.append(new Option(depositos[k], k)));
   const propio = claves.find(k => (grupoDeSucursal(k) || depositos[k]) === sucursalActual);
