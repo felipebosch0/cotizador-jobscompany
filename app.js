@@ -1375,6 +1375,7 @@ async function ConfirmarDeclaracionJurada() {
   const sucursalTradeIn = $('#djSucursal').val();
   if (!nombre || !dni || !domicilio || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI, domicilio e IMEI del cliente' });
   if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
+  if (!luhnValido(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Ese IMEI no es valido (el digito verificador no coincide): revisa los 15 digitos.' });
 
   let bateria = Number(bateriaTexto.replace(',', '.')) || 0;
   if (bateria > 1) bateria = bateria / 100;
@@ -1748,7 +1749,11 @@ function ponerModoGarantiaManual(manual, { esEquipo = true, hayLista = true } = 
   garantiaModoManual = manual;
   $('#gtStockContenedor').toggleClass('oculto', manual);
   $('#gtManualContenedor').toggleClass('oculto', !manual);
-  $('#gtMotivoContenedor').toggleClass('oculto', !(manual && esEquipo));
+  $('#gtMotivoContenedor, #gtManualDepositoContenedor').toggleClass('oculto', !(manual && esEquipo));
+  // Deposito del alta generada: el primero de la sucursal actual (el vendedor
+  // lo cambia si hace falta) -- nunca el nombre de la sucursal de venta.
+  const depositoInicial = ((DATA.depositoPorSucursal || {})[sucursalActual] || [])[0];
+  if (manual && depositoInicial) $('#gtManualDeposito').val(depositoInicial);
   $('#gtVolverLista').toggleClass('oculto', !(manual && esEquipo && hayLista));
   $('#gtColor').prop('readonly', false);
 }
@@ -1804,6 +1809,11 @@ function poblarModelosGarantia(equipo) {
   const vistos = {};
   unidadesGarantiaDe($('#gtSucursalSel').val()).forEach(u => { vistos[normalizarModelo(u.modelo)] = u.modelo; });
   const selModelo = $('#gtModeloSel').empty();
+  // El modelo de la venta siempre queda elegido, aunque en este deposito no
+  // haya unidades (ahi la lista sale vacia con un aviso): si no, el selector
+  // saltaria en silencio a otro modelo distinto.
+  const delCarritoClave = normalizarModelo(equipo.modelo);
+  if (!vistos[delCarritoClave]) vistos[delCarritoClave] = equipo.modelo;
   Object.entries(vistos)
     .sort((a, b) => a[1].localeCompare(b[1], 'es', { numeric: true, sensitivity: 'base' }))
     .forEach(([clave, nombre]) => selModelo.append(new Option(nombre, clave)));
@@ -1843,10 +1853,12 @@ function poblarImeisGarantia() {
   lista.forEach(u => {
     const cap = u.capacidad >= 1024 ? '1Tb' : u.capacidad ? u.capacidad + 'Gb' : '';
     const bat = u.bateria ? u.bateria + '%' : '';
-    const partes = [titleCaseColor(u.color), cap, bat, u.imei].filter(Boolean);
+    // El IMEI va primero: es lo que importa y no se corta si el texto no entra.
+    const partes = [u.imei, titleCaseColor(u.color), cap, bat].filter(Boolean);
     sel.append(new Option(partes.join(' · '), u.imei));
   });
-  if (lista.length === 1) { sel.val(lista[0].imei); elegirImeiGarantia(); }
+  // Siempre se elige a proposito (aunque haya uno solo): evita imprimir la
+  // garantia de un equipo que el vendedor no miro.
   $('#gtStockAviso').text(nota);
 }
 
@@ -2036,7 +2048,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
       try {
         const respIngreso = await llamarStockWrite({
           accion: 'ingreso', modelo: equipo.modelo, capacidad: equipo.capacidad, color, imei,
-          sucursal: sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock
+          sucursal: $('#gtManualDeposito').val() || sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock
         });
         if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
         if (respIngreso.fila) {

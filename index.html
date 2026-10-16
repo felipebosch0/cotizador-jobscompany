@@ -6602,8 +6602,8 @@
           <label>Sucursal del equipo</label>
           <select id="gtSucursalSel"></select>
         </div>
-        <p class="sm-t sp-t" id="gtEquipoInfo" style="margin-bottom:0;"></p>
-        <a href="#" id="gtCambiarModelo" class="sm-t">Elegir otro modelo</a>
+        <p class="sp-t" id="gtEquipoInfo" style="margin:10px 0 0; font-size:14px; opacity:.8;"></p>
+        <a href="#" id="gtCambiarModelo" style="font-size:14px;">Elegir otro modelo</a>
         <div class="form-group-total sp-t oculto" id="gtModeloContenedor">
           <label>Modelo</label>
           <select id="gtModeloSel"></select>
@@ -6613,7 +6613,7 @@
           <input type="text" id="gtImeiFiltro" placeholder="Filtrar por ultimos digitos" autocomplete="off" inputmode="numeric" style="margin-bottom:6px;">
           <select id="gtImeiSel"></select>
         </div>
-        <p class="sm-t" id="gtStockAviso"></p>
+        <p id="gtStockAviso" style="margin:8px 0 0; font-size:13px; opacity:.8;"></p>
         <button type="button" class="btn-total sp-t" id="gtBtnManual" style="width:auto; padding:0 16px;">Cargar IMEI a mano</button>
       </div>
       <div id="gtManualContenedor">
@@ -6624,6 +6624,16 @@
         <div class="form-group-total sp-t" id="gtColorContenedor">
           <label>Color</label>
           <input type="text" id="gtColor" placeholder="Ej. Negro" autocomplete="off">
+        </div>
+        <div class="form-group-total sp-t oculto" id="gtManualDepositoContenedor">
+          <label>Sucursal donde esta el equipo</label>
+          <select id="gtManualDeposito">
+            <option value="OLMOS">OLMOS</option>
+            <option value="DINO">DINO</option>
+            <option value="NUEVO CENTRO">NUEVO CENTRO</option>
+            <option value="INDEPENDENCIA">INDEPENDENCIA</option>
+            <option value="DEPO">DEPO</option>
+          </select>
         </div>
         <div class="form-group-total sp-t oculto" id="gtMotivoContenedor">
           <label>Por que se carga a mano</label>
