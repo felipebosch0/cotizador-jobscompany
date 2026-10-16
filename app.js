@@ -1775,14 +1775,24 @@ async function iniciarGarantiaDesdeStock(equipo) {
     ponerModoGarantiaManual(true, { hayLista: false });
     return MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo leer el stock: carga el IMEI a mano.' });
   }
+  // Opciones: "Todas" de cada sucursal de venta + cada valor real de la
+  // columna Sucursal (F) de la planilla que tenga equipos (DEPO, OLMOS, DINO,
+  // NUEVO CENTRO, SERVICIO TECNICO...). Arranca en "Todas" de la sucursal actual.
   const selSuc = $('#gtSucursalSel').empty();
-  DATA.sucursales.forEach(s => selSuc.append(new Option(s, s)));
-  selSuc.val(sucursalActual);
+  DATA.sucursales.forEach(s => selSuc.append(new Option('Todas - ' + s, 'grupo:' + s)));
+  const depositos = {};
+  garantiaUnidades.forEach(u => { depositos[u.sucursal.trim().toUpperCase()] = u.sucursal.trim(); });
+  Object.keys(depositos).sort().forEach(k => selSuc.append(new Option(depositos[k], 'dep:' + k)));
+  selSuc.val('grupo:' + sucursalActual);
   poblarModelosGarantia(equipo);
 }
 
-function unidadesGarantiaDe(sucursal) {
-  return garantiaUnidades.filter(u => grupoDeSucursal(u.sucursal) === sucursal);
+// El valor del selector es "grupo:<sucursal de venta>" (todos sus depositos)
+// o "dep:<valor de la columna Sucursal (F)>".
+function unidadesGarantiaDe(seleccion) {
+  const [tipo, valor] = String(seleccion).split(/:(.*)/s);
+  if (tipo === 'dep') return garantiaUnidades.filter(u => u.sucursal.trim().toUpperCase() === valor);
+  return garantiaUnidades.filter(u => (grupoDeSucursal(u.sucursal) || String(u.sucursal).trim()) === valor);
 }
 
 function poblarModelosGarantia(equipo) {
@@ -1821,7 +1831,7 @@ function poblarImeisGarantia() {
   sel.prop('disabled', !lista.length);
   if (!lista.length) {
     sel.append(new Option('(no hay equipos disponibles)', ''));
-    $('#gtStockAviso').text(filtro ? 'Ningun IMEI coincide con ese filtro.' : `No hay ${equipo ? equipo.modelo : 'ese modelo'} en stock en ${sucursal}. Proba con otra sucursal o carga el IMEI a mano.`);
+    $('#gtStockAviso').text(filtro ? 'Ningun IMEI coincide con ese filtro.' : `No hay ${equipo ? equipo.modelo : 'ese modelo'} en stock en ${$('#gtSucursalSel option:selected').text()}. Proba con otra sucursal o carga el IMEI a mano.`);
     return;
   }
   sel.append(new Option('Elegi el IMEI / Serie...', ''));
