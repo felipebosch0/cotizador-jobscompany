@@ -1653,7 +1653,7 @@ function AbrirModalGarantia() {
 // 2 casos, solo cambia que pide.
 function mostrarModalGarantiaItem(item) {
   garantiaGenerarPendienteImei = null;
-  $('#gtImei, #gtColor').val('');
+  $('#gtImei, #gtColor, #gtImeiFiltro').val('');
 
   const aviso = document.getElementById('gtColaAviso');
   if (colaGarantia.length > 1) {
@@ -1680,6 +1680,8 @@ function mostrarModalGarantiaItem(item) {
       campoImei.placeholder = 'Numero de serie (letras y numeros)';
       campoImei.setAttribute('inputmode', 'text');
     }
+    // Estos productos no se dan de alta en Stock: siempre se tipea el numero.
+    ponerModoGarantiaManual(true, { esEquipo: false, hayLista: false });
     return;
   }
 
@@ -1702,6 +1704,142 @@ function mostrarModalGarantiaItem(item) {
   // aplica a Independencia -- se oculta y se destilda para el resto.
   document.getElementById('gtPautaContenedor').classList.toggle('oculto', sucursalActual !== 'Independencia');
   document.getElementById('gtPauta').checked = false;
+  iniciarGarantiaDesdeStock(equipo);
+}
+
+// ---- Garantia: elegir el equipo de la planilla de Stock ----
+// En vez de tipear los 15 digitos del IMEI (se confunden facil), el vendedor
+// elige sucursal -> modelo (viene del carrito) -> IMEI de una lista de lo que
+// hay "En Stock" (worker.js /stock-imeis). El color sale de la planilla. Para
+// lo que no esta cargado queda el modo manual, que genera el alta con la
+// observacion "GENERADO AL IMPRIMIR GARANTIA - <motivo>" para auditarlo.
+let garantiaUnidades = [];
+let garantiaModoManual = true;
+
+// Digito verificador de un IMEI (algoritmo de Luhn): detecta casi cualquier
+// error de tipeo en los 15 digitos.
+function luhnValido(numero) {
+  let suma = 0;
+  for (let i = 0; i < numero.length; i++) {
+    let d = Number(numero[numero.length - 1 - i]);
+    if (i % 2 === 1) { d *= 2; if (d > 9) d -= 9; }
+    suma += d;
+  }
+  return suma % 10 === 0;
+}
+
+function capacidadEnGb(texto) {
+  const m = /^(\d+)\s*(gb|tb)/i.exec(String(texto || '').trim());
+  if (!m) return 0;
+  return /tb/i.test(m[2]) ? Number(m[1]) * 1024 : Number(m[1]);
+}
+
+function titleCaseColor(color) {
+  return String(color || '').trim().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
+// esEquipo: se pide el motivo del modo manual (no aplica a accesorios con
+// garantia propia). hayLista: se puede volver a la lista de Stock.
+function ponerModoGarantiaManual(manual, { esEquipo = true, hayLista = true } = {}) {
+  garantiaModoManual = manual;
+  $('#gtStockContenedor').toggleClass('oculto', manual);
+  $('#gtManualContenedor').toggleClass('oculto', !manual);
+  $('#gtMotivoContenedor').toggleClass('oculto', !(manual && esEquipo));
+  $('#gtVolverLista').toggleClass('oculto', !(manual && esEquipo && hayLista));
+  $('#gtColor').prop('readonly', false);
+}
+
+async function iniciarGarantiaDesdeStock(equipo) {
+  garantiaUnidades = [];
+  ponerModoGarantiaManual(false);
+  $('#gtModeloContenedor').addClass('oculto');
+  $('#gtCambiarModelo').removeClass('oculto');
+  $('#gtEquipoInfo').text(`Equipo de la venta: ${equipo.modelo} ${equipo.capacidad}`);
+  $('#gtStockAviso').text('Cargando equipos de stock...');
+  $('#gtImeiSel').html('').prop('disabled', true);
+  $('#gtBtnManual').addClass('oculto');
+  let ok = false;
+  try {
+    const response = await fetch('/stock-imeis');
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    garantiaUnidades = data.unidades || [];
+    ok = true;
+  } catch (error) {
+    console.warn('No se pudo leer la lista de IMEI en stock:', error);
+  }
+  // Si mientras tanto se cerro el modal o paso al siguiente producto, no se pisa nada.
+  if (!colaGarantia.length || colaGarantia[0].equipo !== equipo) return;
+  $('#gtBtnManual').removeClass('oculto');
+  if (!ok) {
+    ponerModoGarantiaManual(true, { hayLista: false });
+    return MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo leer el stock: carga el IMEI a mano.' });
+  }
+  const selSuc = $('#gtSucursalSel').empty();
+  DATA.sucursales.forEach(s => selSuc.append(new Option(s, s)));
+  selSuc.val(sucursalActual);
+  poblarModelosGarantia(equipo);
+}
+
+function unidadesGarantiaDe(sucursal) {
+  return garantiaUnidades.filter(u => grupoDeSucursal(u.sucursal) === sucursal);
+}
+
+function poblarModelosGarantia(equipo) {
+  const vistos = {};
+  unidadesGarantiaDe($('#gtSucursalSel').val()).forEach(u => { vistos[normalizarModelo(u.modelo)] = u.modelo; });
+  const selModelo = $('#gtModeloSel').empty();
+  Object.entries(vistos)
+    .sort((a, b) => a[1].localeCompare(b[1], 'es', { numeric: true, sensitivity: 'base' }))
+    .forEach(([clave, nombre]) => selModelo.append(new Option(nombre, clave)));
+  const delCarrito = normalizarModelo(equipo.modelo);
+  if (vistos[delCarrito]) selModelo.val(delCarrito);
+  poblarImeisGarantia();
+}
+
+function poblarImeisGarantia() {
+  const equipo = colaGarantia[0] && colaGarantia[0].equipo;
+  const sucursal = $('#gtSucursalSel').val();
+  const modelo = $('#gtModeloSel').val();
+  const filtro = $('#gtImeiFiltro').val().trim().toLowerCase();
+  const sel = $('#gtImeiSel').empty();
+  $('#gtImei, #gtColor').val('');
+
+  let lista = unidadesGarantiaDe(sucursal).filter(u => normalizarModelo(u.modelo) === modelo);
+  let nota = '';
+  const esElDelCarrito = equipo && modelo === normalizarModelo(equipo.modelo);
+  const capCarrito = esElDelCarrito ? capacidadEnGb(equipo.capacidad) : 0;
+  if (capCarrito && lista.length) {
+    const iguales = lista.filter(u => u.capacidad === capCarrito);
+    if (iguales.length) lista = iguales;
+    else nota = `No hay ${equipo.capacidad} en stock de esa sucursal: se muestran otras capacidades.`;
+  }
+  if (!esElDelCarrito && modelo) nota = 'Elegiste un modelo distinto al de la venta: revisa que sea el equipo correcto.';
+  if (filtro) lista = lista.filter(u => u.imei.toLowerCase().includes(filtro));
+  lista.sort((a, b) => a.color.localeCompare(b.color, 'es', { sensitivity: 'base' }) || a.capacidad - b.capacidad);
+
+  sel.prop('disabled', !lista.length);
+  if (!lista.length) {
+    sel.append(new Option('(no hay equipos disponibles)', ''));
+    $('#gtStockAviso').text(filtro ? 'Ningun IMEI coincide con ese filtro.' : `No hay ${equipo ? equipo.modelo : 'ese modelo'} en stock en ${sucursal}. Proba con otra sucursal o carga el IMEI a mano.`);
+    return;
+  }
+  sel.append(new Option('Elegi el IMEI / Serie...', ''));
+  lista.forEach(u => {
+    const cap = u.capacidad >= 1024 ? '1Tb' : u.capacidad ? u.capacidad + 'Gb' : '';
+    const bat = u.bateria ? u.bateria + '%' : '';
+    const partes = [titleCaseColor(u.color), cap, bat, u.imei].filter(Boolean);
+    sel.append(new Option(partes.join(' · '), u.imei));
+  });
+  if (lista.length === 1) { sel.val(lista[0].imei); elegirImeiGarantia(); }
+  $('#gtStockAviso').text(nota);
+}
+
+function elegirImeiGarantia() {
+  const imei = $('#gtImeiSel').val();
+  const u = garantiaUnidades.find(x => x.imei === imei);
+  $('#gtImei').val(u ? u.imei : '');
+  $('#gtColor').val(u ? titleCaseColor(u.color) : '');
 }
 
 function CerrarModalGarantia() {
@@ -1809,6 +1947,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
   // checkbox esta oculto y siempre destildado.
   const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
+  if (!garantiaModoManual && !imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Elegi el equipo de la lista, o carga el IMEI a mano' });
   if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
 
   // Solo los iPhone tienen IMEI (15 digitos exactos) -- el resto (AirPods,
@@ -1817,6 +1956,12 @@ async function ConfirmarGarantiaEquipo(equipo) {
   if (esTelefono(equipo.modelo) && !/^\d{15}$/.test(imei)) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
   }
+  // Tipeado a mano: el ultimo digito del IMEI es un verificador, asi que un
+  // numero mal copiado casi siempre falla esta cuenta.
+  if (garantiaModoManual && esTelefono(equipo.modelo) && !luhnValido(imei)) {
+    return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Ese IMEI no es valido (el digito verificador no coincide): revisa los 15 digitos.' });
+  }
+  const motivoManual = $('#gtMotivo').val() || '';
 
   // Los accesorios del carrito solo se listan en la garantia de
   // Independencia -- en Shopping la garantia sale solo con los datos del
@@ -1839,14 +1984,12 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // tambien se cargan en Stock, con numero de serie en vez de IMEI en la
   // misma columna).
   //
-  // Si no esta, en vez de trabar la venta, se ofrece generarlo ahi mismo
-  // (mismo mecanismo que "Generar y dar de baja" en Egreso): el primer
-  // click avisa y no imprime nada todavia; si se aprieta "Confirmar e
-  // imprimir" de nuevo con el mismo IMEI/Serie, ahi si se genera el alta
-  // (observacion "GENERADO AL IMPRIMIR GARANTIA", para poder auditar
-  // despues quien vende cosas que nunca cargo primero) y se sigue con la
-  // venta normal. Asi queda registro de TODO lo vendido en Stock, sin
-  // frenar al vendedor en el momento.
+  // Lo normal es elegirlo de la lista de Stock (ver iniciarGarantiaDesdeStock).
+  // Si no esta cargado, el vendedor usa "Cargar IMEI a mano" y ahi se
+  // genera el alta ahi mismo (mismo mecanismo que "Generar y dar de baja" en
+  // Egreso) con la observacion "GENERADO AL IMPRIMIR GARANTIA - <motivo>",
+  // para poder auditar despues quien vende cosas que nunca cargo primero.
+  // Asi queda registro de TODO lo vendido en Stock, sin frenar la venta.
   let falla = '';
   {
     let busqueda;
@@ -1868,17 +2011,17 @@ async function ConfirmarGarantiaEquipo(equipo) {
     const vendedorStock = $('#gtVendedor').val() || (sesion ? sesion.nombre : '');
 
     if (!busqueda.resultados.length) {
-      if (garantiaGenerarPendienteImei !== imei) {
-        garantiaGenerarPendienteImei = imei;
-        return MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'Ese IMEI/Serie no esta cargado en el stock. Apreta "Confirmar e imprimir" de nuevo para generarlo y continuar con la venta.' });
+      // Elegido de la lista pero ya no figura: se vendio/movio recien.
+      if (!garantiaModoManual) {
+        iniciarGarantiaDesdeStock(equipo);
+        return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Ese equipo ya no figura en stock (se movio recien). Se actualizo la lista: elegi de nuevo.' });
       }
-      // Segundo intento con el mismo IMEI/Serie: se genera el alta y se da
-      // de baja de una, igual que ConfirmarGenerarYDarDeBaja en Egreso.
-      garantiaGenerarPendienteImei = null;
+      // Modo manual (el vendedor lo pidio a proposito): se genera el alta y se
+      // da de baja de una, igual que ConfirmarGenerarYDarDeBaja en Egreso.
       try {
         const respIngreso = await llamarStockWrite({
           accion: 'ingreso', modelo: equipo.modelo, capacidad: equipo.capacidad, color, imei,
-          sucursal: sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA', usuario: vendedorStock, propietario: vendedorStock
+          sucursal: sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock
         });
         if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
         if (respIngreso.fila) {
@@ -2984,6 +3127,26 @@ function iniciarApp(sesion) {
   document.getElementById('btnImprimirGarantia').addEventListener('click', AbrirModalGarantia);
   document.getElementById('cerrarModalGarantia').addEventListener('click', CerrarModalGarantia);
   document.getElementById('btnConfirmarGarantia').addEventListener('click', ConfirmarGarantia);
+  // Garantia: lista de IMEI en Stock (ver iniciarGarantiaDesdeStock).
+  $('#gtSucursalSel').on('change', () => poblarModelosGarantia(colaGarantia[0].equipo));
+  $('#gtModeloSel').on('change', poblarImeisGarantia);
+  $('#gtImeiFiltro').on('input', poblarImeisGarantia);
+  $('#gtImeiSel').on('change', elegirImeiGarantia);
+  $('#gtCambiarModelo').on('click', e => {
+    e.preventDefault();
+    $('#gtModeloContenedor').removeClass('oculto');
+    $('#gtCambiarModelo').addClass('oculto');
+  });
+  $('#gtBtnManual').on('click', () => {
+    $('#gtImei, #gtColor').val('');
+    ponerModoGarantiaManual(true);
+  });
+  $('#gtVolverLista').on('click', e => {
+    e.preventDefault();
+    $('#gtImei, #gtColor').val('');
+    ponerModoGarantiaManual(false);
+    poblarImeisGarantia();
+  });
   document.getElementById('modalGarantia').addEventListener('click', e => {
     if (e.target.id === 'modalGarantia') CerrarModalGarantia();
   });

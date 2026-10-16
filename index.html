@@ -6581,13 +6581,48 @@
         <label>DNI del cliente</label>
         <input type="text" id="gtDni" placeholder="Solo numeros" autocomplete="off" inputmode="numeric">
       </div>
-      <div class="form-group-total sp-t">
-        <label id="gtImeiLabel">IMEI / Serie</label>
-        <input type="text" id="gtImei" placeholder="15 digitos" autocomplete="off" inputmode="numeric">
+      <!-- Equipo elegido de la planilla de Stock (sin tipear el IMEI): sucursal
+           -> modelo (sale del carrito, se puede cambiar) -> IMEI disponible.
+           Ver poblarGarantiaDesdeStock en app.js. El modo manual (abajo) es
+           para lo que no esta cargado en Stock. -->
+      <div id="gtStockContenedor" class="oculto">
+        <div class="form-group-total sp-t">
+          <label>Sucursal del equipo</label>
+          <select id="gtSucursalSel"></select>
+        </div>
+        <p class="sm-t sp-t" id="gtEquipoInfo" style="margin-bottom:0;"></p>
+        <a href="#" id="gtCambiarModelo" class="sm-t">Elegir otro modelo</a>
+        <div class="form-group-total sp-t oculto" id="gtModeloContenedor">
+          <label>Modelo</label>
+          <select id="gtModeloSel"></select>
+        </div>
+        <div class="form-group-total sp-t">
+          <label>IMEI / Serie disponible</label>
+          <input type="text" id="gtImeiFiltro" placeholder="Filtrar por ultimos digitos" autocomplete="off" inputmode="numeric" style="margin-bottom:6px;">
+          <select id="gtImeiSel"></select>
+        </div>
+        <p class="sm-t" id="gtStockAviso"></p>
+        <button type="button" class="btn-total sp-t" id="gtBtnManual" style="width:auto; padding:0 16px;">Cargar IMEI a mano</button>
       </div>
-      <div class="form-group-total sp-t" id="gtColorContenedor">
-        <label>Color</label>
-        <input type="text" id="gtColor" placeholder="Ej. Negro" autocomplete="off">
+      <div id="gtManualContenedor">
+        <div class="form-group-total sp-t">
+          <label id="gtImeiLabel">IMEI / Serie</label>
+          <input type="text" id="gtImei" placeholder="15 digitos" autocomplete="off" inputmode="numeric">
+        </div>
+        <div class="form-group-total sp-t" id="gtColorContenedor">
+          <label>Color</label>
+          <input type="text" id="gtColor" placeholder="Ej. Negro" autocomplete="off">
+        </div>
+        <div class="form-group-total sp-t oculto" id="gtMotivoContenedor">
+          <label>Por que se carga a mano</label>
+          <select id="gtMotivo">
+            <option value="No esta cargado en stock">No esta cargado en stock</option>
+            <option value="Equipo de otra sucursal">Equipo de otra sucursal</option>
+            <option value="No aparece en la lista">No aparece en la lista</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <a href="#" id="gtVolverLista" class="sm-t oculto">Volver a elegir de la lista</a>
       </div>
       <!-- Solo Independencia -- para hacer seguimiento de que ventas vienen
            de una campana paga (ver AbrirModalGarantia en app.js). -->

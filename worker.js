@@ -6,7 +6,7 @@
 // mano y despues delegarle a env.ASSETS todo lo que no sea una de las 3
 // rutas de API.
 //
-// Rutas de API: /dolar, /stock, /stock-write, /reportes/:tipo, /reportes-write
+// Rutas de API: /dolar, /stock, /stock-imeis, /stock-write, /reportes/:tipo, /reportes-write
 // (mismo comportamiento y forma de respuesta que las funciones de Netlify
 // que reemplazan).
 // Todo lo demas (index.html, app.js, data.js, etc.) lo sirve env.ASSETS,
@@ -136,6 +136,44 @@ async function manejarStock() {
   }
 }
 
+// ---------------- /stock-imeis ----------------
+// Unidades "En Stock" CON IMEI/Serie, para que el modal de Garantia deje
+// elegir el equipo de una lista en vez de tipear 15 digitos a mano. Se pide
+// recien al abrir ese modal (no va dentro de /stock, que se carga siempre al
+// abrir el cotizador). Solo "En Stock": lo Reservado o en Financiacion Propia
+// no se ofrece como disponible para vender.
+async function manejarStockImeis() {
+  try {
+    const url = 'https://docs.google.com/spreadsheets/d/' + LIBRO_STOCK_ID +
+      '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(NOMBRE_HOJA_INVENTARIO);
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Google Sheets respondio ' + response.status);
+    const texto = await response.text();
+    if (/^\s*<!DOCTYPE html/i.test(texto)) {
+      throw new Error('La planilla no es publica (Compartir > Cualquiera con el enlace > Lector)');
+    }
+    const unidades = [];
+    parseCsv(texto).slice(1).forEach(fila => {
+      const modelo = String(fila[0] || '').trim();
+      const imei = String(fila[4] || '').replace(/\s+/g, '');
+      const estado = String(fila[6] || '').trim();
+      if (!modelo || !imei || estado !== 'En Stock') return;
+      unidades.push({
+        modelo: modelo,
+        capacidad: capacidadANumero(fila[3]),
+        bateria: bateriaAPorcentaje(fila[1]),
+        color: String(fila[2] || '').trim(),
+        imei: imei,
+        sucursal: String(fila[5] || '').trim(),
+        condicion: String(fila[8] || '').trim()
+      });
+    });
+    return jsonResponse({ unidades: unidades, error: null });
+  } catch (error) {
+    return jsonResponse({ unidades: [], error: String(error.message || error) });
+  }
+}
+
 // ---------------- /stock-write ----------------
 
 async function manejarStockWrite(request, env) {
@@ -224,6 +262,7 @@ export default {
 
     if (url.pathname === '/dolar') return manejarDolar();
     if (url.pathname === '/stock') return manejarStock();
+    if (url.pathname === '/stock-imeis') return manejarStockImeis();
     if (url.pathname === '/stock-write' && request.method === 'POST') return manejarStockWrite(request, env);
     if (url.pathname.startsWith('/reportes/')) return manejarReportesRead(url.pathname.slice('/reportes/'.length));
     if (url.pathname === '/reportes-write' && request.method === 'POST') return manejarReportesWrite(request, env);
