@@ -391,9 +391,9 @@ window.COTIZADOR_DATA = {
           'Pro 14" M5 - 10CPU/10GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 2930 },
           'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Space Black': { seminuevo: null, sellado: 3180 },
           'Pro 14" M5 Pro - 15CPU/16GPU 1TB 24GB Silver':      { seminuevo: null, sellado: 3180 },
-          // Neo -- sin cambios, a proposito (quedan afuera del aumento de +300).
-          'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1300 },
-          'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1500 }
+          // Neo -- bajados (16/10/2026): 256GB 1300->1200, 512GB 1500->1300. Quedan afuera del aumento de +300.
+          'Neo - 256GB 8GB RAM': { seminuevo: null, sellado: 1200 },
+          'Neo - 512GB 8GB RAM': { seminuevo: null, sellado: 1300 }
         } }
     ],
     'Independencia': [
