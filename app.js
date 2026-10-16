@@ -1775,24 +1775,22 @@ async function iniciarGarantiaDesdeStock(equipo) {
     ponerModoGarantiaManual(true, { hayLista: false });
     return MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo leer el stock: carga el IMEI a mano.' });
   }
-  // Opciones: "Todas" de cada sucursal de venta + cada valor real de la
-  // columna Sucursal (F) de la planilla que tenga equipos (DEPO, OLMOS, DINO,
-  // NUEVO CENTRO, SERVICIO TECNICO...). Arranca en "Todas" de la sucursal actual.
+  // Opciones: cada valor real de la columna Sucursal (F) de la planilla que
+  // tenga equipos (DEPO, OLMOS, DINO, NUEVO CENTRO, SERVICIO TECNICO...).
+  // Arranca en el primero que pertenece a la sucursal de venta actual.
   const selSuc = $('#gtSucursalSel').empty();
-  DATA.sucursales.forEach(s => selSuc.append(new Option('Todas - ' + s, 'grupo:' + s)));
   const depositos = {};
   garantiaUnidades.forEach(u => { depositos[u.sucursal.trim().toUpperCase()] = u.sucursal.trim(); });
-  Object.keys(depositos).sort().forEach(k => selSuc.append(new Option(depositos[k], 'dep:' + k)));
-  selSuc.val('grupo:' + sucursalActual);
+  const claves = Object.keys(depositos).sort();
+  claves.forEach(k => selSuc.append(new Option(depositos[k], k)));
+  const propio = claves.find(k => (grupoDeSucursal(k) || depositos[k]) === sucursalActual);
+  if (propio) selSuc.val(propio);
   poblarModelosGarantia(equipo);
 }
 
-// El valor del selector es "grupo:<sucursal de venta>" (todos sus depositos)
-// o "dep:<valor de la columna Sucursal (F)>".
-function unidadesGarantiaDe(seleccion) {
-  const [tipo, valor] = String(seleccion).split(/:(.*)/s);
-  if (tipo === 'dep') return garantiaUnidades.filter(u => u.sucursal.trim().toUpperCase() === valor);
-  return garantiaUnidades.filter(u => (grupoDeSucursal(u.sucursal) || String(u.sucursal).trim()) === valor);
+// El valor del selector es el valor de la columna Sucursal (F) en mayusculas.
+function unidadesGarantiaDe(deposito) {
+  return garantiaUnidades.filter(u => u.sucursal.trim().toUpperCase() === deposito);
 }
 
 function poblarModelosGarantia(equipo) {
