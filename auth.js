@@ -67,7 +67,11 @@ function capitalizarNombre(nombre) {
 }
 
 function iniciarSesion(usuario, password) {
-  const encontrado = USUARIOS.find(u => u.usuario === usuario && u.password === password);
+  // El usuario no distingue mayusculas (el teclado del celular pone la primera
+  // en mayuscula sola: "Jose" tiene que entrar igual que "jose"); la
+  // contrasena si se compara exacta.
+  const usuarioNormalizado = String(usuario || '').trim().toLowerCase();
+  const encontrado = USUARIOS.find(u => u.usuario === usuarioNormalizado && u.password === password);
   if (!encontrado) return { ok: false, error: 'Usuario o contrasena incorrectos' };
 
   const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal };
