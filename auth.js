@@ -45,7 +45,7 @@ const ROLES = {
 const USUARIOS = [
   { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },
   { usuario: 'felipe',    password: 'Jobscompany468',      rol: 'admin',    nombre: 'felipe',    sucursal: null },
-  { usuario: 'jose',      password: 'Independencia123',    rol: 'vendedor', nombre: 'jose',      sucursal: 'Shopping' },
+  { usuario: 'jose',      password: 'Jobs468',             rol: 'vendedor', nombre: 'jose',      sucursal: 'Shopping' },
   { usuario: 'yoko',      password: 'Shopping123',         rol: 'vendedor', nombre: 'yoko',      sucursal: 'Shopping' },
   { usuario: 'ele',       password: 'Shopping123',         rol: 'vendedor', nombre: 'ele',       sucursal: 'Shopping' },
   { usuario: 'flor',      password: 'Shopping123',         rol: 'vendedor', nombre: 'flor',      sucursal: 'Shopping' },
