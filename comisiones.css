@@ -11,3 +11,14 @@
 #vistaComisiones .com-input-monto { width: 100%; min-width: 110px; }
 #vistaComisiones .com-lista { margin: 4px 0 0 18px; padding: 0; line-height: 1.7; }
 #vistaComisiones tfoot td { border-top: 2px solid var(--ap-line); }
+
+/* Con Comisiones abierta, el cotizador ocupa todo el ancho (la columna de la
+   derecha -- carrito/resultados -- no se usa en esta pestana). */
+.row:has(#vistaComisiones.vista) > .col-6:first-child { width: 100%; max-width: 100%; flex: 0 0 100%; }
+.row:has(#vistaComisiones.vista) > .col-6:nth-child(2) { display: none; }
+
+/* Variacion contra el mes anterior (solo admin). */
+#vistaComisiones .com-delta { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; margin-left: 4px; white-space: nowrap; vertical-align: middle; }
+#vistaComisiones .com-delta.sube { color: var(--ap-green); background: rgba(48, 161, 78, 0.12); }
+#vistaComisiones .com-delta.baja { color: var(--ap-red); background: rgba(255, 59, 48, 0.12); }
+#vistaComisiones .com-delta.igual, #vistaComisiones .com-delta.sd { color: var(--second-color); background: var(--ap-fill-hover); }
