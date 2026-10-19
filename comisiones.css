@@ -1,0 +1,13 @@
+/* Calculadora de comisiones (ver comisiones.js). Usa las variables de apple.css. */
+#vistaComisiones .com-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 8px; }
+#vistaComisiones .com-tarjeta { background: var(--ap-fill); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-m); padding: 16px; }
+#vistaComisiones .com-sub { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+#vistaComisiones .com-cifra { font-size: 22px; font-weight: 700; }
+#vistaComisiones .com-total { font-size: 18px; font-weight: 600; color: var(--ap-green); margin: 6px 0 10px; }
+#vistaComisiones .com-barra { height: 8px; border-radius: 4px; background: var(--ap-line); overflow: hidden; margin-top: 6px; }
+#vistaComisiones .com-barra-fill { height: 100%; background: var(--ap-accent); border-radius: 4px; transition: width .3s var(--ap-ease); }
+#vistaComisiones .com-gran-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 16px 0 8px; padding: 16px; border-radius: var(--ap-radius-m); background: var(--ap-accent-soft); }
+#vistaComisiones .com-gran-total strong { font-size: 24px; }
+#vistaComisiones .com-input-monto { width: 100%; min-width: 110px; }
+#vistaComisiones .com-lista { margin: 4px 0 0 18px; padding: 0; line-height: 1.7; }
+#vistaComisiones tfoot td { border-top: 2px solid var(--ap-line); }

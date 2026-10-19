@@ -757,6 +757,7 @@ function IngresoEgreso() {
 }
 // Definida en reportes.js -- se llama igual que el resto de las pestanas
 // (ver dispatcher de data-action mas abajo) para no romper el patron.
+function Comisiones() { ResetFormCotizador(); $('#vistaComisiones').removeClass('oculto').addClass('vista'); if (typeof iniciarComisiones === 'function') iniciarComisiones(); }
 function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('oculto').addClass('vista'); if (typeof iniciarReportes === 'function') iniciarReportes(); }
 // Definida en reportes.js (vive junto con el resto del modulo de Reportes,
 // comparten Sheet/Apps Script).
@@ -3396,6 +3397,7 @@ function iniciarApp(sesion) {
         'btnCStock': () => Stock(),
         'btnCIngresoEgreso': () => IngresoEgreso(),
         'btnCReportes': () => Reportes(),
+        'btnCComisiones': () => Comisiones(),
         'btnCReservas': () => Reservas(),
         'btnCComparar': () => abrirComparador(),
         'btnCFinanciacion': () => Financiacion(),

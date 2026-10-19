@@ -5814,6 +5814,7 @@
   .reporte-drop-estado.error { color: #e74c3c; }
 </style>
 <link rel="stylesheet" href="apple.css">
+<link rel="stylesheet" href="comisiones.css">
 </head>
 <body class="light">
 
@@ -5942,6 +5943,7 @@
               <!-- Solo Independencia -- financiacion propia (ver cargarSucursal en app.js). -->
               <button type="button" class="btn-act oculto" id="btnCFinanciacion" data-action="btnCFinanciacion">Financiacion</button>
               <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
+              <button type="button" class="btn-act" id="btnCComisiones" data-action="btnCComisiones">Comisiones</button>
               <button type="button" class="btn-act oculto" id="btnCReportes" data-action="btnCReportes">Reportes</button>
               </div>
 
@@ -6317,6 +6319,27 @@
                   </div>
                   <div id="transferenciaResultados"></div>
                 </div>
+              </div>
+
+              <!-- ============================ COMISIONES ============================
+                   Calculadora de comisiones (equipos, accesorios y servicio tecnico). El admin ve
+                   a todos y carga los accesorios; cada vendedor ve lo suyo y carga sus ordenes de
+                   servicio tecnico. Toda la logica y las escalas viven en comisiones.js. -->
+              <div id="vistaComisiones" class="col-12 sp-t sp-l oculto">
+                <div class="form-line col-12 sp-t">
+                  <div class="form-group-total" style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+                    <div>
+                      <label>Mes</label>
+                      <input type="month" id="comMes">
+                    </div>
+                    <div id="comFiltroVendedor" style="flex:1; min-width:180px;">
+                      <label>Vendedor</label>
+                      <select id="comVendedor"></select>
+                    </div>
+                    <i class="fas fa-sync-alt" id="comRefrescar" title="Actualizar" style="cursor:pointer; padding-bottom:10px;"></i>
+                  </div>
+                </div>
+                <div id="comContenido" class="sp-t"></div>
               </div>
 
               <!-- ============================ REPORTES DE GESTION ============================
@@ -6736,6 +6759,7 @@
   <script src="stock-data.js"></script>
   <script src="app.js"></script>
   <script src="reportes.js"></script>
+  <script src="comisiones.js"></script>
   <script src="comparador-data.js"></script>
   <script src="comparador.js"></script>
 </body>
