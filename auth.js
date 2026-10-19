@@ -45,7 +45,7 @@ const ROLES = {
 const USUARIOS = [
   { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },
   { usuario: 'felipe',    password: 'Jobscompany468',      rol: 'admin',    nombre: 'felipe',    sucursal: null },
-  { usuario: 'jose',      password: 'Independencia123',    rol: 'vendedor', nombre: 'jose',      sucursal: 'Independencia' },
+  { usuario: 'jose',      password: 'Independencia123',    rol: 'vendedor', nombre: 'jose',      sucursal: 'Shopping' },
   { usuario: 'yoko',      password: 'Shopping123',         rol: 'vendedor', nombre: 'yoko',      sucursal: 'Shopping' },
   { usuario: 'ele',       password: 'Shopping123',         rol: 'vendedor', nombre: 'ele',       sucursal: 'Shopping' },
   { usuario: 'flor',      password: 'Shopping123',         rol: 'vendedor', nombre: 'flor',      sucursal: 'Shopping' },
@@ -87,8 +87,11 @@ function sesionGuardada() {
   if (!data) return null;
   try {
     const sesion = JSON.parse(data);
-    const sigueExistiendo = USUARIOS.some(u => u.usuario === sesion.usuario && u.rol === sesion.rol);
-    if (!sigueExistiendo) return null;
+    const actual = USUARIOS.find(u => u.usuario === sesion.usuario && u.rol === sesion.rol);
+    if (!actual) return null;
+    // La sucursal se toma siempre de USUARIOS (no de lo guardado): si se
+    // mueve a alguien de sucursal, la sesion que ya tenia abierta se actualiza.
+    sesion.sucursal = actual.sucursal;
     sesion.nombre = capitalizarNombre(sesion.nombre);
     return sesion;
   } catch (error) {
