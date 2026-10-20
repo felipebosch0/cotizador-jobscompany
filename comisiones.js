@@ -94,14 +94,15 @@ const ESCALA_SERVICIO = [
   { goal: 4, desde: 40, nombre: 'Escalon Brillando',  premio: 125000 }
 ];
 
-// Cortes del mes para cargar/comparar accesorios: cada lunes el admin sube el
-// acumulado del mes y lo guarda en el corte que corresponde. El corte 4 es el
-// mes completo (y es el que se usa para pagar si no hay otro mas nuevo).
+// Cortes del mes para cargar/comparar accesorios: el admin carga cada lunes lo
+// que cada vendedor vendio EN ESE TRAMO (no es acumulado): corte 1 = dias 1 al
+// 7, corte 2 = 8 al 14, corte 3 = 15 al 21, corte 4 = 22 a fin de mes. El mes
+// completo es la SUMA de los cortes.
 const COMISION_CORTES = [
-  { n: 1, hastaDia: 7,  nombre: 'Corte 1 (hasta el 7)' },
-  { n: 2, hastaDia: 14, nombre: 'Corte 2 (hasta el 14)' },
-  { n: 3, hastaDia: 21, nombre: 'Corte 3 (hasta el 21)' },
-  { n: 4, hastaDia: 31, nombre: 'Corte 4 (fin de mes)' }
+  { n: 1, desdeDia: 1,  hastaDia: 7,  nombre: 'Corte 1 (dias 1 al 7)' },
+  { n: 2, desdeDia: 8,  hastaDia: 14, nombre: 'Corte 2 (dias 8 al 14)' },
+  { n: 3, desdeDia: 15, hastaDia: 21, nombre: 'Corte 3 (dias 15 al 21)' },
+  { n: 4, desdeDia: 22, hastaDia: 31, nombre: 'Corte 4 (dia 22 a fin de mes)' }
 ];
 
 // ---------------------------- Calculos (puros) ----------------------------
@@ -210,11 +211,13 @@ function comCorteDeHoy(mes) {
   return dia <= 7 ? 1 : dia <= 14 ? 2 : dia <= 21 ? 3 : 4;
 }
 
-// Ultimo dia que cuenta para comparar: el final del corte, pero en el mes en
-// curso nunca mas alla de hoy (asi se compara el mismo tramo del mes anterior).
-function comDiaTope(mes, corte) {
-  const tope = COMISION_CORTES.find(c => c.n === corte).hastaDia;
-  return mes === comMesActual() ? Math.min(tope, new Date().getDate()) : tope;
+// Tramo de dias de un corte (0 = mes completo). En el mes en curso nunca pasa
+// de hoy; "futuro" = el corte todavia no empezo (no hay nada que comparar).
+function comPeriodo(mes, corte) {
+  const c = corte ? COMISION_CORTES.find(x => x.n === corte) : { desdeDia: 1, hastaDia: 31 };
+  let hasta = c.hastaDia;
+  if (mes === comMesActual()) hasta = Math.min(hasta, new Date().getDate());
+  return { desde: c.desdeDia, hasta, futuro: c.desdeDia > hasta };
 }
 
 // Variacion porcentual: { pct, texto, clase }. Sin dato si falta el mes anterior o es 0.
@@ -297,7 +300,7 @@ function comAvisarError(hoja, error) {
 
 // Arma el calculo completo de todos los vendedores para un mes.
 function comCalcularMes(mes, corte) {
-  corte = corte || comCorteDeHoy(mes);
+  if (corte == null) corte = comCorteDeHoy(mes); // 0 = mes completo
   const porVendedor = {};
   COMISION_VENDEDORES.forEach(v => { porVendedor[v.nombre] = { vendedor: v, equiposRows: 0, accesorios: 0, ordenes: [] }; });
 
@@ -313,16 +316,10 @@ function comCalcularMes(mes, corte) {
     porVendedor[v.nombre].equiposRows++;
   });
 
-  // Accesorios: para pagar vale el ULTIMO corte cargado del mes (el acumulado
-  // mas nuevo). Las filas viejas sin corte cuentan como corte 4 (mes completo).
-  const corteVisto = {};
-  comDatos.accesorios.forEach(f => {
-    if (comMesDeFecha(f.Mes) !== mes) return;
-    const v = comVendedorDe(f.Vendedor);
-    if (!v) return;
-    const c = Number(f.Corte) || 4;
-    if (c >= (corteVisto[v.nombre] || 0)) { corteVisto[v.nombre] = c; porVendedor[v.nombre].accesorios = comNumero(f.Monto); }
-  });
+  // Accesorios: para pagar vale la SUMA de los cortes cargados del mes (o el
+  // monto del mes completo si es una carga vieja, sin corte).
+  const accMes = comAccesoriosDelMes(mes);
+  COMISION_VENDEDORES.forEach(v => { porVendedor[v.nombre].accesorios = comTotalAccesorios(accMes[v.nombre]); });
 
   // Servicio tecnico: ordenes del mes, sin repetir el numero de orden.
   const ordenesVistas = {};
@@ -342,22 +339,35 @@ function comCalcularMes(mes, corte) {
   const servicioPorSucursal = {};
   Object.keys(ordenesPorSucursal).forEach(s => { servicioPorSucursal[s] = comisionServicio(ordenesPorSucursal[s].length); });
 
-  // Comparativa contra el mes anterior (solo la ve el admin), mismo tramo de dias.
-  const dia = comDiaTope(mes, corte);
+  // Comparativa contra el mes anterior (solo la ve el admin): el mismo tramo de dias.
+  const per = comPeriodo(mes, corte);
   const mesPrev = comMesAnterior(mes);
-  const eqAct = comEquiposPorVendedor(mes, dia), eqPrev = comEquiposPorVendedor(mesPrev, dia);
-  const stAct = comOrdenesPorVendedor(mes, dia), stPrev = comOrdenesPorVendedor(mesPrev, dia);
-  const accAct = comAccesoriosAlCorte(mes, corte), accPrev = comAccesoriosAlCorte(mesPrev, corte);
+  const eqAct = comEquiposPorVendedor(mes, per.desde, per.hasta), eqPrev = comEquiposPorVendedor(mesPrev, per.desde, per.hasta);
+  const stAct = comOrdenesPorVendedor(mes, per.desde, per.hasta), stPrev = comOrdenesPorVendedor(mesPrev, per.desde, per.hasta);
+  const accPrevMes = comAccesoriosDelMes(mesPrev);
+  const accAct = {}, accPrev = {};
+  COMISION_VENDEDORES.forEach(v => {
+    const n = v.nombre, cur = accMes[n], prev = accPrevMes[n];
+    if (corte !== 0) {
+      accAct[n] = cur && cur.cortes[corte] != null ? cur.cortes[corte] : null;
+      accPrev[n] = prev && prev.cortes[corte] != null ? prev.cortes[corte] : null;
+    } else if (cur) {
+      // Mes completo: lo cargado hasta ahora contra los mismos cortes del mes anterior.
+      const k = cur.cortes && Object.keys(cur.cortes).length ? Math.max.apply(null, Object.keys(cur.cortes).map(Number)) : 4;
+      accAct[n] = comTotalAccesorios(cur);
+      accPrev[n] = prev ? comTotalAccesorios(prev, k) : null;
+    }
+  });
 
-  const grupoCant = (m, d) => {
+  const grupoCant = (m, desde, hasta) => {
     const r = {};
     Object.keys(COMISION_SUCURSALES).forEach(s => { r[s] = 0; });
-    COMISION_VENDEDORES.forEach(v => { r[v.sucursal] += (comOrdenesPorVendedor(m, d)[v.nombre] || 0); });
+    COMISION_VENDEDORES.forEach(v => { r[v.sucursal] += (comOrdenesPorVendedor(m, desde, hasta)[v.nombre] || 0); });
     return r;
   };
-  const grupoAct = grupoCant(mes, dia), grupoPrev = grupoCant(mesPrev, dia);
+  const grupoAct = grupoCant(mes, per.desde, per.hasta), grupoPrev = grupoCant(mesPrev, per.desde, per.hasta);
   const variacionGrupo = {};
-  Object.keys(grupoAct).forEach(s => { variacionGrupo[s] = comVariacion(grupoAct[s], grupoPrev[s]); });
+  Object.keys(grupoAct).forEach(s => { variacionGrupo[s] = per.futuro ? comVariacion(null, null) : comVariacion(grupoAct[s], grupoPrev[s]); });
 
   const dolar = (DATA.dolar && Number(DATA.dolar.DolarVenta)) || 0;
   const filas = COMISION_VENDEDORES.map(v => {
@@ -371,21 +381,23 @@ function comCalcularMes(mes, corte) {
       vendedor: v, equipos, accesorios, servicio, ordenes: d.ordenes, equiposArs,
       accCorte: accAct[n] == null ? null : accAct[n],
       variacion: {
-        equipos: comVariacion(eqAct[n] || 0, eqPrev[n] || 0),
+        equipos: per.futuro ? comVariacion(null, null) : comVariacion(eqAct[n] || 0, eqPrev[n] || 0),
         accesorios: comVariacion(accAct[n], accPrev[n]),
-        servicio: comVariacion(stAct[n] || 0, stPrev[n] || 0)
+        servicio: per.futuro ? comVariacion(null, null) : comVariacion(stAct[n] || 0, stPrev[n] || 0)
       },
       totalArs: equiposArs + accesorios.comision + servicio.premio
     };
   });
-  return { mes, corte, dia, mesPrev, dolar, filas, ordenesPorSucursal, servicioPorSucursal, variacionGrupo };
+  return { mes, corte, per, mesPrev, dolar, filas, ordenesPorSucursal, servicioPorSucursal, variacionGrupo };
 }
 
-// iPhone vendidos por vendedor en un mes, hasta cierto dia (sin repetir IMEI).
-function comEquiposPorVendedor(mes, dia) {
+// iPhone vendidos por vendedor en un mes, entre dos dias (sin repetir IMEI).
+function comEquiposPorVendedor(mes, desde, hasta) {
   const r = {}, vistos = {};
   comDatos.equipos.forEach(f => {
-    if (!esTelefono(f.Modelo) || comMesDeFecha(f.Fecha) !== mes || comDiaDeFecha(f.Fecha) > dia) return;
+    if (!esTelefono(f.Modelo) || comMesDeFecha(f.Fecha) !== mes) return;
+    const d = comDiaDeFecha(f.Fecha);
+    if (d < desde || d > hasta) return;
     const v = comVendedorDe(f.Vendedor);
     if (!v) return;
     const imei = String(f.Imei || '').trim();
@@ -395,11 +407,13 @@ function comEquiposPorVendedor(mes, dia) {
   return r;
 }
 
-// Ordenes de servicio tecnico por vendedor en un mes, hasta cierto dia.
-function comOrdenesPorVendedor(mes, dia) {
+// Ordenes de servicio tecnico por vendedor en un mes, entre dos dias.
+function comOrdenesPorVendedor(mes, desde, hasta) {
   const r = {}, vistas = {};
   comDatos.servicios.forEach(f => {
-    if (comMesDeFecha(f.Mes) !== mes || comDiaDeFecha(f.Fecha) > dia) return;
+    if (comMesDeFecha(f.Mes) !== mes) return;
+    const d = comDiaDeFecha(f.Fecha);
+    if (d < desde || d > hasta) return;
     const v = comVendedorDe(f.Vendedor);
     const orden = String(f.Orden || '').trim().toUpperCase();
     if (!v || !orden || vistas[orden]) return;
@@ -409,16 +423,29 @@ function comOrdenesPorVendedor(mes, dia) {
   return r;
 }
 
-// Monto de accesorios cargado EXACTAMENTE en ese corte (undefined si no hay).
-// Las filas viejas sin corte cuentan como corte 4.
-function comAccesoriosAlCorte(mes, corte) {
+// Accesorios cargados de un mes por vendedor: { cortes: {1: monto, ...}, legacy: monto|null }.
+// "legacy" = carga vieja sin corte (el monto de todo el mes).
+function comAccesoriosDelMes(mes) {
   const r = {};
   comDatos.accesorios.forEach(f => {
-    if (comMesDeFecha(f.Mes) !== mes || (Number(f.Corte) || 4) !== corte) return;
+    if (comMesDeFecha(f.Mes) !== mes) return;
     const v = comVendedorDe(f.Vendedor);
-    if (v) r[v.nombre] = comNumero(f.Monto);
+    if (!v) return;
+    const e = r[v.nombre] || (r[v.nombre] = { cortes: {}, legacy: null });
+    const c = Number(f.Corte) || 0;
+    if (c) e.cortes[c] = comNumero(f.Monto); else e.legacy = comNumero(f.Monto);
   });
   return r;
+}
+
+// Total del mes: suma de los cortes (hasta el corte "hasta", si se indica); si
+// no hay cortes, la carga vieja del mes completo. null si no hay nada.
+function comTotalAccesorios(e, hasta) {
+  if (!e) return 0;
+  const ns = Object.keys(e.cortes).map(Number).filter(n => !hasta || n <= hasta);
+  if (ns.length) return ns.reduce((t, n) => t + e.cortes[n], 0);
+  if (Object.keys(e.cortes).length === 0 && e.legacy != null && (!hasta || hasta >= 4)) return e.legacy;
+  return hasta ? null : 0;
 }
 
 // ---------------------------- Escritura ----------------------------
@@ -486,7 +513,10 @@ async function iniciarComisiones() {
   document.getElementById('comFiltroVendedor').classList.toggle('oculto', !admin);
   document.getElementById('comFiltroCorte').classList.toggle('oculto', !admin);
   const selC = document.getElementById('comCorte');
-  if (!selC.options.length) COMISION_CORTES.forEach(c => selC.appendChild(new Option(c.nombre, String(c.n))));
+  if (!selC.options.length) {
+    COMISION_CORTES.forEach(c => selC.appendChild(new Option(c.nombre, String(c.n))));
+    selC.appendChild(new Option('Mes completo', '0'));
+  }
   selC.value = String(comCorteDeHoy(document.getElementById('comMes').value || comMesActual()));
   await comRefrescar();
 }
@@ -503,15 +533,73 @@ function comDeltaHtml(v) {
   return ' <span class="com-delta ' + v.clase + '" title="Contra el mismo tramo del mes anterior">' + comEsc(v.texto) + '</span>';
 }
 
+function comNombreCorte(corte) { return corte === 0 ? 'mes completo (suma de cortes)' : 'corte ' + corte; }
+
+// Cuadro comparativo (solo admin): los 4 cuartos y el mes completo contra el
+// mismo tramo del mes anterior. nombre = un vendedor, o null = todos juntos.
+function comHtmlCuartos(calculo, nombre) {
+  const mes = calculo.mes, prev = calculo.mesPrev;
+  const nombres = nombre ? [nombre] : COMISION_VENDEDORES.map(v => v.nombre);
+  const suma = obj => nombres.reduce((t, n) => t + (obj[n] || 0), 0);
+  const accA = comAccesoriosDelMes(mes), accP = comAccesoriosDelMes(prev);
+  let kMax = 0;
+  nombres.forEach(n => { if (accA[n]) Object.keys(accA[n].cortes).forEach(c => { kMax = Math.max(kMax, Number(c)); }); });
+  const k = kMax || 4;
+
+  const filaDe = c => {
+    const per = comPeriodo(mes, c);
+    if (per.futuro) return null;
+    const eq = [suma(comEquiposPorVendedor(mes, per.desde, per.hasta)), suma(comEquiposPorVendedor(prev, per.desde, per.hasta))];
+    const st = [suma(comOrdenesPorVendedor(mes, per.desde, per.hasta)), suma(comOrdenesPorVendedor(prev, per.desde, per.hasta))];
+    // Accesorios: solo se suman los vendedores que tienen dato en AMBOS meses,
+    // si no el porcentaje saldria inflado.
+    let aA = null, aP = null;
+    nombres.forEach(n => {
+      const a = c ? (accA[n] && accA[n].cortes[c]) : (accA[n] ? comTotalAccesorios(accA[n]) : null);
+      const p = c ? (accP[n] && accP[n].cortes[c]) : (accP[n] ? comTotalAccesorios(accP[n], k) : null);
+      if (a != null && p != null) { aA = (aA || 0) + a; aP = (aP || 0) + p; }
+    });
+    return { c, per, eq, st, acc: [aA, aP] };
+  };
+
+  const celda = (par, fmt) => {
+    const [a, p] = par;
+    const v = comVariacion(a, p);
+    return '<td>' + (a == null ? '-' : fmt(a)) + ' <span class="com-prev">ant. ' + (p == null ? '-' : fmt(p)) + '</span>' + comDeltaHtml(v) + '</td>';
+  };
+  const num = x => String(x);
+  const filas = [1, 2, 3, 4, 0].map(c => {
+    const f = filaDe(c);
+    const etiqueta = c ? COMISION_CORTES.find(x => x.n === c).nombre : 'Mes completo (dias 1 al ' + comPeriodo(mes, 0).hasta + ')';
+    if (!f) return '<tr class="com-fila-futura"><td>' + comEsc(etiqueta) + '</td><td colspan="3" class="sm-t">Todavia no empezo</td></tr>';
+    return '<tr' + (c === 0 ? ' class="com-fila-total"' : '') + '><td>' + comEsc(etiqueta) + '</td>' + celda(f.eq, num) + celda(f.acc, comPesos) + celda(f.st, num) + '</tr>';
+  }).join('');
+
+  // Mes anterior entero (referencia para cuando el mes en curso todavia no termino).
+  const eqEntero = suma(comEquiposPorVendedor(prev, 1, 31)), stEntero = suma(comOrdenesPorVendedor(prev, 1, 31));
+  let accEntero = 0, hayAcc = false;
+  nombres.forEach(n => { if (accP[n]) { hayAcc = true; accEntero += comTotalAccesorios(accP[n]); } });
+
+  return '<h4 class="com-sub" style="margin-top:20px;">Comparativa por cuarto vs. ' + comEsc(comNombreMes(prev)) + (nombre ? ' &middot; ' + comEsc(nombre) : ' &middot; todos los vendedores') + '</h4>' +
+    '<div class="table-responsive"><table class="table2"><thead><tr><th>Tramo</th><th>Equipos</th><th>Accesorios ($)</th><th>Servicios cargados</th></tr></thead><tbody>' + filas + '</tbody></table></div>' +
+    '<p class="sm-t">Cada tramo se compara con los mismos dias del mes anterior. ' + comEsc(comNombreMes(prev)) + ' entero: ' + eqEntero + ' equipos &middot; ' + (hayAcc ? comPesos(accEntero) : 'sin accesorios cargados') + ' &middot; ' + stEntero + ' servicios.</p>';
+}
+
 function comBarraProgreso(actual, meta, texto) {
   const pct = meta > 0 ? Math.min(100, Math.round(actual * 100 / meta)) : 100;
   return '<div class="com-barra"><div class="com-barra-fill" style="width:' + pct + '%"></div></div><div class="sm-t">' + comEsc(texto) + '</div>';
 }
 
+// 0 = "Mes completo" (hay que distinguirlo de un valor vacio).
+function comCorteElegido(mes) {
+  const v = document.getElementById('comCorte').value;
+  return v === '' ? comCorteDeHoy(mes) : Number(v);
+}
+
 function comRender() {
   const mes = document.getElementById('comMes').value || comMesActual();
   const admin = comSesionEsAdmin();
-  const corte = Number(document.getElementById('comCorte').value) || comCorteDeHoy(mes);
+  const corte = comCorteElegido(mes);
   const calculo = comCalcularMes(mes, corte);
   const cont = document.getElementById('comContenido');
 
@@ -541,7 +629,7 @@ function comHtmlResumen(calculo) {
       '<td>' + comEsc(f.vendedor.sucursal) + '</td>' +
       '<td>' + f.equipos.cantidad + comDeltaHtml(f.variacion.equipos) + '</td>' +
       '<td>' + (f.equipos.usd ? formatNumberUsd(f.equipos.usd) : '-') + '</td>' +
-      '<td><input type="text" inputmode="decimal" class="com-input-monto" data-com-acc="' + comEsc(f.vendedor.nombre) + '" value="' + (f.accCorte != null ? comEsc(Math.round(f.accCorte)) : '') + '" placeholder="$0" autocomplete="off">' + comDeltaHtml(f.variacion.accesorios) + '</td>' +
+      '<td><input type="text" inputmode="decimal" class="com-input-monto" data-com-acc="' + comEsc(f.vendedor.nombre) + '" value="' + (f.accCorte != null ? comEsc(Math.round(f.accCorte)) : '') + '" placeholder="$0" autocomplete="off"' + (calculo.corte === 0 ? ' disabled' : '') + '>' + comDeltaHtml(f.variacion.accesorios) + '</td>' +
       '<td>' + f.accesorios.pct.toLocaleString('es-AR') + '% &middot; ' + comPesos(f.accesorios.comision) + '</td>' +
       '<td>' + f.ordenes.length + comDeltaHtml(f.variacion.servicio) + '</td>' +
       '<td><strong>' + comPesos(f.totalArs) + '</strong></td>' +
@@ -554,12 +642,13 @@ function comHtmlResumen(calculo) {
   }).join('');
 
   return '<div class="table-responsive"><table class="table2"><thead><tr>' +
-      '<th>Vendedor</th><th>Sucursal</th><th>Equipos</th><th>USD equipos</th><th>Accesorios acumulados al corte ' + calculo.corte + ' ($)</th><th>Comision accesorios (ultimo corte)</th><th>Servicios</th><th>Total ($)</th>' +
+      '<th>Vendedor</th><th>Sucursal</th><th>Equipos</th><th>USD equipos</th><th>Accesorios vendidos - ' + comNombreCorte(calculo.corte) + ' ($)</th><th>Comision accesorios (mes)</th><th>Servicios</th><th>Total ($)</th>' +
     '</tr></thead><tbody>' + filas + '</tbody>' +
     '<tfoot><tr><td colspan="7"><strong>Total a pagar</strong></td><td><strong>' + comPesos(totalGeneral) + '</strong></td></tr></tfoot></table></div>' +
-    '<p class="sm-t">El acumulado de accesorios se guarda en el corte elegido al salir del casillero; la comision se calcula con el ultimo corte cargado. Los porcentajes comparan contra el mismo tramo de ' + comEsc(comNombreMes(calculo.mesPrev)) + ' (dias 1 al ' + calculo.dia + '). Tocá un vendedor para ver el detalle.</p>' +
+    '<p class="sm-t">' + (calculo.corte === 0 ? 'En Mes completo los accesorios son la suma de los cortes cargados; se ven pero no se editan (elegi un corte para cargar). ' : 'Lo vendido en accesorios durante este corte se guarda al salir del casillero. ') + 'La comision de accesorios se calcula con la suma de todos los cortes del mes. Los porcentajes comparan los dias ' + calculo.per.desde + ' al ' + calculo.per.hasta + ' contra los mismos dias de ' + comEsc(comNombreMes(calculo.mesPrev)) + '. Tocá un vendedor para ver el detalle.</p>' +
     '<p class="sm-t">Ojo con los equipos: solo cuentan desde que se registran en la Garantia, asi que en los primeros meses el porcentaje puede no ser confiable.</p>' +
-    '<h4 class="com-sub">Servicio tecnico por sucursal</h4><ul class="com-lista">' + grupos + '</ul>';
+    '<h4 class="com-sub">Servicio tecnico por sucursal</h4><ul class="com-lista">' + grupos + '</ul>' +
+    comHtmlCuartos(calculo, null);
 }
 
 function comHtmlDetalle(calculo, nombre, admin) {
@@ -580,15 +669,15 @@ function comHtmlDetalle(calculo, nombre, admin) {
   // --- Accesorios
   const a = f.accesorios;
   let htmlAcc = '<div class="com-cifra">' + comPesos(a.monto) + '</div>' +
-    (admin ? '<div class="sm-t">Corte ' + calculo.corte + ': ' + (f.accCorte != null ? comPesos(f.accCorte) : 'sin cargar') + comDeltaHtml(f.variacion.accesorios) + '</div>' : '') +
+    (admin ? '<div class="sm-t">' + comEsc(comNombreCorte(calculo.corte)) + ': ' + (f.accCorte != null ? comPesos(f.accCorte) : 'sin cargar') + comDeltaHtml(f.variacion.accesorios) + '</div>' : '') +
     '<div class="sm-t">Goal ' + a.goal + ' &middot; ' + a.pct.toLocaleString('es-AR') + '%</div>' +
     '<div class="com-total">' + comPesos(a.comision) + '</div>';
   if (a.proximo) {
     htmlAcc += comBarraProgreso(a.monto, a.monto + a.proximo.faltan, 'Faltan ' + comPesos(a.proximo.faltan) + ' para goal ' + a.proximo.goal + ' (' + a.proximo.pct.toLocaleString('es-AR') + '%)');
   }
   if (admin) {
-    htmlAcc += '<div class="form-group-total" style="margin-top:10px;"><label>Acumulado al corte ' + calculo.corte + ' ($)</label>' +
-      '<input type="text" inputmode="decimal" class="com-input-monto" data-com-acc="' + comEsc(nombre) + '" value="' + (f.accCorte != null ? comEsc(Math.round(f.accCorte)) : '') + '" placeholder="$0" autocomplete="off"></div>';
+    htmlAcc += '<div class="form-group-total" style="margin-top:10px;"><label>Vendido en accesorios - ' + comEsc(comNombreCorte(calculo.corte)) + ' ($)</label>' +
+      '<input type="text" inputmode="decimal" class="com-input-monto" data-com-acc="' + comEsc(nombre) + '" value="' + (f.accCorte != null ? comEsc(Math.round(f.accCorte)) : '') + '" placeholder="$0" autocomplete="off"' + (calculo.corte === 0 ? ' disabled' : '') + '></div>';
   }
 
   // --- Servicio tecnico (grupal)
@@ -621,6 +710,7 @@ function comHtmlDetalle(calculo, nombre, admin) {
   '</div>' +
   '<div class="com-gran-total"><span>Total a cobrar - ' + comEsc(nombre) + '</span><strong>' + comPesos(f.totalArs) + '</strong>' +
     (dolarOk ? '' : '<span class="sm-t"> (sin los USD de equipos: falta el dolar)</span>') + '</div>' +
+  (admin ? comHtmlCuartos(calculo, nombre) : '') +
   (admin ? '<p class="sm-t"><a href="#" data-com-ver="">&larr; Volver a todos</a></p>' : '');
   return html;
 }
@@ -647,7 +737,8 @@ function comChangeDelegado(e) {
 async function comOnGuardarAccesorios(nombre, texto, input) {
   const mes = document.getElementById('comMes').value || comMesActual();
   const monto = comNumero(texto);
-  const corte = Number(document.getElementById('comCorte').value) || comCorteDeHoy(mes);
+  const corte = comCorteElegido(mes);
+  if (corte === 0) return MostrarAlerta({ tipo: 'warning', title: 'Comisiones', mnsj: 'Elegi un corte (1 a 4) para cargar accesorios' });
   try {
     input.disabled = true;
     await comGuardarAccesorios(mes, nombre, monto, corte);

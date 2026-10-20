@@ -22,3 +22,8 @@
 #vistaComisiones .com-delta.sube { color: var(--ap-green); background: rgba(48, 161, 78, 0.12); }
 #vistaComisiones .com-delta.baja { color: var(--ap-red); background: rgba(255, 59, 48, 0.12); }
 #vistaComisiones .com-delta.igual, #vistaComisiones .com-delta.sd { color: var(--second-color); background: var(--ap-fill-hover); }
+
+/* Cuadro comparativo por cuarto (solo admin). */
+#vistaComisiones .com-prev { font-size: 11px; color: var(--second-color); margin-left: 4px; }
+#vistaComisiones .com-fila-total td { font-weight: 600; border-top: 2px solid var(--ap-line); }
+#vistaComisiones .com-fila-futura td { color: var(--second-color); }
