@@ -39,7 +39,7 @@ const COMISION_VENDEDORES = [
   { nombre: 'Flor',                  sucursal: 'NC',            alias: ['flor', 'florencia', 'florencia ayelen', 'florencia ayelen de la fuente conti'] },
   { nombre: 'Agustina Manzanelli',   sucursal: 'Olmos',         alias: ['agustina manzanelli', 'agustina manzanellis', 'agus manzanelli', 'manzanelli'] },
   { nombre: 'Agustina Mendoza',      sucursal: 'Olmos',         alias: ['agustina mendoza', 'agus mendoza', 'agustina', 'agus', 'agus m'] },
-  { nombre: 'Roxana',                sucursal: 'Olmos',         alias: ['roxana', 'rosana', 'rosana valles', 'ro'] },
+  { nombre: 'Ro',               sucursal: 'Olmos',         alias: ['roxana', 'rosana', 'rosana valles', 'ro'] },
   { nombre: 'Ludmi',                 sucursal: 'Independencia', alias: ['ludmi'] },
   { nombre: 'Vicky',                 sucursal: 'Independencia', alias: ['vicky'] }
 ];
