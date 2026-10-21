@@ -164,7 +164,55 @@ async function cargarDashboardReportes() {
   const top15 = topProductosVendidos(ventasProducto, 15);
   renderProductos(top15, ventasProductoAnterior);
   renderStock(stock, ventasProducto, datosVentas, top15);
+  renderControlStock(ventasProducto, stock);
   renderTendenciaSemanal(datosVentas);
+}
+
+// ============================ CONTROL DE STOCK ============================
+
+// Propone los 10 productos mas vendidos del mes para revisar a mano en la
+// auditoria de Cianbox. No guarda nada (ni resultados ni historial): los
+// tildes viven solo en pantalla.
+const EXCLUIDOS_CONTROL_STOCK = /iphone|watch|macbook|imac|mac mini|mac studio|ipad/i;
+
+function esAirpodsOriginal(nombre) {
+  if (!/airpods|earpods/i.test(nombre)) return false;
+  return !/certific|alternativ|generic|copia|replica|compatible/i.test(nombre);
+}
+
+// Una funda al azar (descripcion + modelo puntual) de cada sucursal, de la
+// lista de accesorios de data.js: hay que buscar ese modelo exacto.
+function fundaAlAzar(sucursal) {
+  const lista = ((window.COTIZADOR_DATA.accesoriosPorSucursal || {})[sucursal] || [])
+    .filter(a => a.categoria === 'Funda' && a.modelo);
+  return lista.length ? lista[Math.floor(Math.random() * lista.length)] : null;
+}
+
+function renderControlStock(ventasProducto, stock) {
+  const categoriaPorId = {};
+  stock.forEach(f => { categoriaPorId[String(f['Id Producto'] || '')] = f['Categoría'] || f['Categoria'] || 'Sin categoria'; });
+
+  // 8 mas vendidos (las fundas se sortean aparte) + 1 funda al azar por sucursal.
+  const candidatos = topProductosVendidos(ventasProducto, ventasProducto.length)
+    .filter(p => p.producto && !/funda/i.test(p.producto) && !EXCLUIDOS_CONTROL_STOCK.test(p.producto) && !esAirpodsOriginal(p.producto))
+    .slice(0, 8)
+    .map(p => ({ producto: p.producto, categoria: categoriaPorId[p.id] || 'Sin categoria', detalle: p.cantidad + ' vendidos este mes' }));
+
+  window.COTIZADOR_DATA.sucursales.forEach(suc => {
+    const f = fundaAlAzar(suc);
+    if (f) candidatos.push({ producto: f.descripcion + ' -- ' + f.modelo, categoria: 'Funda', detalle: 'Sorteo (' + suc + ')' });
+  });
+
+  const tbody = document.getElementById('bodyControlStock');
+  tbody.innerHTML = '';
+  candidatos.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="checkbox" aria-label="Realizado"></td><td>${p.producto}</td><td>${p.categoria}</td><td>${p.detalle}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const btn = document.getElementById('btnSortearFundas');
+  if (btn) btn.onclick = () => renderControlStock(ventasProducto, stock);
 }
 
 // ============================ VENTAS (Libro IVA) ============================

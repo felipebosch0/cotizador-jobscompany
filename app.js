@@ -714,9 +714,15 @@ function ExportarCarrito() {
       (tradeIn.detalleFallas.length ? `, segun el estado relevado: ${tradeIn.detalleFallas.join(', ')}.` : '.')
     : '';
 
-  const parrafoFinanciacion = infoFinanciacion ? `\n*Financiacion*\n${infoFinanciacion}` : '';
+  const parrafoFinanciacion = infoFinanciacion ? `\n*Financiacion*\n${infoFinanciacion}` : '\n';
 
-  const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Total*: ${formatNumberArg(totalCarrito())}${parrafoTradeIn}\n${parrafoFinanciacion}${firmaWhatsapp()}`;
+  // "Precio de lista" = el total del carrito (precio de efectivo) con el
+  // recargo del plan de 3 cuotas sin interes, o sea el valor sobre el que se
+  // arman las cuotas.
+  const planLista = DATA.financiacion.find(f => f.categoria === 'equipo' && f.cuotas === 3);
+  const precioLista = Math.round(totalCarrito() * (1 + (planLista ? planLista.interes : 0)));
+
+  const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Precio de lista*: ${formatNumberArg(precioLista)}${parrafoTradeIn}${parrafoFinanciacion}${firmaWhatsapp()}`;
 
   const el = document.createElement('textarea');
   el.value = mensaje;
@@ -3090,6 +3096,7 @@ function iniciarApp(sesion) {
   // Ingreso/Egreso de stock: solo lo ve el admin.
   if (esAdmin(sesion)) {
     document.getElementById('btnCIngresoEgreso').classList.remove('oculto');
+    document.getElementById('btnCReportes').classList.remove('oculto');
   }
 
   // TODO: Reportes de gestion -- pausado a pedido del usuario (hay otras
