@@ -1,0 +1,77 @@
+/* ============================================================
+   Modo Boca: azul y oro encima del tema claro/oscuro. Se activa con el
+   boton de la pelota de la barra de arriba (ver boca.js) y se recuerda en
+   el equipo. Solo pisa colores: no toca la logica ni el layout.
+   ============================================================ */
+
+body.boca {
+  --ap-accent: #0b3d91;
+  --ap-accent-hover: #1550b8;
+  --ap-accent-soft: rgba(11, 61, 145, 0.14);
+  --primary-color: #0b3d91;
+  --input-checkbox-background: #0b3d91;
+}
+body.boca.dark {
+  --ap-accent: #2f6fe0;
+  --ap-accent-hover: #4d86ec;
+  --ap-accent-soft: rgba(47, 111, 224, 0.22);
+  --primary-color: #2f6fe0;
+  --input-checkbox-background: #2f6fe0;
+}
+
+/* La franja: azul - oro - azul, como la camiseta. */
+body.boca .topbar.card { position: relative; }
+body.boca .topbar.card::before {
+  content: ""; position: absolute; left: 22px; right: 22px; top: 0; height: 7px;
+  background: linear-gradient(90deg, #0b3d91 0 30%, #ffc400 30% 70%, #0b3d91 70% 100%);
+  border-radius: 0 0 8px 8px;
+}
+
+/* Opcion elegida del menu: oro con letras azules. */
+body.boca .cot-menu .btn-act.activo {
+  background: #ffc400; color: #0b3d91; font-weight: 700;
+  box-shadow: 0 2px 12px rgba(255, 196, 0, 0.55);
+}
+body.boca h2 { text-decoration: underline; text-decoration-color: #ffc400; text-decoration-thickness: 3px; text-underline-offset: 5px; }
+
+/* El boton de la pelota */
+#toggleBoca { transition: transform 0.25s ease, color 0.2s ease; }
+#toggleBoca:hover { transform: rotate(25deg) scale(1.12); }
+body.boca #toggleBoca { color: #e0a800; filter: drop-shadow(0 0 4px rgba(11, 61, 145, 0.6)); }
+
+/* ---------- la lluvia de festejo ---------- */
+#bocaFiesta { position: fixed; inset: 0; z-index: 99999; pointer-events: none; overflow: hidden; }
+.boca-pieza {
+  position: absolute; top: -8vh; will-change: transform;
+  animation: bocaCae linear forwards;
+}
+.boca-pieza.papel { width: 10px; height: 16px; border-radius: 2px; }
+@keyframes bocaCae {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  85%  { opacity: 1; }
+  100% { transform: translate3d(var(--deriva, 0px), 112vh, 0) rotate(var(--giro, 720deg)); opacity: 0.9; }
+}
+.boca-cartel {
+  position: absolute; left: 50%; top: 38%;
+  transform: translate(-50%, -50%) scale(0);
+  background: #0b3d91; color: #ffc400;
+  border: 5px solid #ffc400; border-radius: 22px;
+  padding: 14px 34px; text-align: center; white-space: nowrap;
+  font-weight: 800; font-size: clamp(24px, 6vw, 58px); letter-spacing: 0.02em;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+  animation: bocaCartel 4.2s ease forwards;
+}
+.boca-cartel small { display: block; font-size: 0.32em; font-weight: 600; letter-spacing: 0.08em; color: #fff; margin-top: 4px; }
+@keyframes bocaCartel {
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(-12deg); }
+  12%  { transform: translate(-50%, -50%) scale(1.15) rotate(3deg); }
+  20%  { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  50%  { transform: translate(-50%, -50%) scale(1.06) rotate(-2deg); }
+  80%  { transform: translate(-50%, -50%) scale(1) rotate(1deg); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .boca-pieza { display: none; }
+  .boca-cartel { animation: bocaCartelQuieto 3s ease forwards; transform: translate(-50%, -50%); }
+  @keyframes bocaCartelQuieto { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
+}
