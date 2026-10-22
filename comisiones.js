@@ -2,7 +2,7 @@
 // CALCULADORA DE COMISIONES.
 //
 // Tres comisiones por vendedor, todas del mes elegido:
-//  - EQUIPOS (individual): cantidad de iPhone vendidos, sale sola de la
+//  - EQUIPOS (individual): cantidad de equipos vendidos con garantia (iPhone, MacBook, iPad, AirPods, Watch, etc.), sale sola de la
 //    pestana VentasEquipos de Reportes (la llena la Garantia del cotizador).
 //    Escala en USD por equipo.
 //  - ACCESORIOS (individual): el admin carga a mano cuanto vendio cada
@@ -304,10 +304,9 @@ function comCalcularMes(mes, corte) {
   const porVendedor = {};
   COMISION_VENDEDORES.forEach(v => { porVendedor[v.nombre] = { vendedor: v, equiposRows: 0, accesorios: 0, ordenes: [] }; });
 
-  // Equipos: solo iPhone, del mes, sin contar dos veces el mismo IMEI.
+  // Equipos: todo lo que se vendio con garantia (VentasEquipos), del mes, sin contar dos veces el mismo IMEI/serie.
   const imeisVistos = {};
   comDatos.equipos.forEach(f => {
-    if (!esTelefono(f.Modelo)) return;
     if (comMesDeFecha(f.Fecha) !== mes) return;
     const v = comVendedorDe(f.Vendedor);
     if (!v) return;
@@ -391,11 +390,11 @@ function comCalcularMes(mes, corte) {
   return { mes, corte, per, mesPrev, dolar, filas, ordenesPorSucursal, servicioPorSucursal, variacionGrupo };
 }
 
-// iPhone vendidos por vendedor en un mes, entre dos dias (sin repetir IMEI).
+// Equipos vendidos (todo lo que lleva garantia) por vendedor en un mes, entre dos dias (sin repetir IMEI).
 function comEquiposPorVendedor(mes, desde, hasta) {
   const r = {}, vistos = {};
   comDatos.equipos.forEach(f => {
-    if (!esTelefono(f.Modelo) || comMesDeFecha(f.Fecha) !== mes) return;
+    if (comMesDeFecha(f.Fecha) !== mes) return;
     const d = comDiaDeFecha(f.Fecha);
     if (d < desde || d > hasta) return;
     const v = comVendedorDe(f.Vendedor);
