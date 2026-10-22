@@ -64,19 +64,19 @@ const ESCALA_ACCESORIOS = [
 ];
 
 // Equipos: USD por equipo segun cuantos se vendieron en el mes. "desde" =
-// cantidad minima del tramo (1 a 5 = 0 usd, 6 a 10 = 10 usd, etc.; el 5, 10,
-// 15... pertenece al tramo de abajo). Mas de 70 queda en 24 usd.
+// cantidad minima del tramo, INCLUSIVA: al llegar justo a la cantidad ya se
+// cobra el valor del tramo siguiente (5 a 9 = 10 usd, con 10 ya son 12 usd).
+// Desde 60 queda en 24 usd.
 const ESCALA_EQUIPOS = [
   { goal: 0, desde: 0,  usd: 0 },
-  { goal: 1, desde: 1,  usd: 0 },
-  { goal: 2, desde: 6,  usd: 10 },
-  { goal: 3, desde: 11, usd: 12 },
-  { goal: 4, desde: 16, usd: 14 },
-  { goal: 5, desde: 21, usd: 16 },
-  { goal: 6, desde: 31, usd: 18 },
-  { goal: 7, desde: 41, usd: 20 },
-  { goal: 8, desde: 51, usd: 22 },
-  { goal: 9, desde: 61, usd: 24 }
+  { goal: 1, desde: 5,  usd: 10 },
+  { goal: 2, desde: 10, usd: 12 },
+  { goal: 3, desde: 15, usd: 14 },
+  { goal: 4, desde: 20, usd: 16 },
+  { goal: 5, desde: 30, usd: 18 },
+  { goal: 6, desde: 40, usd: 20 },
+  { goal: 7, desde: 50, usd: 22 },
+  { goal: 8, desde: 60, usd: 24 }
 ];
 // 'todos'    = TODOS los equipos del mes se pagan al valor del tramo alcanzado
 //              (ej. 12 equipos -> 12 x 12 usd).
