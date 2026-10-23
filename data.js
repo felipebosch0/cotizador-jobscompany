@@ -203,13 +203,13 @@ window.COTIZADOR_DATA = {
       // (lo usan Precios, Stock y el comparador). Si el color no cambia el
       // precio, el selector es opcional; si lo cambia, hay que elegirlo.
       { modelo: 'iPhone 16E',        capacidades: { '128Gb': { sellado: 840, coloresSellado: [{ color: 'Negro', precio: 840 }], seminuevoTiers: [] } } },
-      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1190, coloresSellado: [{ color: 'Sage', precio: 1190 }, { color: 'Lavender', precio: 1190 }, { color: 'Blanco', precio: 1190 }, { color: 'Blue', precio: 1190 }, { color: 'Negro', precio: 1190 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
+      { modelo: 'iPhone 17',         capacidades: { '256Gb': { sellado: 1100, coloresSellado: [{ color: 'Sage', precio: 1100 }, { color: 'Lavender', precio: 1100 }, { color: 'Blanco', precio: 1100 }, { color: 'Blue', precio: 1100 }, { color: 'Negro', precio: 1100 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 910 }] } } },
       { modelo: 'iPhone 17 Pro',     capacidades: {
-        '256Gb': { sellado: 1400, coloresSellado: [{ color: 'Orange', precio: 1400 }, { color: 'Blue', precio: 1410 }, { color: 'Silver', precio: 1430 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
+        '256Gb': { sellado: 1400, coloresSellado: [{ color: 'Orange', precio: 1400 }, { color: 'Blue', precio: 1400 }, { color: 'Silver', precio: 1400 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1140 }] },
         '512Gb': { sellado: 1670, coloresSellado: [{ color: 'Orange', precio: 1670 }, { color: 'Silver', precio: 1690 }], seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 17 Pro Max', capacidades: {
-        '256Gb': { sellado: 1490, coloresSellado: [{ color: 'Orange', precio: 1490 }, { color: 'Blue', precio: 1490 }, { color: 'Silver', precio: 1510 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
+        '256Gb': { sellado: 1410, coloresSellado: [{ color: 'Orange', precio: 1410 }, { color: 'Blue', precio: 1410 }, { color: 'Silver', precio: 1410 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 1240 }] },
         '512Gb': { sellado: 1820, coloresSellado: [{ color: 'Silver', precio: 1820 }], seminuevoTiers: [] },
         '1Tb':   { sellado: 1980, coloresSellado: [{ color: 'Silver', precio: 1980 }], seminuevoTiers: [] }
       } },
@@ -217,12 +217,12 @@ window.COTIZADOR_DATA = {
       // iPhone 18 -- todavia no hay precio de Semi Nuevo. Precios Sellado
       // actualizados (30/09/2026).
       { modelo: 'iPhone 18 Pro',     capacidades: {
-        '256Gb': { sellado: 1570, coloresSellado: [{ color: 'Silver', precio: 1570 }, { color: 'Glacier', precio: 1570 }, { color: 'Burgundy', precio: 1660 }], seminuevoTiers: [] },
-        '512Gb': { sellado: 1870, coloresSellado: [{ color: 'Glacier', precio: 1870 }, { color: 'Silver', precio: 1870 }, { color: 'Burgundy', precio: 1990 }], seminuevoTiers: [] }
+        '256Gb': { sellado: 1530, coloresSellado: [{ color: 'Silver', precio: 1530 }, { color: 'Glacier', precio: 1530 }, { color: 'Burgundy', precio: 1530 }], seminuevoTiers: [] },
+        '512Gb': { sellado: 1850, coloresSellado: [{ color: 'Glacier', precio: 1850 }, { color: 'Silver', precio: 1850 }, { color: 'Burgundy', precio: 1850 }], seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 18 Pro Max', capacidades: {
-        '256Gb': { sellado: 1830, coloresSellado: [{ color: 'Silver', precio: 1830 }, { color: 'Negro', precio: 1830 }, { color: 'Glacier', precio: 1830 }, { color: 'Burgundy', precio: 2010 }], seminuevoTiers: [] },
-        '512Gb': { sellado: 2060, coloresSellado: [{ color: 'Silver', precio: 2060 }, { color: 'Negro', precio: 2060 }], seminuevoTiers: [] }
+        '256Gb': { sellado: 1740, coloresSellado: [{ color: 'Silver', precio: 1740 }, { color: 'Negro', precio: 1740 }, { color: 'Glacier', precio: 1740 }, { color: 'Burgundy', precio: 1740 }], seminuevoTiers: [] },
+        '512Gb': { sellado: 1950, coloresSellado: [{ color: 'Silver', precio: 1950 }, { color: 'Negro', precio: 1950 }], seminuevoTiers: [] }
       } }
     ]
   },
@@ -258,7 +258,7 @@ window.COTIZADOR_DATA = {
       'iPhone 15 Pro Max': 720,
       'iPhone 16': 650, 'iPhone 16 Plus': 650,
       'iPhone 16E': 400,
-      'iPhone 16 Pro': 750,
+      'iPhone 16 Pro': 700,
       'iPhone 16 Pro Max': 900,
       // Iphone 17/17 Pro/17 Pro Max (30/09/2026): valor pasado por el
       // usuario para Independencia (700/800/900) + USD 100 en Shopping (a
@@ -285,7 +285,7 @@ window.COTIZADOR_DATA = {
       'iPhone 15 Pro Max': 650,
       'iPhone 16': 580, 'iPhone 16 Plus': 580,
       'iPhone 16E': 300,
-      'iPhone 16 Pro': 700,
+      'iPhone 16 Pro': 650,
       'iPhone 16 Pro Max': 850,
       // Iphone 17/17 Pro/17 Pro Max (30/09/2026): mismos valores que
       // Shopping, el usuario los paso para las 2 sucursales.
