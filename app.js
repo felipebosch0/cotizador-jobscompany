@@ -81,6 +81,14 @@ let sucursalActual = DATA.sucursales[0];
 let equipos = []; // tabla de equipos de la sucursal actual
 let infoFinanciacion = '';
 
+// Sucursales que funcionan como Independencia (precio editable, USD en
+// trade-in, pauta de garantia, tiers de bateria). La financiacion propia
+// NO: es solo de Independencia (Dino no la tiene habilitada).
+// Dino es una lista derivada de Independencia (ver derivarDino en data.js).
+function usaModoIndependencia(sucursal) {
+  return sucursal === 'Independencia' || sucursal === 'Dino';
+}
+
 function equiposDeLaSucursal(sucursal) {
   return DATA.equiposPorSucursal[sucursal] || [];
 }
@@ -529,7 +537,7 @@ function renderCarrito() {
   body.appendChild(fragm);
   // Independencia: el total se muestra en pesos y en dolares.
   document.getElementById('totalCarrito').value = formatNumberArg(totalCarrito()) +
-    (sucursalActual === 'Independencia' ? ` (USD ${Math.round(totalCarrito() / DATA.dolar.DolarVenta)})` : '');
+    (usaModoIndependencia(sucursalActual) ? ` (USD ${Math.round(totalCarrito() / DATA.dolar.DolarVenta)})` : '');
 
   // La financiacion del carrito no se muestra en vivo mientras se navega
   // otras pestanas -- solo se calcula/actualiza si la pestana Carrito esta
@@ -593,7 +601,7 @@ function AgregarCarritoEquipo() {
   // Independencia: como el precio se puede editar a mano, se aclara al
   // lado cuanto es eso en USD (el "precio pagando en efectivo" ya neteado,
   // como si se pagara en efectivo con dolares).
-  const sufijoUsd = sucursalActual === 'Independencia' && !tieneGarantiaPropia
+  const sufijoUsd = usaModoIndependencia(sucursalActual) && !tieneGarantiaPropia
     ? ` (USD ${Math.round(total / DATA.dolar.DolarVenta)})`
     : '';
 
@@ -1170,7 +1178,7 @@ function PreciosVentaE() {
   // numero manda -- no se vuelve a tomar el de la lista. Asi, cargar la
   // entrega en efectivo despues de editar el precio no revierte el cambio.
   // No aplica a JBL (precio fijo, no se edita a mano).
-  if (precioVentaEditadoManual && sucursalActual === 'Independencia' && !esFijoArs) {
+  if (precioVentaEditadoManual && usaModoIndependencia(sucursalActual) && !esFijoArs) {
     const usdManual = Number(String($('#formVenta input[name="PVentaEquipo"]').val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
     if (usdManual > 0) precioUsd = usdManual;
   }
@@ -1293,7 +1301,7 @@ function evaluarChecklistTradeIn(modelo) {
 // es el que queda en el carrito. Shopping no cambia: el campo esta oculto y
 // siempre manda el calculo automatico.
 function tradeInUsdEditable() {
-  return sucursalActual === 'Independencia';
+  return usaModoIndependencia(sucursalActual);
 }
 
 function leerTradeInUsdManual() {
@@ -1448,7 +1456,8 @@ async function ConfirmarDeclaracionJurada() {
 // pedirlo cada impresion. Cada sucursal tiene su propio logo.
 const LOGOS_POR_SUCURSAL = {
   Shopping: 'logo-jobs-company.jpeg',
-  Independencia: 'logo-independencia.jpeg'
+  Independencia: 'logo-independencia.jpeg',
+  Dino: 'logo-independencia.jpeg' // Dino usa el mismo logo que Independencia
 };
 const logoBase64Cache = {};
 async function logoBase64(sucursal) {
@@ -1577,6 +1586,7 @@ const GARANTIA_TEXTOS = {
     }
   }
 };
+GARANTIA_TEXTOS.Dino = GARANTIA_TEXTOS.Independencia;
 
 function equipoPrincipalDelCarrito() {
   return carrito.find(item => item.esEquipoPrincipal) || null;
@@ -1714,7 +1724,7 @@ function mostrarModalGarantiaItem(item) {
   }
   // "Pauta" (seguimiento de ventas que vienen de una campana paga) solo
   // aplica a Independencia -- se oculta y se destilda para el resto.
-  document.getElementById('gtPautaContenedor').classList.toggle('oculto', sucursalActual !== 'Independencia');
+  document.getElementById('gtPautaContenedor').classList.toggle('oculto', !usaModoIndependencia(sucursalActual));
   document.getElementById('gtPauta').checked = false;
   iniciarGarantiaDesdeStock(equipo);
 }
@@ -1980,7 +1990,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   const color = $('#gtColor').val().trim();
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
   // checkbox esta oculto y siempre destildado.
-  const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
+  const pauta = usaModoIndependencia(sucursalActual) && document.getElementById('gtPauta').checked;
   if (!garantiaModoManual && !imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Elegi el equipo de la lista, o carga el IMEI a mano' });
   if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
 
@@ -2005,7 +2015,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // PlayStation, Apple Pencil, Magic Mouse) quedan afuera de esta lista --
   // tienen su propia garantia aparte (ver itemsGarantizables), listarlos
   // tambien aca duplicaria su precio en el "Valor de la operacion" del equipo.
-  const accesoriosCarrito = sucursalActual === 'Independencia'
+  const accesoriosCarrito = usaModoIndependencia(sucursalActual)
     ? carrito.filter(item => item.tipo === 'Accesorio' && !item.tieneGarantiaPropia)
     : [];
   const accesorios = accesoriosCarrito.map(item => item.descripcion);
@@ -2066,7 +2076,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
         return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No se pudo generar el equipo en stock: ' + error.message });
       }
     } else {
-      if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
+      if (usaModoIndependencia(sucursalActual)) falla = busqueda.resultados[0].falla || '';
       try {
         await llamarStockWrite({ accion: 'egreso', fila: busqueda.resultados[0].fila, vendedor: vendedorStock, usuario: vendedorStock });
         await actualizarStockEnVivo();
@@ -2102,7 +2112,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // ese equipo entregado, solo el aviso.
   const observaciones = [];
   if (falla) observaciones.push(falla);
-  const tradeIn = sucursalActual === 'Independencia' ? tradeInDelCarrito() : null;
+  const tradeIn = usaModoIndependencia(sucursalActual) ? tradeInDelCarrito() : null;
   if (tradeIn) observaciones.push('El cliente entrego un equipo (' + tradeIn.modelo + ') en Trade In como parte de pago.');
 
   // Plan canje para la planilla de pagos (pagina 3): a diferencia del aviso
@@ -3053,11 +3063,11 @@ function cargarSucursal(sucursal) {
   // Precio venta / Precio pagando en efectivo: en Independencia se pueden
   // editar a mano (el vendedor puede sobreescribir el numero calculado); en
   // Shopping quedan como estaban, de solo lectura.
-  const editable = sucursal === 'Independencia';
+  const editable = usaModoIndependencia(sucursal);
   $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
   $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
 
-  document.getElementById('grupoTradeInUsd').classList.toggle('oculto', sucursal !== 'Independencia');
+  document.getElementById('grupoTradeInUsd').classList.toggle('oculto', !usaModoIndependencia(sucursal));
   // Financiacion propia: solo Independencia (ver AbrirModalFinanciacion).
   document.getElementById('btnCFinanciacion').classList.toggle('oculto', sucursal !== 'Independencia');
 

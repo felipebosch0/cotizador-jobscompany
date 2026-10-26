@@ -30,7 +30,7 @@ window.COTIZADOR_DATA = {
   },
 
   // Quedaron 2 sucursales (antes habia varias mas, se descartaron).
-  sucursales: ['Shopping', 'Independencia'],
+  sucursales: ['Shopping', 'Independencia', 'Dino'],
 
   // Que sucursales usan la tabla "shopping" (Lista precios.xlsx) en vez de
   // la tabla estandar. Ajustar esta lista si hay mas de un shopping.
@@ -43,8 +43,9 @@ window.COTIZADOR_DATA = {
   // Independencia. SERVICIO TECNICO no esta asignado a ninguna de las 2 --
   // queda suelto hasta que se defina donde va.
   depositoPorSucursal: {
-    'Shopping': ['OLMOS', 'DINO', 'NUEVO CENTRO'],
-    'Independencia': ['INDEPENDENCIA', 'DEPO']
+    'Shopping': ['OLMOS', 'NUEVO CENTRO'],
+    'Independencia': ['INDEPENDENCIA', 'DEPO'],
+    'Dino': ['DINO']
   },
 
   // --------------------------------------------------------------
@@ -1559,3 +1560,63 @@ window.COTIZADOR_DATA = {
 
   promociones: [] // MOCK (vacio, sin promos activas)
 };
+
+// --------------------------------------------------------------
+// DINO: tercera lista de precios. Arranca como copia exacta de
+// Independencia (venta, trade-in, iPad/Watch/Mac/JBL/PS, accesorios y
+// promos) con +USD 30 en todos los iPhone (semi nuevo, sellado, colores de
+// sellado y base de trade-in). Como se deriva de Independencia, si cambia
+// un precio alla cambia aca tambien, salvo lo que se pise en OVERRIDES_DINO.
+// Para ir cambiando el resto de la lista de Dino: agregar el override aca
+// abajo (sin tocar Independencia). Se pisa por completo la entrada del
+// modelo/producto: { equiposPorSucursal: { 'iPhone 13': {...fila nueva...} } }.
+// --------------------------------------------------------------
+(function derivarDino() {
+  const D = window.COTIZADOR_DATA;
+  const AJUSTE_DINO_IPHONE_USD = 30;
+  const OVERRIDES_DINO = {
+    // equiposPorSucursal: { 'iPhone 17': { modelo: 'iPhone 17', capacidades: { ... } } },
+    // baseTradeInUsdPorSucursal: { 'iPhone 13': 250 }
+  };
+  const clonar = x => JSON.parse(JSON.stringify(x));
+  const esIphone = m => /^iPhone/i.test(String(m || ''));
+
+  // Toda tabla "...PorSucursal" que tenga Independencia se copia a Dino.
+  Object.keys(D).forEach(k => {
+    if (/PorSucursal$/.test(k) && D[k] && D[k].Independencia && !D[k].Dino) D[k].Dino = clonar(D[k].Independencia);
+  });
+  if (D.promosCarrito && D.promosCarrito.componentes && D.promosCarrito.componentes.Independencia) {
+    D.promosCarrito.componentes.Dino = clonar(D.promosCarrito.componentes.Independencia);
+  }
+
+  // +30 USD en iPhone: venta.
+  D.equiposPorSucursal.Dino.forEach(eq => {
+    if (!esIphone(eq.modelo)) return;
+    Object.values(eq.capacidades).forEach(cap => {
+      if (typeof cap.sellado === 'number') cap.sellado += AJUSTE_DINO_IPHONE_USD;
+      (cap.coloresSellado || []).forEach(c => { c.precio += AJUSTE_DINO_IPHONE_USD; });
+      // Dino: si el precio cambia segun el color, todos los colores quedan al
+      // precio mas alto (y 'sellado', que era el mas barato, tambien).
+      if (cap.coloresSellado && cap.coloresSellado.length) {
+        const maximo = Math.max(...cap.coloresSellado.map(c => c.precio));
+        cap.coloresSellado.forEach(c => { c.precio = maximo; });
+        if (typeof cap.sellado === 'number') cap.sellado = maximo;
+      }
+      (cap.seminuevoTiers || []).forEach(t => { t.precio += AJUSTE_DINO_IPHONE_USD; });
+      if (typeof cap.seminuevo === 'number') cap.seminuevo += AJUSTE_DINO_IPHONE_USD;
+    });
+  });
+  // +30 USD en iPhone: trade-in.
+  Object.keys(D.baseTradeInUsdPorSucursal.Dino).forEach(m => {
+    if (esIphone(m)) D.baseTradeInUsdPorSucursal.Dino[m] += AJUSTE_DINO_IPHONE_USD;
+  });
+
+  // Overrides propios de Dino.
+  const ov = OVERRIDES_DINO;
+  Object.keys(ov.equiposPorSucursal || {}).forEach(modelo => {
+    const lista = D.equiposPorSucursal.Dino;
+    const i = lista.findIndex(e => e.modelo === modelo);
+    if (i >= 0) lista[i] = ov.equiposPorSucursal[modelo]; else lista.push(ov.equiposPorSucursal[modelo]);
+  });
+  Object.assign(D.baseTradeInUsdPorSucursal.Dino, ov.baseTradeInUsdPorSucursal || {});
+})();

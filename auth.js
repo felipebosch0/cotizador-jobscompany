@@ -55,7 +55,10 @@ const USUARIOS = [
   { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Shopping' },
   { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Shopping' },
   { usuario: 'ro',        password: 'Shopping123',         rol: 'vendedor', nombre: 'ro',        sucursal: 'Shopping' },
-  { usuario: 'ludmi',     password: 'Independencia123',    rol: 'vendedor', nombre: 'ludmi',     sucursal: 'Independencia' }
+  { usuario: 'ludmi',     password: 'Independencia123',    rol: 'vendedor', nombre: 'ludmi',     sucursal: 'Independencia' },
+  // Dino: lista de precios propia (Independencia + USD 30 en iPhone). Usuario de
+  // prueba -- reemplazar/agregar los vendedores reales de Dino aca.
+  { usuario: 'dino',      password: 'Dino123',             rol: 'vendedor', nombre: 'dino',      sucursal: 'Dino' }
 ];
 
 const SESION_STORAGE_KEY = 'cotizador_sesion';
