@@ -259,6 +259,174 @@ async function manejarReportesWrite(request, env) {
   }
 }
 
+// ---------------- Login y sesion (servidor) ----------------
+// Reemplaza al login que vivia en el navegador (auth.js). Secretos en
+// Cloudflare (nunca en el codigo):
+//   USUARIOS_JSON  = lista de { usuario, hash, rol, nombre, sucursal } (ver
+//                    herramientas/generar-usuarios.mjs, que arma los hashes)
+//   SESSION_SECRET = texto largo al azar con el que se firma la cookie
+//   REQUIRE_AUTH   = "1" para exigir sesion en las rutas de datos; sin eso
+//                    solo se registra en el log quien llamo sin sesion
+//   LOGIN_KV       = (opcional) KV para contar intentos fallidos
+// Si falta USUARIOS_JSON o SESSION_SECRET, /api/login responde 501 y el
+// navegador sigue con el login viejo: asi se puede desplegar sin cortar nada.
+
+const SESION_COOKIE = 'sid';
+const SESION_HORAS = 12;
+const MAX_INTENTOS = 5;
+const VENTANA_INTENTOS_SEG = 15 * 60;
+const intentosLocales = new Map(); // respaldo si no hay LOGIN_KV (por instancia)
+
+const codificador = new TextEncoder();
+
+function aBase64Url(bytes) {
+  let bin = '';
+  new Uint8Array(bytes).forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function deBase64Url(texto) {
+  const b64 = texto.replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
+  return Uint8Array.from(bin, c => c.charCodeAt(0));
+}
+
+function igualesConstante(a, b) {
+  if (a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a[i] ^ b[i];
+  return r === 0;
+}
+
+// hash guardado: "pbkdf2$<iteraciones>$<sal base64url>$<hash base64url>"
+async function verificarClave(clave, guardado) {
+  const partes = String(guardado || '').split('$');
+  if (partes.length !== 4 || partes[0] !== 'pbkdf2') return false;
+  const iteraciones = Number(partes[1]);
+  const sal = deBase64Url(partes[2]);
+  const esperado = deBase64Url(partes[3]);
+  const material = await crypto.subtle.importKey('raw', codificador.encode(clave), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: sal, iterations: iteraciones }, material, esperado.length * 8);
+  return igualesConstante(new Uint8Array(bits), esperado);
+}
+
+async function claveHmac(env) {
+  return crypto.subtle.importKey('raw', codificador.encode(env.SESSION_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+
+async function firmarSesion(env, datos) {
+  const cuerpo = aBase64Url(codificador.encode(JSON.stringify(datos)));
+  const firma = await crypto.subtle.sign('HMAC', await claveHmac(env), codificador.encode(cuerpo));
+  return cuerpo + '.' + aBase64Url(firma);
+}
+
+function leerCookie(request, nombre) {
+  const cookies = request.headers.get('Cookie') || '';
+  const m = cookies.split(/;\s*/).find(c => c.startsWith(nombre + '='));
+  return m ? m.slice(nombre.length + 1) : '';
+}
+
+// Devuelve { usuario, nombre, rol, sucursal } o null.
+async function sesionDeRequest(request, env) {
+  if (!env.SESSION_SECRET) return null;
+  const token = leerCookie(request, SESION_COOKIE);
+  const punto = token.indexOf('.');
+  if (punto < 1) return null;
+  try {
+    const cuerpo = token.slice(0, punto);
+    const ok = await crypto.subtle.verify('HMAC', await claveHmac(env), deBase64Url(token.slice(punto + 1)), codificador.encode(cuerpo));
+    if (!ok) return null;
+    const datos = JSON.parse(new TextDecoder().decode(deBase64Url(cuerpo)));
+    if (!datos.exp || datos.exp < Date.now()) return null;
+    return { usuario: datos.u, nombre: datos.n, rol: datos.r, sucursal: datos.s };
+  } catch (error) {
+    return null;
+  }
+}
+
+function cookieSesion(valor, segundos) {
+  return SESION_COOKIE + '=' + valor + '; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=' + segundos;
+}
+
+function jsonConEstado(obj, status, extraHeaders) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: Object.assign({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, extraHeaders || {})
+  });
+}
+
+async function intentosPrevios(env, clave) {
+  if (env.LOGIN_KV) return Number(await env.LOGIN_KV.get(clave)) || 0;
+  const r = intentosLocales.get(clave);
+  return r && r.vence > Date.now() ? r.n : 0;
+}
+
+async function sumarIntento(env, clave, previos) {
+  if (env.LOGIN_KV) return env.LOGIN_KV.put(clave, String(previos + 1), { expirationTtl: VENTANA_INTENTOS_SEG });
+  intentosLocales.set(clave, { n: previos + 1, vence: Date.now() + VENTANA_INTENTOS_SEG * 1000 });
+}
+
+async function limpiarIntentos(env, clave) {
+  if (env.LOGIN_KV) return env.LOGIN_KV.delete(clave);
+  intentosLocales.delete(clave);
+}
+
+async function manejarLogin(request, env) {
+  if (!env.USUARIOS_JSON || !env.SESSION_SECRET) return jsonConEstado({ ok: false, noConfigurado: true }, 501);
+  let usuarios;
+  try { usuarios = JSON.parse(env.USUARIOS_JSON); } catch (e) {
+    return jsonConEstado({ ok: false, error: 'USUARIOS_JSON mal formado' }, 500);
+  }
+
+  let body;
+  try { body = await request.json(); } catch (e) { body = {}; }
+  // El usuario no distingue mayusculas ("Jose" entra igual que "jose"); la clave si.
+  const usuario = String(body.usuario || '').trim().toLowerCase();
+  const clave = String(body.password || '');
+  const ip = request.headers.get('CF-Connecting-IP') || 'sin-ip';
+  const claveIntentos = 'intentos:' + usuario + ':' + ip;
+
+  const previos = await intentosPrevios(env, claveIntentos);
+  if (previos >= MAX_INTENTOS) {
+    return jsonConEstado({ ok: false, error: 'Demasiados intentos. Espera 15 minutos y proba de nuevo.' }, 429);
+  }
+
+  const encontrado = usuarios.find(u => u.usuario === usuario);
+  // Se calcula el hash aunque el usuario no exista, para que tarde parecido.
+  const hashDeRelleno = 'pbkdf2$1000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+  const correcta = await verificarClave(clave, encontrado ? encontrado.hash : hashDeRelleno);
+  if (!encontrado || !correcta) {
+    await sumarIntento(env, claveIntentos, previos);
+    return jsonConEstado({ ok: false, error: 'Usuario o contrasena incorrectos' }, 401);
+  }
+
+  await limpiarIntentos(env, claveIntentos);
+  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal };
+  const token = await firmarSesion(env, { u: sesion.usuario, n: sesion.nombre, r: sesion.rol, s: sesion.sucursal, exp: Date.now() + SESION_HORAS * 3600 * 1000 });
+  return jsonConEstado({ ok: true, sesion }, 200, { 'Set-Cookie': cookieSesion(token, SESION_HORAS * 3600) });
+}
+
+async function manejarMe(request, env) {
+  const sesion = await sesionDeRequest(request, env);
+  if (!sesion) return jsonConEstado({ ok: false }, 401);
+  return jsonConEstado({ ok: true, sesion }, 200);
+}
+
+function manejarLogout() {
+  return jsonConEstado({ ok: true }, 200, { 'Set-Cookie': cookieSesion('', 0) });
+}
+
+// Rutas con datos: con REQUIRE_AUTH=1 exigen sesion; sin eso solo se anota.
+async function exigirSesion(request, env, url) {
+  const sesion = await sesionDeRequest(request, env);
+  if (sesion) return null;
+  if (env.REQUIRE_AUTH === '1') {
+    return jsonConEstado({ ok: false, error: 'Sesion vencida o inexistente', sinSesion: true }, 401);
+  }
+  console.log('[auth] sin sesion: ' + request.method + ' ' + url.pathname);
+  return null;
+}
+
 // ---------------- Router ----------------
 
 export default {
@@ -266,6 +434,16 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === '/dolar') return manejarDolar();
+    if (url.pathname === '/api/login' && request.method === 'POST') return manejarLogin(request, env);
+    if (url.pathname === '/api/me') return manejarMe(request, env);
+    if (url.pathname === '/api/logout' && request.method === 'POST') return manejarLogout();
+
+    const RUTAS_DATOS = ['/stock', '/stock-imeis', '/stock-write', '/reportes-write'];
+    if (RUTAS_DATOS.indexOf(url.pathname) !== -1 || url.pathname.startsWith('/reportes/')) {
+      const bloqueo = await exigirSesion(request, env, url);
+      if (bloqueo) return bloqueo;
+    }
+
     if (url.pathname === '/stock') return manejarStock();
     if (url.pathname === '/stock-imeis') return manejarStockImeis();
     if (url.pathname === '/stock-write' && request.method === 'POST') return manejarStockWrite(request, env);

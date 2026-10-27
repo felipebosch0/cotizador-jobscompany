@@ -3504,12 +3504,12 @@ function marcarMenuActivo(accion) {
   }
 
   const sesion = sesionGuardada();
-  if (sesion) return mostrarApp(sesion);
+  if (sesion) { verificarSesionServidor(); return mostrarApp(sesion); }
 
-  document.getElementById('formLogin').addEventListener('submit', function (e) {
+  document.getElementById('formLogin').addEventListener('submit', async function (e) {
     e.preventDefault();
     const form = e.target;
-    const resultado = iniciarSesion(form.usuario.value.trim(), form.password.value);
+    const resultado = await iniciarSesion(form.usuario.value.trim(), form.password.value);
     const error = document.getElementById('loginError');
     if (resultado.ok) {
       error.classList.add('oculto');

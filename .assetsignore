@@ -7,3 +7,6 @@ worker.js
 wrangler.jsonc
 .assetsignore
 node_modules
+herramientas
+secretos.local.txt
+.gitignore
