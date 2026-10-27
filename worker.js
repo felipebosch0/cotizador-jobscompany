@@ -25,6 +25,7 @@ const URL_INFODOLAR = 'https://www.infodolar.com/cotizacion-dolar-provincia-cord
 // ID es publico (Sheet compartido "Cualquiera con el enlace > Lector"),
 // no hace falta que sea secreto -- igual que LIBRO_STOCK_ID arriba.
 const LIBRO_REPORTES_ID = '12baER-esKK6_vrXMLFVaWmsVLXvCIlKTosMFyVINzY0';
+const GID_HOJAS_EXPORT = { VentasEquipos: '1038264943', ComisionesServicios: '111379614', ComisionesAccesorios: '602716115' };
 const HOJAS_REPORTES_VALIDAS = ['Ventas', 'VentasProducto', 'VentasProductoAnterior', 'Stock', 'Reservas', 'FinanciacionPropia', 'FinanciacionPagos', 'VentasEquipos', 'ComisionesAccesorios', 'ComisionesServicios'];
 
 function jsonResponse(obj) {
@@ -210,8 +211,12 @@ async function manejarReportesRead(tipo) {
     return jsonResponse({ encabezados: [], filas: [], error: 'Tipo de reporte desconocido: ' + tipo });
   }
   try {
+    // gviz respeta los filtros de la planilla (si alguien deja un filtro puesto,
+    // faltan filas); /export trae siempre todas. Se usa para las pestanas que
+    // alimentan las comisiones, de las que se conoce el gid.
+    const gid = GID_HOJAS_EXPORT[tipo];
     const url = 'https://docs.google.com/spreadsheets/d/' + LIBRO_REPORTES_ID +
-      '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tipo);
+      (gid ? '/export?format=csv&gid=' + gid : '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(tipo));
     const response = await fetch(url);
     if (!response.ok) throw new Error('Google Sheets respondio ' + response.status);
     const texto = await response.text();
