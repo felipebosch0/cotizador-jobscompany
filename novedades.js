@@ -5,6 +5,7 @@ const VERSIONES = [
     'Equipos: al llegar justo a la cantidad del escalon (5, 10, 15...) ya se cobra el valor del escalon siguiente.',
     'Todo lo que se vende con garantia (iPhone, MacBook, iPad, AirPods, Watch, etc.) cuenta como equipo vendido.',
     'Ludmi y Vicky cobran un valor fijo por equipo, sin escala.',
+    'Carrito: cuadro "Datos para transferir" con las cuentas segun dia y hora, y boton para copiar el alias para WhatsApp.',
     'Cambio de clave listo para activarse (se avisa cuando corresponda).' ] },
   { v: '2.6', fecha: '27/10/2026', titulo: 'Seguridad y reportes', items: [
     'Login validado en el servidor, con sesion de 12 horas.',
