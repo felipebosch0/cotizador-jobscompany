@@ -85,7 +85,7 @@ const ESCALA_EQUIPOS = [
 const MODO_EQUIPOS = 'todos';
 
 // Vendedores que cobran un valor fijo por equipo, sin escala (USD por equipo).
-const COMISION_EQUIPOS_FIJO = { Ludmi: 10 };
+const COMISION_EQUIPOS_FIJO = { Ludmi: 10, Vicky: 10 };
 
 // Servicio tecnico: premio en pesos por escalon, segun cuantas ordenes sumo
 // la sucursal en el mes. Cada vendedor del grupo cobra el monto completo.
