@@ -267,7 +267,10 @@ async function manejarReportesWrite(request, env) {
 //   SESSION_SECRET = texto largo al azar con el que se firma la cookie
 //   REQUIRE_AUTH   = "1" para exigir sesion en las rutas de datos; sin eso
 //                    solo se registra en el log quien llamo sin sesion
-//   LOGIN_KV       = (opcional) KV para contar intentos fallidos
+//   LOGIN_KV       = (opcional) KV para contar intentos fallidos y guardar las
+//                    claves que cada usuario cambio ("clave:<usuario>")
+//   FORZAR_CAMBIO_CLAVE = "1" para que quien todavia no cambio su clave tenga
+//                    que hacerlo antes de usar el sistema (necesita LOGIN_KV)
 // Si falta USUARIOS_JSON o SESSION_SECRET, /api/login responde 501 y el
 // navegador sigue con el login viejo: asi se puede desplegar sin cortar nada.
 
@@ -275,6 +278,7 @@ const SESION_COOKIE = 'sid';
 const SESION_HORAS = 12;
 const MAX_INTENTOS = 5;
 const VENTANA_INTENTOS_SEG = 15 * 60;
+const ITERACIONES_CLAVE = 10000; // bajo a proposito: el plan gratis de Workers limita el CPU por pedido
 const intentosLocales = new Map(); // respaldo si no hay LOGIN_KV (por instancia)
 
 const codificador = new TextEncoder();
@@ -310,6 +314,31 @@ async function verificarClave(clave, guardado) {
   return igualesConstante(new Uint8Array(bits), esperado);
 }
 
+async function hashearClave(clave) {
+  const sal = crypto.getRandomValues(new Uint8Array(16));
+  const material = await crypto.subtle.importKey('raw', codificador.encode(clave), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: sal, iterations: ITERACIONES_CLAVE }, material, 256);
+  return 'pbkdf2$' + ITERACIONES_CLAVE + '$' + aBase64Url(sal) + '$' + aBase64Url(bits);
+}
+
+// Hash vigente de un usuario: la clave que cambio (KV) o, si no cambio, la inicial.
+async function hashVigente(env, usuario, hashInicial) {
+  if (!env.LOGIN_KV) return { hash: hashInicial, cambiada: false };
+  const propia = await env.LOGIN_KV.get('clave:' + usuario);
+  return propia ? { hash: propia, cambiada: true } : { hash: hashInicial, cambiada: false };
+}
+
+const CLAVES_DEBILES = ['12345678', 'password', 'contrasena', 'jobscompany', 'jobscompany468', 'shopping123', 'independencia123', 'dino123', 'jobs468'];
+
+function validarClaveNueva(nueva, actual, usuario) {
+  if (nueva.length < 8) return 'La clave nueva tiene que tener al menos 8 caracteres';
+  if (nueva === actual) return 'La clave nueva tiene que ser distinta a la actual';
+  if (nueva.toLowerCase() === usuario) return 'La clave no puede ser igual al usuario';
+  if (CLAVES_DEBILES.indexOf(nueva.toLowerCase()) !== -1) return 'Esa clave es muy comun, elegi otra';
+  if (!/[a-zA-Z]/.test(nueva) || !/\d/.test(nueva)) return 'La clave tiene que tener letras y numeros';
+  return null;
+}
+
 async function claveHmac(env) {
   return crypto.subtle.importKey('raw', codificador.encode(env.SESSION_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
 }
@@ -338,7 +367,7 @@ async function sesionDeRequest(request, env) {
     if (!ok) return null;
     const datos = JSON.parse(new TextDecoder().decode(deBase64Url(cuerpo)));
     if (!datos.exp || datos.exp < Date.now()) return null;
-    return { usuario: datos.u, nombre: datos.n, rol: datos.r, sucursal: datos.s };
+    return { usuario: datos.u, nombre: datos.n, rol: datos.r, sucursal: datos.s, debeCambiarClave: !!datos.c };
   } catch (error) {
     return null;
   }
@@ -394,15 +423,17 @@ async function manejarLogin(request, env) {
   const encontrado = usuarios.find(u => u.usuario === usuario);
   // Se calcula el hash aunque el usuario no exista, para que tarde parecido.
   const hashDeRelleno = 'pbkdf2$1000$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-  const correcta = await verificarClave(clave, encontrado ? encontrado.hash : hashDeRelleno);
+  const vigente = encontrado ? await hashVigente(env, usuario, encontrado.hash) : { hash: hashDeRelleno, cambiada: false };
+  const correcta = await verificarClave(clave, vigente.hash);
   if (!encontrado || !correcta) {
     await sumarIntento(env, claveIntentos, previos);
     return jsonConEstado({ ok: false, error: 'Usuario o contrasena incorrectos' }, 401);
   }
 
   await limpiarIntentos(env, claveIntentos);
-  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal };
-  const token = await firmarSesion(env, { u: sesion.usuario, n: sesion.nombre, r: sesion.rol, s: sesion.sucursal, exp: Date.now() + SESION_HORAS * 3600 * 1000 });
+  const debeCambiarClave = !!env.LOGIN_KV && env.FORZAR_CAMBIO_CLAVE === '1' && !vigente.cambiada;
+  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal, debeCambiarClave };
+  const token = await firmarSesion(env, { u: sesion.usuario, n: sesion.nombre, r: sesion.rol, s: sesion.sucursal, c: debeCambiarClave ? 1 : 0, exp: Date.now() + SESION_HORAS * 3600 * 1000 });
   return jsonConEstado({ ok: true, sesion }, 200, { 'Set-Cookie': cookieSesion(token, SESION_HORAS * 3600) });
 }
 
@@ -414,6 +445,56 @@ async function manejarMe(request, env) {
   return jsonConEstado({ ok: true, sesion }, 200);
 }
 
+// Cambio de clave: pide la actual, guarda el hash nuevo en KV y reemite la cookie
+// sin la marca de "debe cambiar".
+async function manejarCambiarClave(request, env) {
+  const sesion = await sesionDeRequest(request, env);
+  if (!sesion) return jsonConEstado({ ok: false, error: 'Sesion vencida', sinSesion: true }, 401);
+  if (!env.LOGIN_KV) return jsonConEstado({ ok: false, noConfigurado: true, error: 'El cambio de clave todavia no esta habilitado' }, 501);
+
+  let body;
+  try { body = await request.json(); } catch (e) { body = {}; }
+  const actual = String(body.actual || '');
+  const nueva = String(body.nueva || '');
+
+  const claveIntentos = 'cambio:' + sesion.usuario;
+  const previos = await intentosPrevios(env, claveIntentos);
+  if (previos >= MAX_INTENTOS) return jsonConEstado({ ok: false, error: 'Demasiados intentos. Espera 15 minutos.' }, 429);
+
+  let usuarios;
+  try { usuarios = JSON.parse(env.USUARIOS_JSON); } catch (e) { return jsonConEstado({ ok: false, error: 'USUARIOS_JSON mal formado' }, 500); }
+  const encontrado = usuarios.find(u => u.usuario === sesion.usuario);
+  if (!encontrado) return jsonConEstado({ ok: false, error: 'Usuario inexistente' }, 401);
+
+  const vigente = await hashVigente(env, sesion.usuario, encontrado.hash);
+  if (!(await verificarClave(actual, vigente.hash))) {
+    await sumarIntento(env, claveIntentos, previos);
+    return jsonConEstado({ ok: false, error: 'La clave actual no es correcta' }, 401);
+  }
+  const motivo = validarClaveNueva(nueva, actual, sesion.usuario);
+  if (motivo) return jsonConEstado({ ok: false, error: motivo }, 400);
+
+  await env.LOGIN_KV.put('clave:' + sesion.usuario, await hashearClave(nueva));
+  await limpiarIntentos(env, claveIntentos);
+  const token = await firmarSesion(env, { u: sesion.usuario, n: sesion.nombre, r: sesion.rol, s: sesion.sucursal, c: 0, exp: Date.now() + SESION_HORAS * 3600 * 1000 });
+  return jsonConEstado({ ok: true }, 200, { 'Set-Cookie': cookieSesion(token, SESION_HORAS * 3600) });
+}
+
+// Solo admin: borra la clave que cambio un usuario, asi vuelve a la inicial
+// (y, con FORZAR_CAMBIO_CLAVE, la tiene que cambiar otra vez).
+async function manejarResetearClave(request, env) {
+  const sesion = await sesionDeRequest(request, env);
+  if (!sesion || sesion.rol !== 'admin') return jsonConEstado({ ok: false, error: 'Solo el administrador puede hacer esto' }, 403);
+  if (!env.LOGIN_KV) return jsonConEstado({ ok: false, noConfigurado: true }, 501);
+  let body;
+  try { body = await request.json(); } catch (e) { body = {}; }
+  const usuario = String(body.usuario || '').trim().toLowerCase();
+  if (!usuario) return jsonConEstado({ ok: false, error: 'Falta el usuario' }, 400);
+  await env.LOGIN_KV.delete('clave:' + usuario);
+  await limpiarIntentos(env, 'intentos:' + usuario);
+  return jsonConEstado({ ok: true }, 200);
+}
+
 function manejarLogout() {
   return jsonConEstado({ ok: true }, 200, { 'Set-Cookie': cookieSesion('', 0) });
 }
@@ -421,6 +502,11 @@ function manejarLogout() {
 // Rutas con datos: con REQUIRE_AUTH=1 exigen sesion; sin eso solo se anota.
 async function exigirSesion(request, env, url) {
   const sesion = await sesionDeRequest(request, env);
+  if (sesion && sesion.debeCambiarClave) {
+    if (env.REQUIRE_AUTH === '1') return jsonConEstado({ ok: false, error: 'Tenes que cambiar tu clave antes de seguir', debeCambiarClave: true }, 403);
+    console.log('[auth] clave pendiente de cambio: ' + request.method + ' ' + url.pathname);
+    return null;
+  }
   if (sesion) return null;
   if (env.REQUIRE_AUTH === '1') {
     return jsonConEstado({ ok: false, error: 'Sesion vencida o inexistente', sinSesion: true }, 401);
@@ -439,6 +525,8 @@ export default {
     if (url.pathname === '/api/login' && request.method === 'POST') return manejarLogin(request, env);
     if (url.pathname === '/api/me') return manejarMe(request, env);
     if (url.pathname === '/api/logout' && request.method === 'POST') return manejarLogout();
+    if (url.pathname === '/api/cambiar-clave' && request.method === 'POST') return manejarCambiarClave(request, env);
+    if (url.pathname === '/api/admin/resetear-clave' && request.method === 'POST') return manejarResetearClave(request, env);
 
     const RUTAS_DATOS = ['/stock', '/stock-imeis', '/stock-write', '/reportes-write'];
     if (RUTAS_DATOS.indexOf(url.pathname) !== -1 || url.pathname.startsWith('/reportes/')) {

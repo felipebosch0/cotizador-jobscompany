@@ -3501,6 +3501,7 @@ function marcarMenuActivo(accion) {
     document.getElementById('pantallaLogin').classList.add('oculto');
     document.getElementById('appContenido').classList.remove('oculto');
     iniciarApp(sesion);
+    if (typeof revisarCambioClave === 'function') revisarCambioClave(sesion);
   }
 
   const sesion = sesionGuardada();

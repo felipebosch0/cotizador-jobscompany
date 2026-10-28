@@ -144,6 +144,17 @@ async function verificarSesionServidor() {
   try {
     const delServidor = JSON.parse(data).origen === 'servidor';
     const resp = await fetch('/api/me');
+    if (resp.ok) {
+      // Si ya cambio la clave en otro lado, se saca la marca de cambio pendiente.
+      const ok = await resp.json();
+      const guardada = JSON.parse(data);
+      if (ok.sesion && !!ok.sesion.debeCambiarClave !== !!guardada.debeCambiarClave) {
+        guardada.debeCambiarClave = !!ok.sesion.debeCambiarClave;
+        localStorage.setItem(SESION_STORAGE_KEY, JSON.stringify(guardada));
+        location.reload();
+      }
+      return;
+    }
     if (resp.status !== 401) return;
     // Sesion vencida, o una del login viejo (sin cookie) ahora que el servidor
     // ya tiene usuarios: se vuelve al login para sacar la cookie.
