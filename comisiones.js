@@ -84,6 +84,9 @@ const ESCALA_EQUIPOS = [
 //              del 6 al 10 a 10, etc.).
 const MODO_EQUIPOS = 'todos';
 
+// Vendedores que cobran un valor fijo por equipo, sin escala (USD por equipo).
+const COMISION_EQUIPOS_FIJO = { Ludmi: 10 };
+
 // Servicio tecnico: premio en pesos por escalon, segun cuantas ordenes sumo
 // la sucursal en el mes. Cada vendedor del grupo cobra el monto completo.
 const ESCALA_SERVICIO = [
@@ -143,8 +146,11 @@ function comisionAccesorios(monto) {
   };
 }
 
-function comisionEquipos(cantidad) {
+function comisionEquipos(cantidad, nombreVendedor) {
   const n = Math.max(0, Math.floor(Number(cantidad) || 0));
+  // Valor fijo por equipo (sin escala): no hay goal ni proximo tramo.
+  const fijo = COMISION_EQUIPOS_FIJO[nombreVendedor];
+  if (fijo != null) return { cantidad: n, goal: null, usdPorEquipo: fijo, usd: n * fijo, proximo: null, fijo: true };
   const tramo = comTramoDesdeIgual(ESCALA_EQUIPOS, n);
   const siguiente = ESCALA_EQUIPOS.find(t => t.goal === tramo.goal + 1) || null;
   let usd = 0;
@@ -371,7 +377,7 @@ function comCalcularMes(mes, corte) {
   const dolar = (DATA.dolar && Number(DATA.dolar.DolarVenta)) || 0;
   const filas = COMISION_VENDEDORES.map(v => {
     const d = porVendedor[v.nombre];
-    const equipos = comisionEquipos(d.equiposRows);
+    const equipos = comisionEquipos(d.equiposRows, v.nombre);
     const accesorios = comisionAccesorios(d.accesorios);
     const servicio = servicioPorSucursal[v.sucursal];
     const equiposArs = equipos.usd * dolar;
@@ -659,7 +665,7 @@ function comHtmlDetalle(calculo, nombre, admin) {
   // --- Equipos
   const e = f.equipos;
   let htmlEquipos = '<div class="com-cifra">' + e.cantidad + ' equipos' + (admin ? comDeltaHtml(f.variacion.equipos) : '') + '</div>' +
-    '<div class="sm-t">Goal ' + e.goal + ' &middot; ' + formatNumberUsd(e.usdPorEquipo) + ' por equipo</div>' +
+    '<div class="sm-t">' + (e.fijo ? 'Valor fijo' : 'Goal ' + e.goal) + ' &middot; ' + formatNumberUsd(e.usdPorEquipo) + ' por equipo</div>' +
     '<div class="com-total">' + formatNumberUsd(e.usd) + (calculo.dolar ? ' <span class="sm-t">&asymp; ' + comPesos(f.equiposArs) + '</span>' : '') + '</div>';
   if (e.proximo) {
     htmlEquipos += comBarraProgreso(e.cantidad, e.cantidad + e.proximo.faltan, 'Faltan ' + e.proximo.faltan + ' equipos para goal ' + e.proximo.goal + ' (' + formatNumberUsd(e.proximo.usdPorEquipo) + ' por equipo)');
