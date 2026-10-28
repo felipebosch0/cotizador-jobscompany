@@ -408,7 +408,9 @@ async function manejarLogin(request, env) {
 
 async function manejarMe(request, env) {
   const sesion = await sesionDeRequest(request, env);
-  if (!sesion) return jsonConEstado({ ok: false }, 401);
+  // configurado: el servidor ya tiene usuarios, asi que una sesion del login viejo
+  // (sin cookie) ya no sirve y hay que volver a entrar.
+  if (!sesion) return jsonConEstado({ ok: false, configurado: !!(env.SESSION_SECRET && env.USUARIOS_JSON) }, 401);
   return jsonConEstado({ ok: true, sesion }, 200);
 }
 

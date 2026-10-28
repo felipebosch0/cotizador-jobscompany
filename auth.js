@@ -142,9 +142,13 @@ async function verificarSesionServidor() {
   const data = localStorage.getItem(SESION_STORAGE_KEY);
   if (!data) return;
   try {
-    if (JSON.parse(data).origen !== 'servidor') return;
+    const delServidor = JSON.parse(data).origen === 'servidor';
     const resp = await fetch('/api/me');
-    if (resp.status === 401) { localStorage.removeItem(SESION_STORAGE_KEY); location.reload(); }
+    if (resp.status !== 401) return;
+    // Sesion vencida, o una del login viejo (sin cookie) ahora que el servidor
+    // ya tiene usuarios: se vuelve al login para sacar la cookie.
+    const json = await resp.json().catch(() => ({}));
+    if (delServidor || json.configurado) { localStorage.removeItem(SESION_STORAGE_KEY); location.reload(); }
   } catch (error) { /* sin conexion: se sigue con lo que hay */ }
 }
 
