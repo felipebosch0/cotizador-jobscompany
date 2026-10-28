@@ -444,6 +444,91 @@ function renderPromosCarrito() {
   }).join('');
 }
 
+// ---------- Cuentas para transferir ----------
+// "horario": hasta las 17 hs (sabados hasta las 14 hs). "fuera": despues de ese
+// horario, domingos y feriados. Los feriados no se detectan solos: si hoy es
+// feriado, mirar la cuenta de "Fuera de horario".
+const CUENTAS_TRANSFERENCIA = [
+  {
+    id: 'horario',
+    titulo: 'Hasta las 17 hs',
+    detalle: 'Sabados hasta las 14 hs',
+    cuentas: [
+      { nombre: 'Opcion 1', titular: 'INDUSPAGOS SA', cuit: '30719369150', cvu: '0000084000001042712256', alias: 'CON.PROTEGER.LUX' },
+      { nombre: 'Opcion 2', titular: 'Sergio Daniel Navarro', cuit: '30-71868531-8', cbu: '0000391701000000165023', alias: 'DAMA.CRUZ.ORO.CASH' }
+    ]
+  },
+  {
+    id: 'fuera',
+    titulo: 'Fuera de horario',
+    detalle: 'Despues de las 17 hs, sabados despues de las 14 hs, domingos y feriados',
+    cuentas: [
+      { nombre: 'Cuenta unica', titular: 'Nicolas Agustin Aguirre Garcia', cuit: '20385034874', cbu: '0070138530004054554682', cbuMostrar: '00701385-30004054554682', alias: 'Jobscompany.1' }
+    ]
+  }
+];
+
+function grupoTransferenciaActual() {
+  const p = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Argentina/Buenos_Aires', weekday: 'short', hour: 'numeric', hour12: false
+  }).formatToParts(new Date());
+  const dia = p.find(x => x.type === 'weekday').value;
+  const hora = parseInt(p.find(x => x.type === 'hour').value, 10) % 24;
+  if (dia === 'Sun') return 'fuera';
+  if (dia === 'Sat') return hora < 14 ? 'horario' : 'fuera';
+  return hora < 17 ? 'horario' : 'fuera';
+}
+
+function renderCuentasTransferencia() {
+  const cont = document.getElementById('cuentasTransferencia');
+  if (!cont) return;
+  const activo = grupoTransferenciaActual();
+  const fila = (etq, valor, mostrar) => `<div class="cta-fila"><span class="cta-etq">${etq}</span><span class="cta-val">${mostrar || valor}</span></div>`;
+  const aviso = `<div class="cta-aviso" role="alert"><span class="cta-aviso-ico">⚠️</span><div><strong>Importante: pedile el comprobante al cliente</strong><span>Una vez hecha la transferencia, el comprobante de pago se tiene que enviar siempre. Sin comprobante no se confirma el pago.</span></div></div>`;
+  cont.innerHTML = aviso + CUENTAS_TRANSFERENCIA.map(g => `
+    <div class="cta-grupo${g.id === activo ? ' cta-activo' : ''}">
+      <div class="cta-cab">
+        <div><strong>${g.titulo}</strong><small>${g.detalle}</small></div>
+        ${g.id === activo ? '<span class="cta-pill">🟢 Disponible ahora</span>' : ''}
+      </div>
+      <div class="cta-cuentas">
+        ${g.cuentas.map(c => `<div class="cta-cuenta">
+          <div class="cta-nombre">${c.nombre}${c.nota ? ' · ' + c.nota : ''}</div>
+          ${fila('Alias', c.alias)}
+          ${fila('Titular', c.titular)}
+          ${c.cbu ? fila('CBU', c.cbu, c.cbuMostrar) : fila('CVU', c.cvu)}
+          ${fila('CUIT/CUIL', c.cuit)}
+          <button type="button" class="cta-todo" data-copiar-cuenta="${g.id}|${c.alias}">Copiar alias para WhatsApp</button>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function copiarTexto(texto, ok) {
+  const fin = () => MostrarAlerta({ tipo: 'success', title: 'Copiado', mnsj: ok });
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(fin, () => copiarTextoViejo(texto, fin));
+  } else copiarTextoViejo(texto, fin);
+}
+function copiarTextoViejo(texto, fin) {
+  const t = document.createElement('textarea');
+  t.value = texto; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.appendChild(t); t.select();
+  try { document.execCommand('copy'); fin(); } catch (e) {}
+  t.remove();
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-copiar-cuenta]');
+  if (!t) return;
+  const [gid, alias] = t.dataset.copiarCuenta.split('|');
+  const g = CUENTAS_TRANSFERENCIA.find(x => x.id === gid);
+  const c = g && g.cuentas.find(x => x.alias === alias);
+  if (!c) return;
+  const num = c.cbu ? 'CBU: ' + c.cbu : 'CVU: ' + c.cvu;
+  copiarTexto(`Titular: ${c.titular}\nCUIT/CUIL: ${c.cuit}\n${num}\nAlias: ${c.alias}\n\nPor favor compartir el comprobante de pago`, 'Alias copiado para WhatsApp');
+});
+
 function agregarPromoAlCarrito(id) {
   const promo = ((DATA.promosCarrito || {}).promos || []).find(p => p.id === id);
   const a = promo && armarPromo(promo);
@@ -474,6 +559,7 @@ function totalCarrito() {
 
 function renderCarrito() {
   renderPromosCarrito();
+  renderCuentasTransferencia();
   const tabla = document.getElementById('tablaCarrito');
   const body = document.getElementById('bodyCarrito');
   const vacio = document.getElementById('carritoVacio');
