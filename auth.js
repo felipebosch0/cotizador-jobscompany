@@ -148,8 +148,10 @@ async function verificarSesionServidor() {
       // Si ya cambio la clave en otro lado, se saca la marca de cambio pendiente.
       const ok = await resp.json();
       const guardada = JSON.parse(data);
-      if (ok.sesion && !!ok.sesion.debeCambiarClave !== !!guardada.debeCambiarClave) {
+      if (ok.sesion && (!!ok.sesion.debeCambiarClave !== !!guardada.debeCambiarClave ||
+                        !!ok.sesion.cambioClaveHabilitado !== !!guardada.cambioClaveHabilitado)) {
         guardada.debeCambiarClave = !!ok.sesion.debeCambiarClave;
+        guardada.cambioClaveHabilitado = !!ok.sesion.cambioClaveHabilitado;
         localStorage.setItem(SESION_STORAGE_KEY, JSON.stringify(guardada));
         location.reload();
       }

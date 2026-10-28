@@ -431,8 +431,9 @@ async function manejarLogin(request, env) {
   }
 
   await limpiarIntentos(env, claveIntentos);
-  const debeCambiarClave = !!env.LOGIN_KV && env.FORZAR_CAMBIO_CLAVE === '1' && !vigente.cambiada;
-  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal, debeCambiarClave };
+  const cambioClaveHabilitado = !!env.LOGIN_KV && env.FORZAR_CAMBIO_CLAVE === '1';
+  const debeCambiarClave = cambioClaveHabilitado && !vigente.cambiada;
+  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal, debeCambiarClave, cambioClaveHabilitado };
   const token = await firmarSesion(env, { u: sesion.usuario, n: sesion.nombre, r: sesion.rol, s: sesion.sucursal, c: debeCambiarClave ? 1 : 0, exp: Date.now() + SESION_HORAS * 3600 * 1000 });
   return jsonConEstado({ ok: true, sesion }, 200, { 'Set-Cookie': cookieSesion(token, SESION_HORAS * 3600) });
 }
@@ -442,6 +443,7 @@ async function manejarMe(request, env) {
   // configurado: el servidor ya tiene usuarios, asi que una sesion del login viejo
   // (sin cookie) ya no sirve y hay que volver a entrar.
   if (!sesion) return jsonConEstado({ ok: false, configurado: !!(env.SESSION_SECRET && env.USUARIOS_JSON) }, 401);
+  sesion.cambioClaveHabilitado = !!env.LOGIN_KV && env.FORZAR_CAMBIO_CLAVE === '1';
   return jsonConEstado({ ok: true, sesion }, 200);
 }
 

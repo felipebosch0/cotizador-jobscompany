@@ -122,8 +122,9 @@ function revisarCambioClave(sesion) {
   if (!sesion || sesion.origen !== 'servidor') return;
   if (sesion.debeCambiarClave) abrirCambioClave(true);
 
-  // Boton de la llave junto a "Cerrar sesion" (una sola vez).
-  if (!document.getElementById('btnCambiarClave')) {
+  // Boton de la llave junto a "Cerrar sesion" (una sola vez). Queda oculto
+  // mientras el servidor no habilite el cambio de clave (FORZAR_CAMBIO_CLAVE).
+  if (sesion.cambioClaveHabilitado && !document.getElementById('btnCambiarClave')) {
     const salir = document.getElementById('btnLogout');
     if (!salir) return;
     const llave = document.createElement('i');
