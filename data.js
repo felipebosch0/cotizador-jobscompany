@@ -79,7 +79,7 @@ window.COTIZADOR_DATA = {
       // iPhone 18 -- recien agregado a Shopping (30/09/2026), todavia no
       // hay precio de Semi Nuevo.
       { modelo: 'iPhone 18 Pro',       capacidades: { '256Gb': { seminuevo: null, sellado: 1900 } } },
-      { modelo: 'iPhone 18 Pro Max',   capacidades: { '256Gb': { seminuevo: null, sellado: 2100 } } }
+      { modelo: 'iPhone 18 Pro Max',   capacidades: { '256Gb': { seminuevo: null, sellado: 2100 }, '512Gb': { seminuevo: null, sellado: 2500 } } }
     ],
 
     // Independencia: lista real (excel con 2 tablas: "Sellados" y "Semi
