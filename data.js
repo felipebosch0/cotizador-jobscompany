@@ -167,7 +167,7 @@ window.COTIZADOR_DATA = {
         '256Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '90% a 100%', precio: 680 }] }
       } },
       { modelo: 'iPhone 15',         capacidades: {
-        '128Gb': { sellado: 950, coloresSellado: [{ color: 'Negro', precio: 950 }, { color: 'Azul', precio: 950 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
+        '128Gb': { sellado: 860, coloresSellado: [{ color: 'Negro', precio: 860 }, { color: 'Azul', precio: 860 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 500 }] }
       } },
       { modelo: 'iPhone 15 Pro',     capacidades: {
         // Precios actualizados (30/09/2026), por bateria segun las
@@ -186,7 +186,7 @@ window.COTIZADOR_DATA = {
         '512Gb': { sellado: null, seminuevoTiers: [{ etiqueta: '100%', precio: 850 }] }
       } },
       { modelo: 'iPhone 16',         capacidades: {
-        '128Gb': { sellado: 1030, coloresSellado: [{ color: 'Negro', precio: 1030 }, { color: 'Rosa', precio: 1030 }, { color: 'Teal', precio: 1030 }, { color: 'Blanco', precio: 1030 }, { color: 'Ultramarine', precio: 1030 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 725 }] }
+        '128Gb': { sellado: 950, coloresSellado: [{ color: 'Negro', precio: 950 }, { color: 'Rosa', precio: 950 }, { color: 'Teal', precio: 950 }, { color: 'Blanco', precio: 950 }, { color: 'Ultramarine', precio: 950 }], seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 700 }] }
       } },
       { modelo: 'iPhone 16 Pro',     capacidades: {
         '128Gb': { sellado: null, seminuevoTiers: [{ etiqueta: 'Todas las baterias', precio: 780 }] }
