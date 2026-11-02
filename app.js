@@ -3418,7 +3418,14 @@ function iniciarApp(sesion) {
     selectBateria.val('').children('option:not(:first)').remove();
     if (tiers.length) {
       tiers.forEach(t => selectBateria.append(new Option(t.etiqueta, t.etiqueta)));
-      $('#grupoEstadoBateria').removeClass('oculto');
+      if (sucursalActual === 'Dino' && tiers.length === 1) {
+        // Dino solo vende con bateria al 100%: no se muestra el selector, el
+        // unico precio queda elegido solo.
+        selectBateria.val(tiers[0].etiqueta);
+        $('#grupoEstadoBateria').addClass('oculto');
+      } else {
+        $('#grupoEstadoBateria').removeClass('oculto');
+      }
     } else {
       $('#grupoEstadoBateria').addClass('oculto');
     }

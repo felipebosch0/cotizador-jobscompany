@@ -1664,6 +1664,10 @@ window.COTIZADOR_DATA = {
         if (typeof cap.sellado === 'number') cap.sellado = maximo;
       }
       (cap.seminuevoTiers || []).forEach(t => { t.precio += AJUSTE_DINO_IPHONE_USD; });
+      // Dino solo vende Semi Nuevo con bateria al 100%: se quedan solo los
+      // tiers que incluyen el 100% ("100%", "Todas las baterias", "85% a 100%")
+      // y se descartan los de bateria menor.
+      if (cap.seminuevoTiers) cap.seminuevoTiers = cap.seminuevoTiers.filter(t => /^(100%|Todas las baterias|\d+% a 100%)$/i.test(t.etiqueta));
       if (typeof cap.seminuevo === 'number') cap.seminuevo += AJUSTE_DINO_IPHONE_USD;
     });
   });

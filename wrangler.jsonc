@@ -9,5 +9,8 @@
   },
   "kv_namespaces": [
     { "binding": "LOGIN_KV", "id": "d91c87cc71964b08835a095d54d0b6fe" }
-  ]
+  ],
+  "vars": {
+    "FORZAR_CAMBIO_CLAVE": "1"
+  }
 }
