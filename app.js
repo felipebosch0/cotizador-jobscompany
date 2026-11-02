@@ -571,11 +571,6 @@ function renderCarrito() {
   const btnFinanciacion = document.getElementById('btnIniciarFinanciacion');
   const badge = document.getElementById('badgeCarrito');
 
-  // Promo: con al menos 1 equipo en el carrito (cualquier renglon "Equipo"
-  // con modelo -- no cuentan las lineas de "Entrega en efectivo", que son
-  // tipo "Equipo" pero sin modelo) se avisa que hay AirPods de regalo.
-  document.getElementById('avisoPromoAirpods').classList.toggle('oculto', !promoAirpodsHabilitada());
-
   badge.textContent = carrito.length;
   badge.classList.toggle('oculto', carrito.length === 0);
 
@@ -768,12 +763,6 @@ function VaciarCarrito() {
   }, function () {});
 }
 
-// La promo de AirPods de regalo vale con al menos 1 equipo en el carrito
-// (renglones "Equipo" con modelo -- no cuentan las entregas en efectivo).
-function promoAirpodsHabilitada() {
-  return carrito.some(item => item.tipo === 'Equipo' && item.modelo);
-}
-
 function ExportarCarrito() {
   if (!carrito.length) return MostrarAlerta({ tipo: 'error', title: 'Carrito', mnsj: 'El carrito esta vacio' });
   const hh = new Date().getHours();
@@ -788,12 +777,6 @@ function ExportarCarrito() {
   const listaLineas = carrito.map(item => item.precioOriginal
     ? `- ${item.descripcion}: ~${formatNumberArg(item.precioOriginal)}~ ${formatNumberArg(item.precio)}`
     : `- ${item.descripcion}: ${formatNumberArg(item.precio)}`);
-  // Promo habilitada (hay al menos 1 equipo): AirPods de regalo, con el
-  // precio de lista tachado si lo tenemos. No suma al total.
-  if (promoAirpodsHabilitada()) {
-    const airpods = accesoriosSucursal().find(a => a.descripcion === 'AirPods Gen 4' && a.modelo === 'Certificado');
-    listaLineas.push(`- AirPods${airpods && airpods.precio ? ': ~' + formatNumberArg(airpods.precio) + '~' : ':'} *DE REGALO* \u{1F381}`);
-  }
   const lineas = listaLineas.join('\n');
 
   // Si hay un Trade In en el carrito, se agrega un parrafo personalizado

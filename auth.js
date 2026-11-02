@@ -45,15 +45,15 @@ const ROLES = {
 const USUARIOS = [
   { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },
   { usuario: 'felipe',    password: 'Jobscompany468',      rol: 'admin',    nombre: 'felipe',    sucursal: null },
-  { usuario: 'jose',      password: 'Jobs468',             rol: 'vendedor', nombre: 'jose',      sucursal: 'Shopping' },
+  { usuario: 'jose',      password: 'Jobs468',             rol: 'vendedor', nombre: 'jose',      sucursal: 'Dino' },
   { usuario: 'yoko',      password: 'Shopping123',         rol: 'vendedor', nombre: 'yoko',      sucursal: 'Shopping' },
   { usuario: 'ele',       password: 'Shopping123',         rol: 'vendedor', nombre: 'ele',       sucursal: 'Shopping' },
   { usuario: 'flor',      password: 'Shopping123',         rol: 'vendedor', nombre: 'flor',      sucursal: 'Shopping' },
   { usuario: 'agus',      password: 'Shopping123',         rol: 'vendedor', nombre: 'Agus Mendoza',     sucursal: 'Shopping' },
   { usuario: 'agustina',  password: 'Shopping123',         rol: 'vendedor', nombre: 'Agus Mendoza',     sucursal: 'Shopping' },
   { usuario: 'manzanelli', password: 'Shopping123',        rol: 'vendedor', nombre: 'Agus Manzanelli',  sucursal: 'Shopping' },
-  { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Shopping' },
-  { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Shopping' },
+  { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Dino' },
+  { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Dino' },
   { usuario: 'ro',        password: 'Shopping123',         rol: 'vendedor', nombre: 'ro',        sucursal: 'Shopping' },
   { usuario: 'ludmi',     password: 'Independencia123',    rol: 'vendedor', nombre: 'ludmi',     sucursal: 'Independencia' },
   // Dino: lista de precios propia (Independencia + USD 30 en iPhone). Usuario de
@@ -197,9 +197,9 @@ function esAdmin(sesion) {
 // vendio esto". Si se suma un vendedor nuevo, agregarlo aca ademas de en
 // los usuarios del servidor.
 const VENDEDORES_POR_SUCURSAL = {
-  Shopping: ['jose', 'yoko', 'ele', 'flor', 'Agus Mendoza', 'Agus Manzanelli', 'ivonne', 'cristina', 'ro'],
+  Shopping: ['yoko', 'ele', 'flor', 'Agus Mendoza', 'Agus Manzanelli', 'ro'],
   Independencia: ['ludmi'],
-  Dino: ['dino']
+  Dino: ['jose', 'ivonne', 'cristina', 'dino']
 };
 
 function vendedoresDeSucursal(sucursal) {
