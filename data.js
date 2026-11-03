@@ -246,21 +246,24 @@ window.COTIZADOR_DATA = {
     'Shopping': {
       'iPhone 11': 100, 'iPhone 11 Pro': 100, 'iPhone 11 Pro Max': 100,
       'iPhone 12': 100, 'iPhone 12 Mini': 100, 'iPhone 12 Pro': 100, 'iPhone 12 Pro Max': 100,
-      'iPhone 13': 250,
+      // Lista UNIFICADA (03/11/2026): mismos valores en Shopping, Independencia
+      // y Dino (Dino copia a Independencia). iPhone 13 Mini, 16E y la familia
+      // 17 no vinieron en la lista unificada: quedan como estaban.
+      'iPhone 13': 220,
       'iPhone 13 Mini': 150,
-      'iPhone 13 Pro': 350,
-      'iPhone 13 Pro Max': 500,
-      'iPhone 14': 360, 'iPhone 14 Plus': 360,
-      'iPhone 14 Pro': 420,
-      'iPhone 14 Pro Max': 620,
-      'iPhone 15': 450,
-      'iPhone 15 Plus': 450,
-      'iPhone 15 Pro': 580,
-      'iPhone 15 Pro Max': 720,
+      'iPhone 13 Pro': 320,
+      'iPhone 13 Pro Max': 400,
+      'iPhone 14': 300, 'iPhone 14 Plus': 300,
+      'iPhone 14 Pro': 350,
+      'iPhone 14 Pro Max': 520,
+      'iPhone 15': 350,
+      'iPhone 15 Plus': 350,
+      'iPhone 15 Pro': 450,
+      'iPhone 15 Pro Max': 650,
       'iPhone 16': 650, 'iPhone 16 Plus': 650,
       'iPhone 16E': 400,
-      'iPhone 16 Pro': 700,
-      'iPhone 16 Pro Max': 900,
+      'iPhone 16 Pro': 680,
+      'iPhone 16 Pro Max': 850,
       // Iphone 17/17 Pro/17 Pro Max (30/09/2026): valor pasado por el
       // usuario para Independencia (700/800/900) + USD 100 en Shopping (a
       // pedido del usuario). 17 Air sigue sin tomarse en Trade In (no vino
@@ -271,8 +274,11 @@ window.COTIZADOR_DATA = {
     },
     'Independencia': {
       'iPhone XR': 50,
-      'iPhone 11': 100, 'iPhone 11 Pro': 100, 'iPhone 11 Pro Max': 150,
-      'iPhone 12': 150, 'iPhone 12 Mini': 150, 'iPhone 12 Pro': 200, 'iPhone 12 Pro Max': 200,
+      // Lista UNIFICADA (03/11/2026): igual a la de Shopping (y a la de Dino,
+      // que se copia de esta). iPhone XR, 13 Mini, 16E y la familia 17 no
+      // vinieron en la lista unificada: quedan como estaban.
+      'iPhone 11': 100, 'iPhone 11 Pro': 100, 'iPhone 11 Pro Max': 100,
+      'iPhone 12': 100, 'iPhone 12 Mini': 100, 'iPhone 12 Pro': 100, 'iPhone 12 Pro Max': 100,
       'iPhone 13': 220,
       'iPhone 13 Mini': 190,
       'iPhone 13 Pro': 320,
@@ -280,13 +286,13 @@ window.COTIZADOR_DATA = {
       'iPhone 14': 300, 'iPhone 14 Plus': 300,
       'iPhone 14 Pro': 350,
       'iPhone 14 Pro Max': 520,
-      'iPhone 15': 400,
-      'iPhone 15 Plus': 450,
-      'iPhone 15 Pro': 440,
+      'iPhone 15': 350,
+      'iPhone 15 Plus': 350,
+      'iPhone 15 Pro': 450,
       'iPhone 15 Pro Max': 650,
-      'iPhone 16': 580, 'iPhone 16 Plus': 580,
+      'iPhone 16': 650, 'iPhone 16 Plus': 650,
       'iPhone 16E': 300,
-      'iPhone 16 Pro': 650,
+      'iPhone 16 Pro': 680,
       'iPhone 16 Pro Max': 850,
       // Iphone 17/17 Pro/17 Pro Max (30/09/2026): mismos valores que
       // Shopping, el usuario los paso para las 2 sucursales.
