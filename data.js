@@ -1625,8 +1625,8 @@ window.COTIZADOR_DATA = {
 // --------------------------------------------------------------
 // DINO: tercera lista de precios. Arranca como copia exacta de
 // Independencia (venta, trade-in, iPad/Watch/Mac/JBL/PS, accesorios y
-// promos) con +USD 30 en todos los iPhone (semi nuevo, sellado, colores de
-// sellado y base de trade-in). Como se deriva de Independencia, si cambia
+// promos) con +USD 30 en todos los iPhone de venta (semi nuevo, sellado y
+// colores de sellado). El trade-in es igual al de Independencia, sin sumar. Como se deriva de Independencia, si cambia
 // un precio alla cambia aca tambien, salvo lo que se pise en OVERRIDES_DINO.
 // Para ir cambiando el resto de la lista de Dino: agregar el override aca
 // abajo (sin tocar Independencia). Se pisa por completo la entrada del
@@ -1671,10 +1671,8 @@ window.COTIZADOR_DATA = {
       if (typeof cap.seminuevo === 'number') cap.seminuevo += AJUSTE_DINO_IPHONE_USD;
     });
   });
-  // +30 USD en iPhone: trade-in.
-  Object.keys(D.baseTradeInUsdPorSucursal.Dino).forEach(m => {
-    if (esIphone(m)) D.baseTradeInUsdPorSucursal.Dino[m] += AJUSTE_DINO_IPHONE_USD;
-  });
+  // Trade-in: Dino toma los equipos al mismo valor que Independencia (copia
+  // sin sumar nada).
 
   // Overrides propios de Dino.
   const ov = OVERRIDES_DINO;
