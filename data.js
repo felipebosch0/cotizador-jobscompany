@@ -25,7 +25,8 @@ window.COTIZADOR_DATA = {
   preciosAnterioresBaja: {
     'Shopping': {
       'iPhone 13':     { '128Gb': 520, '256Gb': 620, '512Gb': 670, '1Tb': 720 },
-      'iPhone 14 Pro': { '128Gb': 700, '256Gb': 800, '512Gb': 850, '1Tb': 900 }
+      'iPhone 14 Pro': { '128Gb': 700, '256Gb': 800, '512Gb': 850, '1Tb': 900 },
+      'iPhone 15 Pro': { '128Gb': 900 } // bajado USD 100 (04/11/2026)
     }
   },
 
@@ -66,7 +67,7 @@ window.COTIZADOR_DATA = {
       { modelo: 'iPhone 14 Pro',       capacidades: { '128Gb': { seminuevo: 600,  sellado: null }, '256Gb': { seminuevo: 700,  sellado: null }, '512Gb': { seminuevo: 750,  sellado: null }, '1Tb': { seminuevo: 800,  sellado: null } } }, // bajado USD 100 (03/10/2026)
       { modelo: 'iPhone 14 Pro Max',   capacidades: { '128Gb': { seminuevo: 870,  sellado: null }, '256Gb': { seminuevo: 970,  sellado: null }, '512Gb': { seminuevo: 1020, sellado: null }, '1Tb': { seminuevo: 1070, sellado: null } } },
       { modelo: 'iPhone 15',           capacidades: { '128Gb': { seminuevo: 700,  sellado: 900  }, '256Gb': { seminuevo: 800,  sellado: null }, '512Gb': { seminuevo: 850,  sellado: null }, '1Tb': { seminuevo: 900,  sellado: null } } },
-      { modelo: 'iPhone 15 Pro',       capacidades: { '128Gb': { seminuevo: 900,  sellado: null }, '256Gb': { seminuevo: 1000, sellado: null }, '512Gb': { seminuevo: 1050, sellado: null }, '1Tb': { seminuevo: 1100, sellado: null } } },
+      { modelo: 'iPhone 15 Pro',       capacidades: { '128Gb': { seminuevo: 800,  sellado: null }, '256Gb': { seminuevo: 1000, sellado: null }, '512Gb': { seminuevo: 1050, sellado: null }, '1Tb': { seminuevo: 1100, sellado: null } } },
       { modelo: 'iPhone 15 Pro Max',   capacidades: { '256Gb': { seminuevo: 1100, sellado: null }, '512Gb': { seminuevo: 1150, sellado: null }, '1Tb': { seminuevo: 1200, sellado: null } } },
       { modelo: 'iPhone 16',           capacidades: { '128Gb': { seminuevo: 915,  sellado: 1050 }, '256Gb': { seminuevo: 1015, sellado: null }, '512Gb': { seminuevo: 1065, sellado: null }, '1Tb': { seminuevo: 1115, sellado: null } } },
       { modelo: 'iPhone 16E',          capacidades: { '128Gb': { seminuevo: 700,  sellado: null }, '256Gb': { seminuevo: 800,  sellado: null }, '512Gb': { seminuevo: 850,  sellado: null }, '1Tb': { seminuevo: 900,  sellado: null } } },
