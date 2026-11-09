@@ -1435,10 +1435,15 @@ function tradeInDelCarrito() {
   return carrito.find(item => item.tipo === 'Trade In' && item.modelo) || null;
 }
 
+// ID de la declaracion en curso (se renueva al abrir el modal): evita que un
+// doble clic o un reintento duplique el alta en Stock y en TRADEIN.
+let opIdDeclaracion = '';
+
 function AbrirModalDeclaracion() {
   const tradeIn = tradeInDelCarrito();
   if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
   $('#djNombre, #djDni, #djDomicilio, #djImei, #djBateria, #djColor, #djCapacidad').val('');
+  opIdDeclaracion = nuevoOpId();
   // Arranca en el primer deposito de la sucursal actual; se puede cambiar.
   const depositoInicial = ((DATA.depositoPorSucursal || {})[sucursalActual] || [])[0];
   if (depositoInicial) $('#djSucursal').val(depositoInicial);
@@ -1483,7 +1488,8 @@ async function ConfirmarDeclaracionJurada() {
   try {
     const resp = await llamarStockWrite({
       accion: 'ingreso', modelo, capacidad, bateria, color, imei,
-      sucursal: sucursalTradeIn, observaciones: 'Trade-in', falla, propietario
+      sucursal: sucursalTradeIn, observaciones: 'Trade-in', falla, propietario,
+      opId: opIdDeclaracion
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
     await actualizarStockEnVivo();
@@ -1500,7 +1506,8 @@ async function ConfirmarDeclaracionJurada() {
           vendedor: propietario, sucursal: sucursalTradeIn,
           nombre, dni, domicilio, imei,
           modelo, capacidad, color, bateria,
-          valor: descuento, falla
+          valor: descuento, falla,
+          opId: opIdDeclaracion
         });
         if (!respTradeIn.ok) throw new Error(respTradeIn.error || 'Error desconocido');
       } catch (error) {
@@ -1976,11 +1983,38 @@ async function avanzarColaGarantia() {
   }
 }
 
+// Trabado mientras se procesa una garantia: sin esto, tocar varias veces
+// "Confirmar e imprimir" disparaba el flujo entero otras tantas veces
+// (filas repetidas en Stock y en VentasEquipos). El "opIdGarantia" es un ID
+// por garantia, generado una sola vez, que viaja en cada escritura: los Apps
+// Script lo usan para ignorar un pedido repetido (reintento, doble clic que
+// se cuele igual, mala conexion).
+let garantiaEnCurso = false;
+let opIdGarantia = '';
+
+function nuevoOpId() {
+  return (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'op-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
 async function ConfirmarGarantia() {
+  if (garantiaEnCurso) return;
   const itemActual = colaGarantia[0];
   if (!itemActual) return CerrarModalGarantia();
-  if (itemActual.tipoGarantia === 'accesorio') return ConfirmarGarantiaAccesorio(itemActual.item);
-  return ConfirmarGarantiaEquipo(itemActual.equipo);
+  if (!itemActual.opId) itemActual.opId = nuevoOpId();
+  opIdGarantia = itemActual.opId;
+
+  const boton = document.getElementById('btnConfirmarGarantia');
+  garantiaEnCurso = true;
+  boton.disabled = true;
+  try {
+    if (itemActual.tipoGarantia === 'accesorio') return await ConfirmarGarantiaAccesorio(itemActual.item);
+    return await ConfirmarGarantiaEquipo(itemActual.equipo);
+  } finally {
+    garantiaEnCurso = false;
+    boton.disabled = false;
+  }
 }
 
 // Garantia de un producto marcado tieneGarantiaPropia (JBL, PlayStation,
@@ -2035,7 +2069,8 @@ async function ConfirmarGarantiaAccesorio(item) {
         condicion: item.marcaGarantia || 'Accesorio', color: '',
         precioTotal: item.precio,
         tradeInModelo: '', tradeInValor: 0, pauta: '',
-        cliente: datosCliente.cliente, dni: datosCliente.dni
+        cliente: datosCliente.cliente, dni: datosCliente.dni,
+        opId: opIdGarantia
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
     } catch (error) {
@@ -2135,11 +2170,12 @@ async function ConfirmarGarantiaEquipo(equipo) {
       try {
         const respIngreso = await llamarStockWrite({
           accion: 'ingreso', modelo: equipo.modelo, capacidad: equipo.capacidad, color, imei,
-          sucursal: $('#gtManualDeposito').val() || sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock
+          sucursal: $('#gtManualDeposito').val() || sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock,
+          opId: opIdGarantia
         });
         if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
         if (respIngreso.fila) {
-          await llamarStockWrite({ accion: 'egreso', fila: respIngreso.fila, vendedor: vendedorStock, usuario: vendedorStock });
+          await llamarStockWrite({ accion: 'egreso', fila: respIngreso.fila, vendedor: vendedorStock, usuario: vendedorStock, opId: opIdGarantia });
         }
         await actualizarStockEnVivo();
       } catch (error) {
@@ -2148,7 +2184,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
     } else {
       if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
       try {
-        await llamarStockWrite({ accion: 'egreso', fila: busqueda.resultados[0].fila, vendedor: vendedorStock, usuario: vendedorStock });
+        await llamarStockWrite({ accion: 'egreso', fila: busqueda.resultados[0].fila, vendedor: vendedorStock, usuario: vendedorStock, opId: opIdGarantia });
         await actualizarStockEnVivo();
       } catch (error) {
         // Esto ya paso la validacion (el IMEI/Serie existe) -- si el
@@ -2210,7 +2246,8 @@ async function ConfirmarGarantiaEquipo(equipo) {
         tradeInModelo: tradeInCarrito ? tradeInCarrito.modelo : '',
         tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0,
         pauta: pauta ? 'Pauta' : '',
-        cliente: datosCliente.cliente, dni: datosCliente.dni
+        cliente: datosCliente.cliente, dni: datosCliente.dni,
+        opId: opIdGarantia
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
     } catch (error) {
