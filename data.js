@@ -1631,8 +1631,7 @@ window.COTIZADOR_DATA = {
 
 // --------------------------------------------------------------
 // DINO: tercera lista de precios. Arranca como copia exacta de
-// Independencia (venta, trade-in, iPad/Watch/Mac/JBL/PS, accesorios y
-// promos) con +USD 30 en todos los iPhone de venta (semi nuevo, sellado y
+// Independencia (venta, trade-in, iPad/Watch/Mac/JBL/PS) con +USD 30 en todos los iPhone de venta (semi nuevo, sellado y
 // colores de sellado). El trade-in es igual al de Independencia, sin sumar. Como se deriva de Independencia, si cambia
 // un precio alla cambia aca tambien, salvo lo que se pise en OVERRIDES_DINO.
 // Para ir cambiando el resto de la lista de Dino: agregar el override aca
@@ -1653,8 +1652,11 @@ window.COTIZADOR_DATA = {
   Object.keys(D).forEach(k => {
     if (/PorSucursal$/.test(k) && D[k] && D[k].Independencia && !D[k].Dino) D[k].Dino = clonar(D[k].Independencia);
   });
-  if (D.promosCarrito && D.promosCarrito.componentes && D.promosCarrito.componentes.Independencia) {
-    D.promosCarrito.componentes.Dino = clonar(D.promosCarrito.componentes.Independencia);
+  // Accesorios: Dino usa la misma lista (y las mismas promos del carrito) que
+  // Shopping, no la de Independencia.
+  D.accesoriosPorSucursal.Dino = clonar(D.accesoriosPorSucursal.Shopping);
+  if (D.promosCarrito && D.promosCarrito.componentes && D.promosCarrito.componentes.Shopping) {
+    D.promosCarrito.componentes.Dino = clonar(D.promosCarrito.componentes.Shopping);
   }
 
   // +30 USD en iPhone: venta.
