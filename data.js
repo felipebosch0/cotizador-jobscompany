@@ -219,11 +219,11 @@ window.COTIZADOR_DATA = {
       // iPhone 18 -- todavia no hay precio de Semi Nuevo. Precios Sellado
       // actualizados (30/09/2026).
       { modelo: 'iPhone 18 Pro',     capacidades: {
-        '256Gb': { sellado: 1530, coloresSellado: [{ color: 'Silver', precio: 1530 }, { color: 'Glacier', precio: 1530 }, { color: 'Burgundy', precio: 1530 }], seminuevoTiers: [] },
+        '256Gb': { sellado: 1420, coloresSellado: [{ color: 'Silver', precio: 1420 }, { color: 'Glacier', precio: 1420 }, { color: 'Burgundy', precio: 1420 }], seminuevoTiers: [] },
         '512Gb': { sellado: 1850, coloresSellado: [{ color: 'Glacier', precio: 1850 }, { color: 'Silver', precio: 1850 }, { color: 'Burgundy', precio: 1850 }], seminuevoTiers: [] }
       } },
       { modelo: 'iPhone 18 Pro Max', capacidades: {
-        '256Gb': { sellado: 1740, coloresSellado: [{ color: 'Silver', precio: 1740 }, { color: 'Negro', precio: 1740 }, { color: 'Glacier', precio: 1740 }, { color: 'Burgundy', precio: 1740 }], seminuevoTiers: [] },
+        '256Gb': { sellado: 1630, coloresSellado: [{ color: 'Silver', precio: 1630 }, { color: 'Negro', precio: 1630 }, { color: 'Glacier', precio: 1630 }, { color: 'Burgundy', precio: 1630 }], seminuevoTiers: [] },
         '512Gb': { sellado: 1950, coloresSellado: [{ color: 'Silver', precio: 1950 }, { color: 'Negro', precio: 1950 }], seminuevoTiers: [] }
       } }
     ]
