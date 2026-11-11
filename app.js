@@ -191,6 +191,14 @@ async function actualizarStockEnVivo() {
   }
 }
 
+// Texto de la columna Sucursal en las tablas de Stock: el deposito de
+// Independencia puede venir como INDEPENDENCIA, Independencia o DEPO (filas
+// viejas de la planilla), pero siempre se muestra como "Independencia".
+function sucursalTextoStock(u) {
+  const d = String(u.sucursal || '').trim();
+  return /^(depo|deposito|independencia)$/i.test(d) ? 'Independencia' : d;
+}
+
 // Devuelve a que sucursal de venta (Shopping/Independencia) pertenece un
 // deposito de Stock.xlsx (OLMOS, DINO, etc.), segun DATA.depositoPorSucursal.
 // Si el deposito no esta mapeado a ninguna sucursal (ej. DEPO, SERVICIO
@@ -270,7 +278,7 @@ function actualizarModuloStock(modelo) {
     const tr = document.createElement('tr');
     const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
     const grupo = grupoDeSucursal(u.sucursal);
-    const sucursalTexto = grupo ? u.sucursal : 'Depo';
+    const sucursalTexto = sucursalTextoStock(u);
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
     // Estado real de la unidad -- antes esta columna no se llenaba (el <td>
     // que caia en la posicion de "Estado" en realidad tenia el texto de
@@ -334,7 +342,7 @@ function actualizarVistaStockCompleto() {
     const tr = document.createElement('tr');
     const capacidad = u.capacidad >= 1024 ? '1Tb' : u.capacidad + 'Gb';
     const grupo = grupoDeSucursal(u.sucursal);
-    const sucursalTexto = grupo ? u.sucursal : 'Depo';
+    const sucursalTexto = sucursalTextoStock(u);
     if (grupo === sucursalActual) tr.style.fontWeight = 'bold';
     // Ver comentario equivalente en actualizarModuloStock -- misma correccion.
     if (u.estado && u.estado !== 'En Stock') tr.style.background = 'rgba(241,196,15,0.15)';
@@ -991,7 +999,7 @@ async function ConfirmarBaja(fila, boton) {
 // busqueda por ultimos digitos del IMEI que Egreso, pero en vez de "Dar de
 // baja" el boton pide el deposito destino y llama a la accion "transferir"
 // del Apps Script -- ver manejarTransferencia en StockWrite.gs).
-const DEPOSITOS_STOCK = ['OLMOS', 'DINO', 'NUEVO CENTRO', 'INDEPENDENCIA', 'DEPO', 'SERVICIO TECNICO'];
+const DEPOSITOS_STOCK = ['OLMOS', 'DINO', 'NUEVO CENTRO', 'INDEPENDENCIA', 'SERVICIO TECNICO'];
 
 async function BuscarImeiTransferencia() {
   const ultimos = $('#transferenciaUltimosDigitos').val().trim();
@@ -1101,7 +1109,6 @@ function renderFormularioGenerarYDarDeBaja(contenedor, ultimosDigitos) {
         <option value="DINO">DINO</option>
         <option value="NUEVO CENTRO">NUEVO CENTRO</option>
         <option value="INDEPENDENCIA">INDEPENDENCIA</option>
-        <option value="DEPO">DEPO</option>
         <option value="SERVICIO TECNICO">SERVICIO TECNICO</option>
       </select>
     </div>
