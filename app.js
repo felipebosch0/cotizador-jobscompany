@@ -1641,11 +1641,11 @@ const GARANTIA_TEXTOS = {
   Shopping: {
     sellado: {
       condicionTexto: 'Nuevo',
-      garantiaTexto: 'garantia oficial Apple de 12 meses'
+      garantiaTexto: 'garantía oficial Apple de 12 meses'
     },
     seminuevo: {
       condicionTexto: 'Semi-Nuevo',
-      garantiaTexto: 'garantia de 3 meses'
+      garantiaTexto: 'garantía de 3 meses'
     }
   },
   // Independencia: mismo texto que Shopping. El Semi-Nuevo tenia 1 mes de
@@ -1655,11 +1655,11 @@ const GARANTIA_TEXTOS = {
   Independencia: {
     sellado: {
       condicionTexto: 'Nuevo',
-      garantiaTexto: 'garantia oficial Apple de 12 meses'
+      garantiaTexto: 'garantía oficial Apple de 12 meses'
     },
     seminuevo: {
       condicionTexto: 'Semi-Nuevo',
-      garantiaTexto: 'garantia de 3 meses'
+      garantiaTexto: 'garantía de 3 meses'
     }
   }
 };
@@ -1742,7 +1742,19 @@ function AbrirModalGarantia() {
   garantiaCombinada = [];
   if (!colaGarantia.length) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun producto con garantia en el carrito' });
   poblarSelectVendedor('gtVendedor');
-  $('#gtNombre, #gtDni').val('');
+  $('#gtNombre, #gtDni, #gtEmail').val('');
+  document.getElementById('gtEnviarMail').checked = true;
+  opIdVenta = nuevoOpId();
+  // Local de la venta: Dino e Independencia tienen uno solo (queda elegido y
+  // el campo se oculta); Shopping tiene 2: se completa segun el vendedor y se
+  // puede cambiar (el deposito del equipo NO sirve: no dice donde se vende).
+  const locales = LOCALES_VENTA[sucursalActual] || [];
+  const selLocal = $('#gtLocal').empty();
+  if (locales.length !== 1) selLocal.append(new Option('Elegí el local...', ''));
+  locales.forEach(l => selLocal.append(new Option(l.nombre, l.nombre)));
+  if (locales.length === 1) selLocal.val(locales[0].nombre);
+  document.getElementById('gtLocalContenedor').classList.toggle('oculto', locales.length <= 1);
+  sugerirLocalPorVendedor();
   mostrarModalGarantiaItem(colaGarantia[0]);
   document.getElementById('modalGarantia').style.display = 'block';
 }
@@ -1752,7 +1764,8 @@ function AbrirModalGarantia() {
 // 2 casos, solo cambia que pide.
 function mostrarModalGarantiaItem(item) {
   garantiaGenerarPendienteImei = null;
-  $('#gtImei, #gtColor, #gtImeiFiltro').val('');
+  $('#gtImei, #gtColor, #gtImeiFiltro, #gtBateria').val('');
+  document.getElementById('gtBateriaContenedor').classList.add('oculto');
 
   const aviso = document.getElementById('gtColaAviso');
   if (colaGarantia.length > 1) {
@@ -1803,6 +1816,7 @@ function mostrarModalGarantiaItem(item) {
   // aplica a Independencia -- se oculta y se destilda para el resto.
   document.getElementById('gtPautaContenedor').classList.toggle('oculto', sucursalActual !== 'Independencia');
   document.getElementById('gtPauta').checked = false;
+  document.getElementById('gtBateriaContenedor').classList.toggle('oculto', !pideBateriaGarantia(equipo));
   iniciarGarantiaDesdeStock(equipo);
 }
 
@@ -1922,7 +1936,7 @@ function poblarImeisGarantia() {
   const modelo = $('#gtModeloSel').val();
   const filtro = $('#gtImeiFiltro').val().trim().toLowerCase();
   const sel = $('#gtImeiSel').empty();
-  $('#gtImei, #gtColor').val('');
+  $('#gtImei, #gtColor, #gtBateria').val('');
 
   let lista = unidadesGarantiaDe(sucursal).filter(u => normalizarModelo(u.modelo) === modelo);
   let nota = '';
@@ -1961,6 +1975,22 @@ function elegirImeiGarantia() {
   const u = garantiaUnidades.find(x => x.imei === imei);
   $('#gtImei').val(u ? u.imei : '');
   $('#gtColor').val(u ? titleCaseColor(u.color) : '');
+  $('#gtBateria').val(u && u.bateria ? u.bateria : '');
+}
+
+// El local de la venta se completa segun el vendedor elegido (Ro y las dos Agus
+// -> Patio Olmos; Yoko, Ele y Flor -> Nuevo Centro). Sigue siendo un campo
+// visible: si el vendedor atiende en otro local ese dia, lo cambia a mano. Si
+// el vendedor no esta en la lista (ej. Vicky), queda vacio y hay que elegirlo.
+function sugerirLocalPorVendedor() {
+  if ((LOCALES_VENTA[sucursalActual] || []).length < 2) return;
+  const local = localDeVendedor(sucursalActual, $('#gtVendedor').val());
+  $('#gtLocal').val(local || '');
+}
+
+// La condicion de bateria solo se pide (y se imprime) en iPhone Semi-Nuevo.
+function pideBateriaGarantia(equipo) {
+  return !!equipo && esTelefono(equipo.modelo) && equipo.condicion === 'seminuevo';
 }
 
 function CerrarModalGarantia() {
@@ -2028,9 +2058,18 @@ async function ConfirmarGarantia() {
 // en el modal de Garantia pero NO se imprimen -- solo se guardan en la
 // pestana VentasEquipos de Reportes. Devuelve null (y avisa) si falta o esta
 // mal alguno, para cortar antes de tocar Stock o Reportes.
+// Datos del cliente de la venta en curso (se piden una vez por venta): el
+// mail con la garantia se manda al final de imprimirGarantiaCombinada.
+let opIdVenta = ''; // ID de la venta completa (evita mandar el mail dos veces)
+let clienteVenta = '';
+let emailVenta = '';
+let enviarMailVenta = false;
+let localVenta = ''; // local donde se hace la venta (sale impreso en la copia del cliente)
+
 function datosClienteGarantia() {
   const cliente = $('#gtNombre').val().replace(/\s+/g, ' ').trim();
   const dni = $('#gtDni').val().replace(/[.\s-]/g, '');
+  const email = $('#gtEmail').val().trim().toLowerCase();
   if (cliente.length < 3) {
     MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el nombre y apellido del cliente' });
     return null;
@@ -2039,7 +2078,20 @@ function datosClienteGarantia() {
     MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El DNI tiene que tener 7 u 8 numeros' });
     return null;
   }
-  return { cliente, dni };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa un email valido del cliente (ej. nombre@gmail.com)' });
+    return null;
+  }
+  const local = $('#gtLocal').val() || '';
+  if (!local) {
+    MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Elegi el local donde se hace la venta' });
+    return null;
+  }
+  localVenta = local;
+  clienteVenta = cliente;
+  emailVenta = email;
+  enviarMailVenta = document.getElementById('gtEnviarMail').checked;
+  return { cliente, dni, email };
 }
 
 async function ConfirmarGarantiaAccesorio(item) {
@@ -2069,7 +2121,7 @@ async function ConfirmarGarantiaAccesorio(item) {
         condicion: item.marcaGarantia || 'Accesorio', color: '',
         precioTotal: item.precio,
         tradeInModelo: '', tradeInValor: 0, pauta: '',
-        cliente: datosCliente.cliente, dni: datosCliente.dni,
+        cliente: datosCliente.cliente, dni: datosCliente.dni, email: datosCliente.email,
         opId: opIdGarantia
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
@@ -2083,6 +2135,8 @@ async function ConfirmarGarantiaAccesorio(item) {
     nombreProducto: item.nombreProducto,
     marca: item.marcaGarantia || 'Apple',
     imei, precio: item.precio,
+    sucursal: sucursalActual,
+    local: localVenta,
     vendedor
   });
   await avanzarColaGarantia();
@@ -2109,6 +2163,18 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // numero mal copiado casi siempre falla esta cuenta.
   if (garantiaModoManual && esTelefono(equipo.modelo) && !luhnValido(imei)) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Ese IMEI no es valido (el digito verificador no coincide): revisa los 15 digitos.' });
+  }
+  // Condicion de bateria (solo iPhone Semi-Nuevo): se imprime en la garantia.
+  // Acepta "88" o "88%"; tiene que ser un porcentaje entre 1 y 100.
+  let bateriaTexto = '';
+  let bateriaNum = 0;
+  if (pideBateriaGarantia(equipo)) {
+    bateriaNum = Number(String($('#gtBateria').val()).replace('%', '').replace(',', '.').trim());
+    if (!(bateriaNum >= 1 && bateriaNum <= 100)) {
+      return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa la condicion de bateria del equipo (un numero entre 1 y 100)' });
+    }
+    bateriaNum = Math.round(bateriaNum);
+    bateriaTexto = bateriaNum + '%';
   }
   const motivoManual = $('#gtMotivo').val() || '';
 
@@ -2149,9 +2215,10 @@ async function ConfirmarGarantiaEquipo(equipo) {
     }
     if (!busqueda.ok) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: busqueda.error || 'No se pudo consultar el stock' });
 
-    if (busqueda.resultados.length > 1) {
-      return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Hay mas de un equipo activo con ese IMEI/Serie en stock -- revisalo a mano antes de continuar.' });
-    }
+    // IMEI repetido en stock: NO se frena la venta. Se da de baja todo lo
+    // activo con ese IMEI (es el mismo equipo fisico) y se avisa al admin
+    // (pestana Alertas + mail) para que limpie la planilla despues.
+    const repetidos = busqueda.resultados.length > 1;
 
     const sesion = sesionGuardada();
     // Se acredita al vendedor elegido en el modal, no necesariamente al
@@ -2171,6 +2238,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
         const respIngreso = await llamarStockWrite({
           accion: 'ingreso', modelo: equipo.modelo, capacidad: equipo.capacidad, color, imei,
           sucursal: $('#gtManualDeposito').val() || sucursalActual, observaciones: 'GENERADO AL IMPRIMIR GARANTIA' + (motivoManual ? ' - ' + motivoManual : ''), usuario: vendedorStock, propietario: vendedorStock,
+          bateria: bateriaNum ? bateriaNum / 100 : undefined,
           opId: opIdGarantia
         });
         if (!respIngreso.ok) throw new Error(respIngreso.error || 'No se pudo generar el equipo');
@@ -2184,7 +2252,14 @@ async function ConfirmarGarantiaEquipo(equipo) {
     } else {
       if (sucursalActual === 'Independencia') falla = busqueda.resultados[0].falla || '';
       try {
-        await llamarStockWrite({ accion: 'egreso', fila: busqueda.resultados[0].fila, vendedor: vendedorStock, usuario: vendedorStock, opId: opIdGarantia });
+        for (const unidad of busqueda.resultados) {
+          await llamarStockWrite({ accion: 'egreso', fila: unidad.fila, vendedor: vendedorStock, usuario: vendedorStock, opId: opIdGarantia });
+        }
+        if (repetidos) {
+          const detalle = 'Al imprimir la garantia habia ' + busqueda.resultados.length + ' filas activas con ese IMEI (filas ' +
+            busqueda.resultados.map(u => u.fila + ' ' + u.sucursal + ' ' + u.estado).join(', ') + '). Se dieron de baja todas. Sucursal: ' + sucursalActual + '.';
+          llamarStockWrite({ accion: 'alerta', tipo: 'IMEI repetido al vender', imei, detalle, usuario: vendedorStock, opId: opIdGarantia }).catch(() => {});
+        }
         await actualizarStockEnVivo();
       } catch (error) {
         // Esto ya paso la validacion (el IMEI/Serie existe) -- si el
@@ -2246,7 +2321,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
         tradeInModelo: tradeInCarrito ? tradeInCarrito.modelo : '',
         tradeInValor: tradeInCarrito ? -tradeInCarrito.precio : 0,
         pauta: pauta ? 'Pauta' : '',
-        cliente: datosCliente.cliente, dni: datosCliente.dni,
+        cliente: datosCliente.cliente, dni: datosCliente.dni, email: datosCliente.email,
         opId: opIdGarantia
       });
       if (!respVenta.ok) throw new Error(respVenta.error || 'Error desconocido');
@@ -2262,6 +2337,8 @@ async function ConfirmarGarantiaEquipo(equipo) {
     capacidad: equipo.capacidad,
     condicion: equipo.condicion,
     imei, color,
+    local: localVenta,
+    bateria: bateriaTexto,
     precio: equipo.precio + totalAccesorios,
     accesorios,
     observaciones,
@@ -2271,17 +2348,190 @@ async function ConfirmarGarantiaEquipo(equipo) {
   await avanzarColaGarantia();
 }
 
+// ---- Texto legal de la garantia (version nueva, 11/2026) ----
+// CUIT segun la sucursal que vende: Shopping y Dino comparten el de Jobs
+// Company; Independencia tiene el suyo (y conserva su logo, ver LOGOS_POR_SUCURSAL).
+const CUIT_POR_SUCURSAL = {
+  Shopping: '30-71929577-7',
+  Dino: '30-71929577-7',
+  Independencia: '30-71827656-6'
+};
+function cuitDeSucursal(sucursal) {
+  return CUIT_POR_SUCURSAL[sucursal] || CUIT_POR_SUCURSAL.Shopping;
+}
+
+// A quien se le escribe para hacer valer la garantia (sale impreso).
+const CONTACTO_GARANTIA = 'Moises (Servicio técnico especializado Jobs Company) al <strong>+54&nbsp;9&nbsp;351&nbsp;787-9711</strong>';
+
+// Cada tipo de equipo cambia unas pocas frases (que funcion de Apple hay que
+// desactivar, si es resistente al agua, si lleva la clausula de la camara).
+// El resto del texto es comun. 'otro' es el generico para cualquier equipo
+// que no encaje en las categorias de abajo.
+function categoriaGarantia(modelo) {
+  const m = String(modelo || '').toLowerCase();
+  if (/^iphone/.test(m)) return 'iphone';
+  if (/^ipad/.test(m)) return 'ipad';
+  if (/watch/.test(m)) return 'watch';
+  if (/macbook|imac|^mac\b|mac mini/.test(m)) return 'mac';
+  if (/airpods/.test(m)) return 'airpods';
+  return 'otro';
+}
+
+// Local donde se hace la venta, tal cual sale impreso en la copia del cliente.
+// "vendedores" es quien atiende en ese local: al elegir el vendedor en el modal
+// de Garantia, el local se completa solo (ver sugerirLocalPorVendedor). Dino e
+// Independencia tienen un solo local, asi que no hace falta. Los nombres tienen
+// que coincidir con VENDEDORES_POR_SUCURSAL (auth.js).
+const LOCALES_VENTA = {
+  Shopping: [
+    { nombre: 'Jobs Company / Nuevo Centro', vendedores: ['Yoko', 'Ele', 'Flor'] },
+    { nombre: 'Jobs Company / Patio Olmos', vendedores: ['Ro', 'Agus Manzanelli', 'Agus Mendoza'] }
+  ],
+  Dino: [{ nombre: 'Jobs Company / Dino Mall', vendedores: [] }],
+  Independencia: [{ nombre: 'Tio Jobs / Independencia 468', vendedores: [] }]
+};
+
+function claveNombre(nombre) {
+  return String(nombre || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Local donde trabaja un vendedor (null si no esta en la lista: ahi el local se
+// elige a mano).
+function localDeVendedor(sucursal, vendedor) {
+  const clave = claveNombre(vendedor);
+  const local = (LOCALES_VENTA[sucursal] || []).find(l => l.vendedores.some(v => claveNombre(v) === clave));
+  return local ? local.nombre : null;
+}
+
+// Reseña en Google Maps de cada local: link corto del Perfil de Empresa y el
+// QR de ese link (ya generado: "trazo" es el dibujo del codigo, 'lado' su
+// tamaño en modulos con borde). La copia en papel lleva el QR; la del mail,
+// el link clickeable (un QR en la pantalla del celular no sirve de nada).
+// Para cambiar un link hay que regenerar el QR (segno / cualquier generador).
+const RESENIA = {
+  'Jobs Company / Nuevo Centro': {
+    url: 'https://g.page/r/Ccz8tyDhwq3nEBM/review',
+    lado: 33,
+    trazo: 'M2 2.5h7m2 0h3m2 0h1m7 0h7m-29 1h1m5 0h1m1 0h1m2 0h2m5 0h1m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h2m1 0h2m1 0h1m1 0h1m3 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h4m8 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h2m3 0h1m1 0h3m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m2 0h1m4 0h1m1 0h1m5 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m1 0h1m3 0h1m1 0h1m1 0h1m-19 1h1m5 0h1m1 0h2m2 0h4m1 0h1m1 0h4m2 0h3m-27 1h5m1 0h2m1 0h2m3 0h1m1 0h4m2 0h2m1 0h2m-25 1h4m2 0h7m2 0h1m4 0h2m-25 1h1m1 0h1m6 0h2m3 0h2m2 0h2m1 0h2m1 0h2m-26 1h1m2 0h2m1 0h2m2 0h2m1 0h3m6 0h2m4 0h1m-28 1h2m8 0h2m2 0h2m2 0h2m1 0h3m2 0h2m-25 1h3m1 0h1m1 0h2m3 0h3m2 0h1m3 0h3m-27 1h3m2 0h1m1 0h2m5 0h2m3 0h4m1 0h1m1 0h1m1 0h1m-27 1h1m1 0h1m1 0h3m1 0h1m6 0h1m3 0h1m1 0h1m1 0h2m-27 1h4m1 0h1m1 0h1m3 0h1m1 0h1m1 0h1m3 0h2m1 0h3m1 0h3m-29 1h5m1 0h1m2 0h1m1 0h1m3 0h1m1 0h3m3 0h1m1 0h1m2 0h1m-29 1h1m2 0h2m5 0h4m2 0h1m2 0h1m1 0h3m-24 1h1m3 0h1m1 0h1m2 0h1m1 0h2m1 0h1m2 0h2m1 0h5m1 0h3m-21 1h1m1 0h3m1 0h1m5 0h1m3 0h2m-26 1h7m2 0h2m4 0h1m1 0h2m1 0h1m1 0h1m1 0h3m-27 1h1m5 0h1m5 0h1m1 0h2m3 0h2m3 0h1m2 0h2m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h4m2 0h7m2 0h1m-29 1h1m1 0h3m1 0h1m3 0h1m3 0h1m1 0h6m3 0h2m1 0h1m-29 1h1m1 0h3m1 0h1m6 0h5m1 0h2m1 0h1m1 0h4m-28 1h1m5 0h1m3 0h3m1 0h1m3 0h1m3 0h2m1 0h2m1 0h1m-29 1h7m1 0h1m1 0h2m3 0h1m5 0h4m1 0h1'
+  },
+  'Jobs Company / Patio Olmos': {
+    url: 'https://g.page/r/CfR_ltI-9NcmEBM/review',
+    lado: 33,
+    trazo: 'M2 2.5h7m2 0h2m1 0h4m3 0h1m2 0h7m-29 1h1m5 0h1m2 0h3m3 0h4m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m5 0h1m1 0h2m1 0h2m1 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h1m2 0h5m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h10m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h1m1 0h1m2 0h1m1 0h2m2 0h1m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-20 1h1m1 0h2m1 0h2m1 0h4m-21 1h1m2 0h1m1 0h2m1 0h1m3 0h3m1 0h1m1 0h4m1 0h1m-23 1h1m3 0h1m2 0h1m4 0h2m1 0h1m2 0h4m2 0h1m2 0h1m-29 1h2m1 0h1m1 0h2m3 0h3m6 0h3m1 0h5m-28 1h1m1 0h3m3 0h2m1 0h1m1 0h1m4 0h1m1 0h1m1 0h1m3 0h2m-28 1h1m1 0h2m1 0h2m1 0h1m2 0h2m1 0h1m2 0h2m2 0h2m2 0h1m1 0h2m-25 1h1m2 0h4m1 0h1m5 0h1m1 0h2m-22 1h1m2 0h2m1 0h2m1 0h3m5 0h2m2 0h8m-29 1h1m1 0h1m5 0h1m1 0h2m1 0h1m2 0h3m1 0h1m2 0h1m1 0h1m1 0h1m-28 1h1m1 0h5m2 0h1m3 0h3m3 0h2m2 0h1m3 0h1m-26 1h2m7 0h1m2 0h1m2 0h1m3 0h3m1 0h1m2 0h1m-29 1h1m1 0h2m2 0h2m1 0h1m2 0h2m3 0h1m3 0h1m5 0h2m-27 1h1m1 0h2m1 0h7m1 0h1m1 0h1m1 0h1m4 0h1m2 0h2m-29 1h1m2 0h2m1 0h2m3 0h1m2 0h3m3 0h5m1 0h1m-19 1h2m1 0h1m1 0h1m1 0h3m1 0h2m3 0h1m1 0h3m-29 1h7m2 0h1m2 0h3m2 0h4m1 0h1m1 0h1m2 0h1m-28 1h1m5 0h1m1 0h1m3 0h2m4 0h1m1 0h1m3 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m3 0h1m1 0h1m1 0h1m1 0h2m2 0h5m2 0h2m-29 1h1m1 0h3m1 0h1m1 0h1m4 0h3m3 0h2m1 0h6m-28 1h1m1 0h3m1 0h1m2 0h2m1 0h3m2 0h1m1 0h3m1 0h4m1 0h1m-29 1h1m5 0h1m2 0h1m3 0h9m2 0h1m2 0h1m-28 1h7m1 0h1m5 0h1m4 0h2m1 0h4m1 0h1'
+  },
+  'Jobs Company / Dino Mall': {
+    url: 'https://g.page/r/CaDN5blLIGF-EBM/review',
+    lado: 33,
+    trazo: 'M2 2.5h7m3 0h6m2 0h2m2 0h7m-29 1h1m5 0h1m1 0h1m1 0h1m2 0h1m1 0h1m3 0h2m1 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h1m3 0h1m2 0h1m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h2m1 0h3m1 0h3m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h2m1 0h4m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m2 0h2m2 0h7m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-20 1h3m1 0h5m2 0h1m-21 1h1m1 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m2 0h1m2 0h2m3 0h1m2 0h1m-27 1h2m5 0h1m2 0h1m1 0h2m1 0h1m2 0h4m2 0h1m2 0h1m-29 1h1m1 0h1m1 0h1m1 0h2m5 0h1m2 0h1m3 0h5m1 0h3m-28 1h2m6 0h2m1 0h3m2 0h1m1 0h2m1 0h2m3 0h1m-28 1h2m1 0h2m1 0h1m2 0h4m1 0h1m5 0h3m2 0h1m1 0h2m-26 1h3m2 0h4m1 0h1m2 0h1m2 0h4m2 0h1m2 0h1m-29 1h1m1 0h1m1 0h5m1 0h3m1 0h1m3 0h1m2 0h2m1 0h2m1 0h2m-27 1h2m4 0h2m3 0h1m2 0h4m3 0h1m1 0h1m1 0h1m-28 1h1m1 0h2m1 0h2m5 0h1m1 0h3m3 0h1m1 0h2m1 0h1m1 0h2m-27 1h1m4 0h1m2 0h3m4 0h1m2 0h3m2 0h2m1 0h1m-29 1h1m5 0h2m1 0h3m1 0h1m3 0h1m3 0h1m5 0h2m-28 1h1m1 0h2m2 0h1m2 0h1m1 0h1m2 0h4m3 0h1m1 0h2m1 0h1m-28 1h1m1 0h1m1 0h3m3 0h2m3 0h2m3 0h5m-17 1h2m1 0h1m1 0h1m1 0h3m1 0h2m3 0h1m1 0h3m-29 1h7m4 0h2m1 0h1m1 0h2m2 0h1m1 0h1m1 0h2m1 0h2m-29 1h1m5 0h1m2 0h1m3 0h2m2 0h1m2 0h1m3 0h2m2 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m3 0h1m1 0h3m1 0h5m2 0h2m-29 1h1m1 0h3m1 0h1m3 0h1m1 0h1m1 0h3m3 0h1m2 0h2m1 0h3m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h2m4 0h1m1 0h1m2 0h2m2 0h1m-29 1h1m5 0h1m6 0h9m2 0h1m2 0h1m-28 1h7m1 0h1m1 0h2m1 0h1m2 0h1m3 0h1m2 0h2m2 0h2'
+  },
+  'Tio Jobs / Independencia 468': {
+    url: 'https://g.page/r/Ca-CvCNpZi3vEBM/review',
+    lado: 33,
+    trazo: 'M2 2.5h7m5 0h1m1 0h1m2 0h3m2 0h7m-29 1h1m5 0h1m1 0h5m4 0h2m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h2m2 0h1m1 0h1m1 0h1m2 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h2m2 0h2m8 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h4m3 0h5m1 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m3 0h1m3 0h1m1 0h2m2 0h1m1 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m2 0h2m1 0h1m1 0h1m1 0h2m-20 1h1m5 0h1m1 0h2m3 0h3m1 0h1m3 0h2m2 0h3m-26 1h2m4 0h1m1 0h2m3 0h1m7 0h2m1 0h2m-27 1h2m1 0h1m1 0h1m1 0h1m1 0h1m2 0h3m2 0h1m1 0h1m2 0h2m-21 1h2m4 0h3m1 0h2m2 0h1m1 0h3m1 0h2m-24 1h2m2 0h1m5 0h4m1 0h1m2 0h1m1 0h2m4 0h1m-29 1h2m5 0h1m1 0h2m4 0h3m1 0h1m2 0h3m2 0h2m-27 1h1m1 0h3m1 0h1m3 0h1m2 0h4m1 0h1m3 0h3m-27 1h1m1 0h1m1 0h2m1 0h1m2 0h3m1 0h2m2 0h1m1 0h3m1 0h1m1 0h1m1 0h1m-26 1h1m2 0h3m2 0h2m4 0h1m3 0h1m1 0h1m1 0h2m-27 1h1m1 0h3m3 0h2m2 0h2m1 0h1m1 0h4m1 0h3m1 0h3m-29 1h2m1 0h6m2 0h1m3 0h1m1 0h3m3 0h1m1 0h1m2 0h1m-29 1h1m1 0h1m2 0h1m2 0h2m3 0h1m2 0h1m2 0h1m1 0h3m-24 1h1m1 0h1m3 0h2m2 0h3m1 0h1m2 0h2m1 0h5m1 0h3m-21 1h1m1 0h1m1 0h1m1 0h1m5 0h1m3 0h2m-26 1h7m2 0h2m1 0h1m2 0h1m1 0h2m1 0h1m1 0h1m1 0h3m-27 1h1m5 0h1m3 0h3m1 0h2m3 0h2m3 0h1m2 0h2m-29 1h1m1 0h3m1 0h1m5 0h5m2 0h7m2 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h3m3 0h2m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m2 0h1m1 0h3m1 0h2m1 0h1m1 0h4m-28 1h1m5 0h1m11 0h1m3 0h2m1 0h2m1 0h1m-29 1h7m1 0h1m3 0h2m1 0h1m5 0h4m1 0h1'
+  }
+};
+
+function qrReseniaSvg(local, px) {
+  const r = RESENIA[local];
+  if (!r) return '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${r.lado} ${r.lado}" width="${px}" height="${px}" shape-rendering="crispEdges" style="display:block;"><path fill="#fff" d="M0 0h${r.lado}v${r.lado}h-${r.lado}z"/><path stroke="#000" d="${r.trazo}"/></svg>`;
+}
+
+// Copia 1: la que firma el cliente y queda en el local.
+function bloqueFirmaGarantia() {
+  return `<div class="firma">
+    <div class="linea"></div>
+    <strong>FIRMA, ACLARACIÓN, DNI Y NÚMERO DE CONTACTO</strong>
+  </div>`;
+}
+
+// Copia 2: la del cliente. Sin firma; en su lugar, el pedido de reseña.
+// conQr=true (papel): texto + QR al costado. conQr=false (mail/PDF): texto +
+// link clickeable. Sin link cargado para ese local: pide buscarlo por nombre.
+function bloqueReseniaGarantia(local, conQr) {
+  const r = RESENIA[local];
+  const pedido = `<strong>¡Gracias por tu compra!</strong>
+    <p>Tu opinión nos ayuda mucho. Si tu experiencia fue buena, ¿nos dejás una reseña en Google Maps? Te lleva menos de un minuto.</p>`;
+  if (r && conQr) {
+    return `<div class="box resena">
+    <table class="resena-tabla"><tr>
+      <td>${pedido}<p>Escaneá el código con la cámara de tu celular.</p></td>
+      <td class="qr">${qrReseniaSvg(local, 84)}</td>
+    </tr></table>
+  </div>`;
+  }
+  const como = r
+    ? `<a href="${r.url}">Dejar mi reseña en Google Maps</a>`
+    : (local ? `Buscanos en Google Maps como <strong>«${local}»</strong>.` : '');
+  return `<div class="box resena">
+    ${pedido}
+    ${como ? `<p>${como}</p>` : ''}
+  </div>`;
+}
+
+const GARANTIA_CATEGORIAS = {
+  iphone: {
+    desbloqueo: true,
+    buscar: 'la función «Buscar mi iPhone» desactivada (o con la contraseña de iCloud para desactivarla)',
+    agua: 'Daños por agua o humedad. El equipo es resistente al agua, pero no es sumergible.',
+    camara: true
+  },
+  ipad: {
+    desbloqueo: true,
+    buscar: 'la función «Buscar mi iPad» desactivada (o con la contraseña de iCloud para desactivarla)',
+    agua: 'Daños por agua o humedad (líquidos derramados, salpicaduras o inmersión).',
+    camara: false
+  },
+  watch: {
+    desbloqueo: true,
+    buscar: 'el reloj desvinculado del iPhone y con el Bloqueo de activación desactivado (o con la contraseña de iCloud para desactivarlo)',
+    agua: 'Daños por agua o humedad. El reloj es resistente al agua, pero no es sumergible.',
+    camara: false
+  },
+  mac: {
+    desbloqueo: true,
+    buscar: 'la función «Buscar mi Mac» desactivada (o con la contraseña de iCloud para desactivarla)',
+    agua: 'Daños por líquidos derramados, agua o humedad.',
+    camara: false
+  },
+  airpods: {
+    desbloqueo: false,
+    buscar: 'los auriculares desvinculados de la cuenta de iCloud (con la función «Buscar» desactivada)',
+    agua: 'Daños por agua o humedad. Según el modelo resisten sudor y salpicaduras, pero no son sumergibles.',
+    camara: false
+  },
+  otro: {
+    desbloqueo: true,
+    buscar: 'las cuentas y bloqueos del fabricante desactivados (o con las credenciales para desactivarlos)',
+    agua: 'Daños por agua o humedad.',
+    camara: false
+  }
+};
+
 // Arma el contenido (paginas 1 y 2, identicas, una para el cliente y otra
-// para el local) de la garantia de un equipo -- misma plantilla legal por
-// sucursal/condicion que siempre se uso.
+// para el local) de la garantia de un equipo. Mismo texto legal para las
+// 3 sucursales; cambian el CUIT y el logo (ver cuitDeSucursal).
 function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
   const plantilla = GARANTIA_TEXTOS[datos.sucursal][datos.condicion];
+  const cat = GARANTIA_CATEGORIAS[categoriaGarantia(datos.modelo)];
+  const esSemiNuevo = datos.condicion === 'seminuevo';
   const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
   // La garantia de Shopping y Dino no muestra el precio de la operacion
   // (Independencia si).
   const lineaValorOperacion = datos.sucursal !== 'Independencia'
     ? ''
-    : `<div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>`;
+    : `<div class="campo"><strong>Valor de la operación:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>`;
+
+  // La condicion de bateria solo se informa en iPhone Semi-Nuevo (sale de la
+  // planilla de Stock o se carga a mano en el modal).
+  const informaBateria = esSemiNuevo && categoriaGarantia(datos.modelo) === 'iphone' && datos.bateria;
+  const lineaBateria = informaBateria
+    ? `<div class="campo"><strong>Condición de batería:</strong> ${datos.bateria}</div>`
+    : '';
+
+  const textoBateria = informaBateria
+    ? 'la condición de batería que informa el equipo es una estimación y puede variar algunos puntos con el uso sin que esto signifique una falla, por lo que el equipo no se cambia por pequeñas variaciones en ese valor. '
+    : 'el desgaste normal por el uso no se considera una falla. ';
 
   const boxAccesorios = datos.accesorios.length
     ? `<div class="box"><strong>Accesorios incluidos</strong><ul>${datos.accesorios.map(a => `<li>${a}</li>`).join('')}</ul></div>`
@@ -2295,38 +2545,72 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
     ? `<div class="box"><strong>Observaciones</strong>${datos.observaciones.map(o => `<p>${o}</p>`).join('')}</div>`
     : '';
 
+  const pasoPresentar = cat.desbloqueo
+    ? `Presentar el equipo junto con esta garantía, con el código de desbloqueo y con ${cat.buscar}.`
+    : `Presentar el equipo junto con esta garantía y con ${cat.buscar}.`;
+
   // Contenido de la garantia en si (paginas 1 y 2 son identicas -- 2 copias,
   // una para el cliente y otra para el local).
-  const contenidoGarantia = `
+  const lineaLocal = datos.local ? `<div class="campo"><strong>Sucursal:</strong> ${datos.local}</div>` : '';
+  // Con accesorios u observaciones la hoja se llena: texto un poco mas chico para que entre en una A4.
+  const claseLegal = (datos.accesorios.length || (datos.observaciones || []).length) ? 'legal compacta' : 'legal';
+  const arma = (copiaCliente, conQr) => `
   ${encabezadoLogo}
-  <h1>Cordoba, ${fecha}</h1>
-  <p>En el dia de hoy recibo de Jobs Company SAS, el equipo que a continuacion se describe:</p>
+  <h1>Córdoba, ${fecha}</h1>
+  <p>En el día de hoy recibo de Jobs Company SAS el equipo que a continuación se describe:</p>
 
   <div class="campo"><strong>Marca:</strong> Apple</div>
   <div class="campo"><strong>Modelo:</strong> ${datos.modelo} ${datos.capacidad}</div>
   <div class="campo"><strong>IMEI/Serie:</strong> ${datos.imei}</div>
   <div class="campo"><strong>Color:</strong> ${datos.color}</div>
+  ${copiaCliente ? lineaLocal : ''}
+  ${lineaBateria}
   ${lineaValorOperacion}
 
-  <p>Dando por entendido, que se entrega en conformidad un equipo en calidad de <strong>${plantilla.condicionTexto}</strong>,
-  el cual tiene un perfecto funcionamiento de todos sus componentes.
-  El equipo antes mencionado cuenta con ${plantilla.garantiaTexto} a partir de la fecha de compra siempre y cuando,
-  los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del dispositivo,
-  se debera acercar a cualquiera de las sucursales de JobsCompany para hacer valer la garantia.</p>
+  <div class="${claseLegal}">
+    <p>Se deja constancia de que se entrega en conformidad un equipo en calidad de <strong>${plantilla.condicionTexto}</strong>,
+    el cual tiene un perfecto funcionamiento de todos sus componentes.</p>
 
-  <p>La empresa y/o el colaborador no se responsabilizan por la perdida de datos que pudiera ocurrir durante el proceso
-  de transferencia de informacion. El cliente es responsable de proporcionar y conservar las credenciales de acceso
-  necesarias para realizar dicho procedimiento.</p>
+    <p>El equipo antes mencionado cuenta con <strong>${plantilla.garantiaTexto}</strong> a partir de la fecha de compra, siempre y cuando
+    los eventuales deterioros se produzcan por hechos no imputables al consumidor.</p>
+
+    <h2>CONDICIONES DE LA GARANTÍA</h2>
+    <p>La garantía cubre fallas de funcionamiento del equipo. <strong>No cubre:</strong></p>
+    <ul>
+      <li>Daños causados por golpes, caídas o presión, incluyendo pantalla rota o rayada.</li>
+      <li>${cat.agua}</li>
+      ${cat.camara ? '<li>Daños en la cámara por apuntar láseres directamente al lente (por ejemplo, en recitales o boliches). Es un daño irreversible.</li>' : ''}
+      <li>Equipos abiertos, reparados o manipulados por otro servicio técnico. Esto anula la garantía de manera inmediata.</li>
+    </ul>
+
+    <p><strong>Batería:</strong> ${textoBateria}La duración diaria depende del brillo, la señal, el uso de wifi y Bluetooth, las notificaciones, la temperatura y la forma de carga.
+    La garantía cubre la batería ante fallas reales: si el equipo se apaga solo, si la batería se hincha o si no carga.</p>
+
+    <h2>Cómo hacer válida la garantía:</h2>
+    <ol>
+      <li>Comunicarse previamente por WhatsApp con ${CONTACTO_GARANTIA}.</li>
+      <li>${pasoPresentar}</li>
+      <li>Nuestro técnico revisará el equipo para comprobar la falla. La revisión puede demorar hasta 48 hs hábiles.</li>
+      <li>De ser necesario y posible, el equipo será reparado.</li>
+      <li>Si la reparación no es posible o no resulta satisfactoria, se cambiará el equipo por otro de iguales características.
+      Si no hubiera stock del mismo color, el cliente podrá optar por otro color disponible.</li>
+    </ol>
+
+    <p>Si la falla se debe a alguna de las causas que la garantía no cubre, el cliente podrá solicitar un presupuesto de reparación a su cargo.</p>
+
+    <p>La empresa y/o el colaborador no se responsabilizan por la pérdida de datos que pudiera ocurrir durante el proceso de transferencia de información.
+    El cliente es responsable de proporcionar y conservar las credenciales de acceso necesarias para realizar dicho procedimiento.</p>
+  </div>
 
   ${boxObservacion}
   ${boxAccesorios}
 
-  <div class="campo">CUIT: 30-71929577-7</div>
+  <div class="campo cuit">CUIT: ${cuitDeSucursal(datos.sucursal)}</div>
 
-  <div class="firma">
-    <div class="linea"></div>
-    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
-  </div>`;
+  ${copiaCliente ? bloqueReseniaGarantia(datos.local, conQr) : bloqueFirmaGarantia()}`;
+  const contenidoGarantia = arma(false);
+  const contenidoCliente = arma(true, true); // papel: con QR
+  const contenidoClienteMail = arma(true, false); // mail/PDF: con link
 
   // Filas de este equipo para la planilla combinada -- si es el unico
   // producto de la venta se usan las etiquetas de siempre (EQUIPO, GB,
@@ -2337,7 +2621,7 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
     ['PESOS', formatNumberArg(datos.precio)]
   ];
 
-  return { contenidoGarantia, filasPlanilla, pesos: datos.precio, tradeIn: datos.tradeIn };
+  return { contenidoGarantia, contenidoCliente, contenidoClienteMail, filasPlanilla, pesos: datos.precio, tradeIn: datos.tradeIn };
 }
 
 // Arma el contenido (paginas 1 y 2) de la garantia de un producto con
@@ -2347,27 +2631,32 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
 // seminuevo ni aviso de perdida de datos, que no aplica).
 function construirContenidoGarantiaAccesorio(datos, encabezadoLogo, fecha) {
   const precioUsd = Math.round(datos.precio / DATA.dolar.DolarVenta);
-  const contenidoGarantia = `
+  const lineaLocal = datos.local ? `<div class="campo"><strong>Sucursal:</strong> ${datos.local}</div>` : '';
+  const arma = (copiaCliente, conQr) => `
   ${encabezadoLogo}
-  <h1>Cordoba, ${fecha}</h1>
-  <p>En el dia de hoy recibo de Jobs Company SAS, el producto que a continuacion se describe:</p>
+  <h1>Córdoba, ${fecha}</h1>
+  <p>En el día de hoy recibo de Jobs Company SAS el producto que a continuación se describe:</p>
 
   <div class="campo"><strong>Marca:</strong> ${datos.marca}</div>
   <div class="campo"><strong>Modelo:</strong> ${datos.nombreProducto}</div>
-  <div class="campo"><strong>Numero de serie:</strong> ${datos.imei}</div>
-  <div class="campo"><strong>Valor de la operacion:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>
+  <div class="campo"><strong>Número de serie:</strong> ${datos.imei}</div>
+  ${copiaCliente ? lineaLocal : ''}
+  <div class="campo"><strong>Valor de la operación:</strong> ${formatNumberArg(datos.precio)} (USD ${precioUsd})</div>
 
-  <p>Dando por entendido, que se entrega en conformidad un producto en perfecto funcionamiento de todos sus componentes.
-  El producto antes mencionado cuenta con 1 (un) ano de garantia a partir de la fecha de compra siempre y cuando,
-  los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del producto,
-  se debera acercar a cualquiera de las sucursales de JobsCompany para hacer valer la garantia.</p>
+  <div class="legal">
+    <p>Se deja constancia de que se entrega en conformidad un producto en perfecto funcionamiento de todos sus componentes.
+    El producto antes mencionado cuenta con 1 (un) año de garantía a partir de la fecha de compra, siempre y cuando
+    los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del producto,
+    se deberá acercar a cualquiera de las sucursales de Jobs Company para hacer valer la garantía, o comunicarse previamente por WhatsApp
+    con ${CONTACTO_GARANTIA}.</p>
+  </div>
 
-  <div class="campo">CUIT: 30-71929577-7</div>
+  <div class="campo cuit">CUIT: ${cuitDeSucursal(datos.sucursal)}</div>
 
-  <div class="firma">
-    <div class="linea"></div>
-    <strong>FIRMA, ACLARACION, DNI Y NUMERO DE CONTACTO</strong>
-  </div>`;
+  ${copiaCliente ? bloqueReseniaGarantia(datos.local, conQr) : bloqueFirmaGarantia()}`;
+  const contenidoGarantia = arma(false);
+  const contenidoCliente = arma(true, true); // papel: con QR
+  const contenidoClienteMail = arma(true, false); // mail/PDF: con link
 
   const filasPlanilla = [
     ['PRODUCTO', datos.nombreProducto],
@@ -2375,8 +2664,60 @@ function construirContenidoGarantiaAccesorio(datos, encabezadoLogo, fecha) {
     ['PESOS', formatNumberArg(datos.precio)]
   ];
 
-  return { contenidoGarantia, filasPlanilla, pesos: datos.precio, tradeIn: null };
+  return { contenidoGarantia, contenidoCliente, contenidoClienteMail, filasPlanilla, pesos: datos.precio, tradeIn: null };
 }
+
+// Estilos compartidos por la garantia impresa y la que va por mail (PDF).
+const ESTILOS_GARANTIA = `
+  body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; }
+  h1 { font-size: 18px; text-align: center; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 6px; }
+  p { text-align: justify; }
+  .campo { margin: 6px 0; }
+  .campo strong { display: inline-block; min-width: 140px; }
+  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
+  .box strong { display: block; margin-bottom: 4px; }
+  .box p, .box ul { margin: 4px 0 0; }
+  .pagina { max-width: 700px; min-height: 950px; margin: 40px auto; padding-bottom: 40px; display: flex; flex-direction: column; page-break-after: always; }
+  .pagina:last-child { page-break-after: auto; }
+  .pagina > *:not(.firma) { flex-shrink: 0; }
+  .firma { margin-top: auto; padding-top: 40px; }
+  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
+  .planilla { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  .planilla td { border: 1px solid #999; padding: 8px 10px; }
+  .planilla td.etiqueta { font-weight: bold; width: 45%; background: #f7f7f7; }
+  .planilla td.valor { min-height: 20px; }
+  /* Texto legal nuevo: mas largo, asi que va mas compacto para entrar en una hoja A4 */
+  @page { size: A4; margin: 10mm 12mm; }
+  .legal p, .legal li { font-size: 10.5px; line-height: 1.3; margin: 3px 0; text-align: justify; }
+  .legal h2 { font-size: 11.5px; margin: 8px 0 2px; }
+  .legal.compacta p, .legal.compacta li { font-size: 9.8px; line-height: 1.25; margin: 2px 0; }
+  .legal.compacta h2 { font-size: 11px; margin: 6px 0 1px; }
+  .legal ul, .legal ol { margin: 2px 0; padding-left: 18px; }
+  .legal li { margin-bottom: 1px; }
+  .pagina .campo { margin: 2px 0; font-size: 11.5px; }
+  .pagina .campo strong { min-width: 150px; }
+  .pagina h1 { font-size: 15px; margin: 4px 0 8px; }
+  .pagina > p { font-size: 11.5px; margin: 4px 0; }
+  .cuit { margin-top: 8px; }
+  .box.resena { margin-top: 10px; padding: 6px 10px; }
+  .box.resena strong { margin-bottom: 2px; }
+  .box.resena p { font-size: 10.5px; line-height: 1.3; margin: 2px 0; }
+  .resena-tabla { width: 100%; border-collapse: collapse; }
+  .resena-tabla td { border: 0; padding: 0; vertical-align: middle; }
+  .resena-tabla td.qr { width: 92px; padding-left: 10px; }
+  .resena-tabla td.qr svg { margin-left: auto; }
+  @media print { .pagina { margin: 0 auto; min-height: 1010px; } }
+`;
+
+// Para el PDF del mail: el conversor de Apps Script es mas viejo que Chrome y
+// no maneja bien flex/min-height, asi que se pisa el layout de .pagina con
+// bloques simples (la firma queda debajo del texto, sin pegarse al fondo).
+const ESTILOS_GARANTIA_MAIL = ESTILOS_GARANTIA + `
+  .pagina { display: block; min-height: 0; margin: 0 auto; padding-bottom: 0; }
+  .firma { margin-top: 40px; padding-top: 0; }
+`;
 
 // Imprime TODO lo que se fue acumulando en garantiaCombinada de una sola
 // vez: 2 copias (cliente + local) de la garantia de cada producto, y AL
@@ -2393,10 +2734,11 @@ async function imprimirGarantiaCombinada() {
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
-  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:60px; display:block; margin:0 auto 16px;">` : '';
+  const encabezadoLogo = logo ? `<img src="${logo}" alt="Jobs Company" style="height:48px; display:block; margin:0 auto 8px;">` : '';
   const fecha = new Date().toLocaleDateString('es-AR');
 
   const paginasGarantia = [];
+  const copiasCliente = []; // 1 copia por producto: es la que va por mail
   const bloquesPlanilla = [];
   let totalPesos = 0;
   let tradeInVenta = null;
@@ -2408,7 +2750,10 @@ async function imprimirGarantiaCombinada() {
       : construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha);
 
     // 2 copias de cada garantia (cliente + local), una despues de la otra.
-    paginasGarantia.push(construido.contenidoGarantia, construido.contenidoGarantia);
+    // Copia 1 (la firma el cliente y queda en el local) + copia 2 (la del cliente,
+    // sin firma y con el pedido de resena; es la que tambien viaja por mail).
+    paginasGarantia.push(construido.contenidoGarantia, construido.contenidoCliente);
+    copiasCliente.push(construido.contenidoClienteMail);
     totalPesos += construido.pesos;
     if (construido.tradeIn) tradeInVenta = construido.tradeIn;
     if (datos.vendedor && vendedoresVistos.indexOf(datos.vendedor) === -1) vendedoresVistos.push(datos.vendedor);
@@ -2453,27 +2798,7 @@ async function imprimirGarantiaCombinada() {
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Garantia</title>
-<style>
-  body { font-family: Arial, sans-serif; color: #111; line-height: 1.5; }
-  h1 { font-size: 18px; text-align: center; }
-  ul { padding-left: 20px; }
-  li { margin-bottom: 6px; }
-  p { text-align: justify; }
-  .campo { margin: 6px 0; }
-  .campo strong { display: inline-block; min-width: 140px; }
-  .box { border: 1px solid #999; border-radius: 6px; padding: 10px 14px; margin-top: 16px; background: #f7f7f7; }
-  .box strong { display: block; margin-bottom: 4px; }
-  .box p, .box ul { margin: 4px 0 0; }
-  .pagina { max-width: 700px; min-height: 950px; margin: 40px auto; padding-bottom: 40px; display: flex; flex-direction: column; page-break-after: always; }
-  .pagina:last-child { page-break-after: auto; }
-  .pagina > *:not(.firma) { flex-shrink: 0; }
-  .firma { margin-top: auto; padding-top: 40px; }
-  .firma .linea { margin-bottom: 6px; border-top: 1px solid #333; width: 300px; }
-  .planilla { width: 100%; border-collapse: collapse; margin-top: 20px; }
-  .planilla td { border: 1px solid #999; padding: 8px 10px; }
-  .planilla td.etiqueta { font-weight: bold; width: 45%; background: #f7f7f7; }
-  .planilla td.valor { min-height: 20px; }
-</style></head>
+<style>${ESTILOS_GARANTIA}</style></head>
 <body>
   ${paginasGarantia.map(p => `<div class="pagina">${p}</div>`).join('\n  ')}
   <div class="pagina">${contenidoPlanilla}</div>
@@ -2483,6 +2808,31 @@ async function imprimirGarantiaCombinada() {
 
   ventana.document.write(html);
   ventana.document.close();
+
+  // Mail al cliente: va despues de abrir la impresion y nunca la bloquea.
+  if (enviarMailVenta && emailVenta) {
+    const htmlMail = `<!doctype html><html><head><meta charset="utf-8"><style>${ESTILOS_GARANTIA_MAIL}</style></head><body>
+  ${copiasCliente.map(p => `<div class="pagina">${p}</div>`).join('\n  ')}
+</body></html>`;
+    enviarGarantiaPorMail(htmlMail);
+  }
+}
+
+// Manda la garantia digital (PDF) + el cupon de la tienda al email del
+// cliente, via el Apps Script de Reportes (accion garantia-enviar-mail). Es
+// fire-and-forget: si falla se avisa, pero la venta y la impresion ya
+// salieron. opIdVenta evita que un reintento mande el mail dos veces.
+async function enviarGarantiaPorMail(htmlGarantia) {
+  try {
+    const resp = await llamarReportesWrite({
+      accion: 'garantia-enviar-mail',
+      email: emailVenta, cliente: clienteVenta, sucursal: sucursalActual,
+      htmlGarantia, opId: opIdVenta
+    });
+    if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
+  } catch (error) {
+    MostrarAlerta({ tipo: 'warning', title: 'Garantia', mnsj: 'No se pudo enviar la garantia por mail a ' + emailVenta + ': ' + error.message });
+  }
 }
 
 // ============================ RESERVA DE EQUIPO ============================
@@ -3281,6 +3631,7 @@ function iniciarApp(sesion) {
   document.getElementById('btnConfirmarGarantia').addEventListener('click', ConfirmarGarantia);
   // Garantia: lista de IMEI en Stock (ver iniciarGarantiaDesdeStock).
   $('#gtSucursalSel').on('change', () => poblarModelosGarantia(colaGarantia[0].equipo));
+  $('#gtVendedor').on('change', sugerirLocalPorVendedor);
   $('#gtModeloSel').on('change', poblarImeisGarantia);
   $('#gtImeiFiltro').on('input', poblarImeisGarantia);
   $('#gtImeiSel').on('change', elegirImeiGarantia);

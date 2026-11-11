@@ -1,6 +1,13 @@
 // Historial de versiones del cotizador: icono "!" de la barra superior.
 // Para sumar una version nueva, agregarla ARRIBA de todo en VERSIONES.
 const VERSIONES = [
+  { v: '2.8', fecha: '11/11/2026', titulo: 'Garantia por mail y cuidado del stock', items: [
+    'Garantia nueva: condiciones claras (que cubre y que no), como hacer valida la garantia y contacto de servicio tecnico, con una version para cada tipo de equipo (iPhone, iPad, Watch, Mac, AirPods) y CUIT segun la sucursal.',
+    'iPhone Semi-Nuevo: la condicion de bateria sale impresa (se completa sola desde Stock).',
+    'La garantia sale en 2 copias: la firmada para el local y la del cliente (sin firma, con el local de la compra y un QR para dejar una resena en Google Maps). Esa segunda copia es la que viaja por mail.',
+    'Garantia: se pide el email del cliente y, con el tilde activado, se le manda la garantia en PDF junto con su cupon de descuento para la tienda online.',
+    'Confirmar e imprimir queda bloqueado mientras procesa: ya no se duplican filas en Stock ni en Reportes.',
+    'Un IMEI repetido en stock ya no frena la venta: se da de baja y el administrador recibe una alerta.' ] },
   { v: '2.7', fecha: '28/10/2026', titulo: 'Comisiones al dia', items: [
     'Equipos: al llegar justo a la cantidad del escalon (5, 10, 15...) ya se cobra el valor del escalon siguiente.',
     'Todo lo que se vende con garantia (iPhone, MacBook, iPad, AirPods, Watch, etc.) cuenta como equipo vendido.',

@@ -6635,6 +6635,26 @@
         <label>DNI del cliente</label>
         <input type="text" id="gtDni" placeholder="Solo numeros" autocomplete="off" inputmode="numeric">
       </div>
+      <!-- Email del cliente: siempre se pide y se guarda en VentasEquipos. Con
+           el tilde "Enviar la garantia por mail" (activado por defecto) tambien
+           se le manda la garantia en PDF + el cupon de la tienda web (ver
+           enviarGarantiaPorMail en app.js). -->
+      <!-- Local donde se hace la venta: sale en la copia del cliente. Solo se
+           muestra cuando la sucursal tiene mas de uno (Shopping). -->
+      <div class="form-group-total sp-t oculto" id="gtLocalContenedor">
+        <label>Local donde se hace la venta</label>
+        <select id="gtLocal"></select>
+      </div>
+      <div class="form-group-total sp-t">
+        <label>Email del cliente</label>
+        <input type="email" id="gtEmail" placeholder="correo@ejemplo.com" autocomplete="off" inputmode="email">
+      </div>
+      <div class="form-group-total sp-t">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" id="gtEnviarMail" checked style="width:auto;"> Enviar la garantia por mail
+        </label>
+        <p style="margin:6px 0 0; font-size:12px; opacity:.7;">El cliente acepta recibir su garantia y novedades de Jobs Company por mail.</p>
+      </div>
       <!-- Equipo elegido de la planilla de Stock (sin tipear el IMEI): sucursal
            -> modelo (sale del carrito, se puede cambiar) -> IMEI disponible.
            Ver poblarGarantiaDesdeStock en app.js. El modo manual (abajo) es
@@ -6687,6 +6707,13 @@
           </select>
         </div>
         <a href="#" id="gtVolverLista" class="sm-t oculto">Volver a elegir de la lista</a>
+      </div>
+      <!-- Solo iPhone Semi-Nuevo: la condicion de bateria sale impresa en la
+           garantia. Se completa sola con el dato de la planilla de Stock al
+           elegir el IMEI; si no esta cargada (o es carga a mano) se escribe aca. -->
+      <div class="form-group-total sp-t oculto" id="gtBateriaContenedor">
+        <label>Condición de batería (%)</label>
+        <input type="text" id="gtBateria" placeholder="Ej. 88" autocomplete="off" inputmode="numeric">
       </div>
       <!-- Solo Independencia -- para hacer seguimiento de que ventas vienen
            de una campana paga (ver AbrirModalGarantia en app.js). -->
