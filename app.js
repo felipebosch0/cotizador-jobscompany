@@ -2363,6 +2363,34 @@ function cuitDeSucursal(sucursal) {
 // A quien se le escribe para hacer valer la garantia (sale impreso).
 const CONTACTO_GARANTIA = 'Moises (Servicio técnico especializado Jobs Company) al <strong>+54&nbsp;9&nbsp;351&nbsp;787-9711</strong>';
 
+// Otra forma de contactar al tecnico: QR (en el papel) o link (en el mail/PDF)
+// que abre un chat de WhatsApp con el mismo numero. El QR es el que armo el
+// negocio en scanned.page (cuenta con estadisticas de escaneos); "trazo" es su
+// dibujo ya generado y 'lado' el tamaño en modulos con borde.
+const TECNICO_WA = {
+  url: 'https://scanned.page/p/QN1WYy',
+  lado: 33,
+  trazo: 'M2 2.5h7m2 0h1m2 0h2m1 0h1m3 0h1m2 0h7m-29 1h1m5 0h1m2 0h3m4 0h1m1 0h2m2 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h1m1 0h4m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m4 0h1m3 0h1m2 0h1m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m2 0h1m4 0h3m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h3m5 0h1m1 0h2m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-20 1h1m2 0h1m3 0h4m-19 1h1m2 0h1m1 0h1m1 0h2m1 0h1m5 0h1m1 0h1m1 0h1m1 0h2m1 0h1m-26 1h3m6 0h3m2 0h1m1 0h1m1 0h1m2 0h1m1 0h5m-29 1h1m2 0h7m3 0h4m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m-26 1h2m2 0h1m1 0h2m2 0h2m2 0h1m3 0h1m1 0h1m1 0h1m1 0h2m-28 1h1m2 0h1m1 0h1m1 0h4m5 0h1m1 0h2m2 0h1m1 0h1m2 0h1m-29 1h2m1 0h3m3 0h1m2 0h7m3 0h1m1 0h1m1 0h1m1 0h1m-29 1h1m2 0h1m1 0h3m1 0h1m3 0h1m1 0h3m2 0h1m3 0h1m3 0h1m-29 1h2m1 0h1m4 0h1m3 0h1m3 0h4m3 0h1m1 0h1m1 0h2m-29 1h1m3 0h1m1 0h2m3 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h1m-24 1h2m5 0h2m1 0h1m1 0h3m2 0h2m1 0h2m1 0h2m1 0h1m1 0h1m-25 1h3m3 0h3m1 0h2m2 0h1m5 0h3m1 0h1m-25 1h2m1 0h2m2 0h3m1 0h3m1 0h2m3 0h2m2 0h1m-29 1h4m2 0h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h6m1 0h2m-21 1h1m1 0h2m2 0h2m2 0h1m1 0h1m3 0h1m1 0h3m-29 1h7m2 0h2m1 0h1m1 0h4m1 0h2m1 0h1m1 0h1m3 0h1m-29 1h1m5 0h1m2 0h2m1 0h1m2 0h1m1 0h1m1 0h2m3 0h2m1 0h1m-28 1h1m1 0h3m1 0h1m1 0h1m2 0h1m6 0h7m2 0h2m-29 1h1m1 0h3m1 0h1m5 0h3m1 0h1m1 0h1m4 0h1m2 0h2m-28 1h1m1 0h3m1 0h1m2 0h1m6 0h6m3 0h1m1 0h2m-29 1h1m5 0h1m1 0h3m2 0h1m3 0h2m2 0h3m3 0h2m-29 1h7m2 0h3m3 0h1m1 0h1m2 0h2m2 0h2m1 0h1'
+};
+
+// Mail de contacto para sugerencias (sale en el pedido de resena).
+const EMAIL_CONTACTO = 'jobs.admi1@gmail.com';
+
+// Contacto rapido al tecnico. En papel (copia 1 y copia 2 impresa) va un QR al
+// costado de los pasos; en el mail/PDF (copia 2 con conQr=false) un link clickeable.
+function esPapelGarantia(copiaCliente, conQr) { return !copiaCliente || !!conQr; }
+function opcionTecnicoDe(copiaCliente, conQr) {
+  return esPapelGarantia(copiaCliente, conQr)
+    ? ' (o escaneando el código QR de al lado)'
+    : ` (o <a href="${TECNICO_WA.url}">escribiendo desde este link</a>)`;
+}
+function qrTecnicoDe(copiaCliente, conQr) {
+  return esPapelGarantia(copiaCliente, conQr)
+    ? `<td class="qr">${qrSvgDe(TECNICO_WA, 72)}<div class="qr-leyenda">Escribile al técnico<br />por WhatsApp</div></td>`
+    : '';
+}
+
+
 // Cada tipo de equipo cambia unas pocas frases (que funcion de Apple hay que
 // desactivar, si es resistente al agua, si lleva la clausula de la camara).
 // El resto del texto es comun. 'otro' es el generico para cualquier equipo
@@ -2433,7 +2461,10 @@ const RESENIA = {
 
 function qrReseniaSvg(local, px) {
   const r = RESENIA[local];
-  if (!r) return '';
+  return r ? qrSvgDe(r, px) : '';
+}
+
+function qrSvgDe(r, px) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${r.lado} ${r.lado}" width="${px}" height="${px}" shape-rendering="crispEdges" style="display:block;"><path fill="#fff" d="M0 0h${r.lado}v${r.lado}h-${r.lado}z"/><path stroke="#000" d="${r.trazo}"/></svg>`;
 }
 
@@ -2450,8 +2481,12 @@ function bloqueFirmaGarantia() {
 // link clickeable. Sin link cargado para ese local: pide buscarlo por nombre.
 function bloqueReseniaGarantia(local, conQr) {
   const r = RESENIA[local];
+  const contacto = conQr
+    ? `<strong>${EMAIL_CONTACTO}</strong>`
+    : `<a href="mailto:${EMAIL_CONTACTO}">${EMAIL_CONTACTO}</a>`;
   const pedido = `<strong>¡Gracias por tu compra!</strong>
-    <p>Tu opinión nos ayuda mucho. Si tu experiencia fue buena, ¿nos dejás una reseña en Google Maps? Te lleva menos de un minuto.</p>`;
+    <p>Tu opinión nos ayuda mucho. Si tu experiencia fue buena, ¿nos dejás una reseña en Google Maps? Te lleva menos de un minuto.</p>
+    <p>Y si tenés algo para comentarnos que creas que podría mejorar nuestro servicio, atención o negocio, te dejamos un mail de contacto: ${contacto}.</p>`;
   if (r && conQr) {
     return `<div class="box resena">
     <table class="resena-tabla"><tr>
@@ -2473,7 +2508,7 @@ const GARANTIA_CATEGORIAS = {
   iphone: {
     desbloqueo: true,
     buscar: 'la función «Buscar mi iPhone» desactivada (o con la contraseña de iCloud para desactivarla)',
-    agua: 'Daños por agua o humedad. El equipo es resistente al agua, pero no es sumergible.',
+    agua: 'Daños por agua o humedad. El equipo no es sumergible.',
     camara: true
   },
   ipad: {
@@ -2485,7 +2520,7 @@ const GARANTIA_CATEGORIAS = {
   watch: {
     desbloqueo: true,
     buscar: 'el reloj desvinculado del iPhone y con el Bloqueo de activación desactivado (o con la contraseña de iCloud para desactivarlo)',
-    agua: 'Daños por agua o humedad. El reloj es resistente al agua, pero no es sumergible.',
+    agua: 'Daños por agua o humedad. El reloj no es sumergible.',
     camara: false
   },
   mac: {
@@ -2497,7 +2532,7 @@ const GARANTIA_CATEGORIAS = {
   airpods: {
     desbloqueo: false,
     buscar: 'los auriculares desvinculados de la cuenta de iCloud (con la función «Buscar» desactivada)',
-    agua: 'Daños por agua o humedad. Según el modelo resisten sudor y salpicaduras, pero no son sumergibles.',
+    agua: 'Daños por agua o humedad. Los auriculares no son sumergibles.',
     camara: false
   },
   otro: {
@@ -2587,14 +2622,15 @@ function construirContenidoGarantiaEquipo(datos, encabezadoLogo, fecha) {
     La garantía cubre la batería ante fallas reales: si el equipo se apaga solo, si la batería se hincha o si no carga.</p>
 
     <h2>Cómo hacer válida la garantía:</h2>
-    <ol>
-      <li>Comunicarse previamente por WhatsApp con ${CONTACTO_GARANTIA}.</li>
-      <li>${pasoPresentar}</li>
-      <li>Nuestro técnico revisará el equipo para comprobar la falla. La revisión puede demorar hasta 48 hs hábiles.</li>
-      <li>De ser necesario y posible, el equipo será reparado.</li>
-      <li>Si la reparación no es posible o no resulta satisfactoria, se cambiará el equipo por otro de iguales características.
-      Si no hubiera stock del mismo color, el cliente podrá optar por otro color disponible.</li>
-    </ol>
+    <table class="como-tabla"><tr>
+      <td><ol>
+        <li>Comunicarse previamente por WhatsApp con ${CONTACTO_GARANTIA}${opcionTecnicoDe(copiaCliente, conQr)}.</li>
+        <li>${pasoPresentar}</li>
+        <li>Nuestro técnico revisará el equipo para comprobar la falla. La revisión puede demorar hasta 48 hs hábiles.</li>
+        <li>De ser necesario y posible, el equipo será reparado.</li>
+      </ol></td>
+      ${qrTecnicoDe(copiaCliente, conQr)}
+    </tr></table>
 
     <p>Si la falla se debe a alguna de las causas que la garantía no cubre, el cliente podrá solicitar un presupuesto de reparación a su cargo.</p>
 
@@ -2648,7 +2684,8 @@ function construirContenidoGarantiaAccesorio(datos, encabezadoLogo, fecha) {
     El producto antes mencionado cuenta con 1 (un) año de garantía a partir de la fecha de compra, siempre y cuando
     los eventuales deterioros se produzcan por hechos no imputables al consumidor. En caso de falla del producto,
     se deberá acercar a cualquiera de las sucursales de Jobs Company para hacer valer la garantía, o comunicarse previamente por WhatsApp
-    con ${CONTACTO_GARANTIA}.</p>
+    con ${CONTACTO_GARANTIA}${opcionTecnicoDe(copiaCliente, conQr)}.</p>
+    ${esPapelGarantia(copiaCliente, conQr) ? `<table class="como-tabla"><tr><td></td>${qrTecnicoDe(copiaCliente, conQr)}</tr></table>` : ''}
   </div>
 
   <div class="campo cuit">CUIT: ${cuitDeSucursal(datos.sucursal)}</div>
@@ -2694,6 +2731,11 @@ const ESTILOS_GARANTIA = `
   .legal h2 { font-size: 11.5px; margin: 8px 0 2px; }
   .legal.compacta p, .legal.compacta li { font-size: 9.8px; line-height: 1.25; margin: 2px 0; }
   .legal.compacta h2 { font-size: 11px; margin: 6px 0 1px; }
+  /* hoja cargada (accesorios u observaciones): el recuadro de reseña y los QR tambien se compactan */
+  .legal.compacta ~ .box.resena { margin-top: 6px; padding: 4px 8px; }
+  .legal.compacta ~ .box.resena p { font-size: 9.8px; line-height: 1.25; margin: 1px 0; }
+  .legal.compacta ~ .box.resena strong { margin-bottom: 1px; }
+  .legal.compacta ~ .cuit { margin-top: 4px; }
   .legal ul, .legal ol { margin: 2px 0; padding-left: 18px; }
   .legal li { margin-bottom: 1px; }
   .pagina .campo { margin: 2px 0; font-size: 11.5px; }
@@ -2704,18 +2746,25 @@ const ESTILOS_GARANTIA = `
   .box.resena { margin-top: 10px; padding: 6px 10px; }
   .box.resena strong { margin-bottom: 2px; }
   .box.resena p { font-size: 10.5px; line-height: 1.3; margin: 2px 0; }
+  .como-tabla { width: 100%; border-collapse: collapse; }
+  .como-tabla td { border: 0; padding: 0; vertical-align: top; }
+  .como-tabla td.qr { width: 96px; padding-left: 10px; text-align: center; }
+  .como-tabla td.qr svg { margin: 0 auto; }
+  .qr-leyenda { font-size: 9px; line-height: 1.2; margin-top: 2px; }
   .resena-tabla { width: 100%; border-collapse: collapse; }
   .resena-tabla td { border: 0; padding: 0; vertical-align: middle; }
   .resena-tabla td.qr { width: 92px; padding-left: 10px; }
   .resena-tabla td.qr svg { margin-left: auto; }
-  @media print { .pagina { margin: 0 auto; min-height: 1010px; } }
+  /* A4 con margen de 10mm deja ~1046px utiles: la hoja mide menos que eso (con border-box y
+     sin padding) para que no se desborde y mande la firma o una hoja en blanco a otra pagina */
+  @media print { .pagina { box-sizing: border-box; margin: 0 auto; padding-bottom: 0; min-height: 0; height: 1000px; overflow: hidden; } }
 `;
 
 // Para el PDF del mail: el conversor de Apps Script es mas viejo que Chrome y
 // no maneja bien flex/min-height, asi que se pisa el layout de .pagina con
 // bloques simples (la firma queda debajo del texto, sin pegarse al fondo).
 const ESTILOS_GARANTIA_MAIL = ESTILOS_GARANTIA + `
-  .pagina { display: block; min-height: 0; margin: 0 auto; padding-bottom: 0; }
+  .pagina { display: block; min-height: 0; height: auto !important; overflow: visible !important; margin: 0 auto; padding-bottom: 0; }
   .firma { margin-top: 40px; padding-top: 0; }
 `;
 

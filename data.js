@@ -174,12 +174,12 @@ window.COTIZADOR_DATA = {
         // Precios actualizados (30/09/2026), por bateria segun las
         // unidades que tienen en stock.
         '128Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: '78% a 80%',  precio: 600 },
-          { etiqueta: '85% a 100%', precio: 650 }
+          { etiqueta: '85% o menos', precio: 580 },
+          { etiqueta: '86% a 100%', precio: 600 }
         ] },
         '256Gb': { sellado: null, seminuevoTiers: [
-          { etiqueta: '81% a 83%', precio: 600 },
-          { etiqueta: '100%',      precio: 650 }
+          { etiqueta: '85% o menos', precio: 580 },
+          { etiqueta: '86% a 100%', precio: 600 }
         ] }
       } },
       { modelo: 'iPhone 15 Pro Max', capacidades: {
@@ -1678,6 +1678,25 @@ window.COTIZADOR_DATA = {
       // y se descartan los de bateria menor.
       if (cap.seminuevoTiers) cap.seminuevoTiers = cap.seminuevoTiers.filter(t => /^(100%|Todas las baterias|\d+% a 100%)$/i.test(t.etiqueta));
       if (typeof cap.seminuevo === 'number') cap.seminuevo += AJUSTE_DINO_IPHONE_USD;
+    });
+  });
+  // Dino: precios que dependen de otra capacidad del mismo modelo. La capacidad
+  // "capacidad" vale lo de "base" + "sumarUsd" (se calcula con los precios ya
+  // ajustados de arriba, asi sigue a la base si esa cambia). Hoy: iPhone 15 Pro
+  // de 256Gb = el de 128Gb + USD 50.
+  const RELATIVOS_DINO = [
+    { modelo: 'iPhone 15 Pro', capacidad: '256Gb', base: '128Gb', sumarUsd: 50 }
+  ];
+  RELATIVOS_DINO.forEach(r => {
+    const eq = D.equiposPorSucursal.Dino.find(e => e.modelo === r.modelo);
+    const cap = eq && eq.capacidades[r.capacidad];
+    const base = eq && eq.capacidades[r.base];
+    if (!cap || !base) return;
+    if (typeof base.seminuevo === 'number' && typeof cap.seminuevo === 'number') cap.seminuevo = base.seminuevo + r.sumarUsd;
+    if (typeof base.sellado === 'number' && typeof cap.sellado === 'number') cap.sellado = base.sellado + r.sumarUsd;
+    (cap.seminuevoTiers || []).forEach(t => {
+      const tBase = (base.seminuevoTiers || []).find(b => b.etiqueta === t.etiqueta) || (base.seminuevoTiers || [])[0];
+      if (tBase) t.precio = tBase.precio + r.sumarUsd;
     });
   });
   // Trade-in: Dino toma los equipos al mismo valor que Independencia (copia
