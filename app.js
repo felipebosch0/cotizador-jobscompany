@@ -827,6 +827,7 @@ function ResetFormCotizador() {
   principalDiv.querySelector('#formVenta').reset();
   principalDiv.querySelector('#formTradeIn').reset();
   principalDiv.querySelector('#formReparacion').reset();
+  actualizarFallasRepa();
   $('#grupoColorSellado').addClass('oculto');
   principalDiv.querySelectorAll('.vista').forEach(el => { el.classList.remove('vista'); el.classList.add('oculto'); });
   document.getElementById('promo-cotizacion').classList.add('oculto');
@@ -1290,6 +1291,11 @@ function buscarReparacionesDeModelo(modelo) {
 // en ese modelo.
 function precioFallaArs(modelo, nombreFalla) {
   if (nombreFalla === 'Diagnostico') return DATA.diagnosticoPrecioArs;
+  // Reparacion Express no depende del modelo, solo de la sucursal.
+  if (nombreFalla === 'Reparacion Express') {
+    const p = (DATA.reparacionExpressArsPorSucursal || {})[sucursalActual];
+    return p == null ? null : p;
+  }
   const precios = buscarReparacionesDeModelo(modelo);
   if (!precios || precios[nombreFalla] == null) return null;
   return precios[nombreFalla];
@@ -3511,7 +3517,7 @@ function ExportarInfo(actividad) {
   let mensaje = '';
 
   if (actividad === 'Reparacion') {
-    const fallas = $('#formReparacion :checkbox:checked').map((i, el) => el.dataset.falla).get().join(', ');
+    const fallas = textoFallasRepa($('#formReparacion select[name="modeloR"]').val());
     // OJO: no se le pega "efectivo" a este numero -- totalCotizaRep es el
     // precio de lista SIN el 20% de descuento por efectivo (ver categoria
     // 'reparacion' en DATA.financiacion), ese numero ya sale mas abajo,
@@ -3547,6 +3553,63 @@ function ExportarInfo(actividad) {
 // ============================ INICIALIZACION ============================
 
 // Usado solo por Reparacion (Trade In tiene su checklist fijo en el HTML).
+// Nombres que se muestran al vendedor / en WhatsApp (la clave interna de
+// DATA no cambia).
+const FALLA_ETIQUETA = { 'Modulo oled': 'Modulo OLED', 'Modulo softoled': 'Modulo SoftOLED' };
+// Solo se puede elegir UN tipo de modulo por cotizacion.
+const MODULOS_EXCLUYENTES = ['Modulo certificado', 'Modulo original', 'Modulo oled', 'Modulo softoled'];
+// Precios genericos (no vienen de Gestioo): no cuentan para decir que un
+// modelo "tiene precios cargados".
+const FALLAS_GENERICAS_REPA = ['Diagnostico', 'Reparacion Express', 'Cambio chasis', 'Face ID', 'Bano quimico'];
+
+function etiquetaFalla(nombre) { return FALLA_ETIQUETA[nombre] || nombre; }
+
+// Gama iPhone 11 y anteriores: al elegir cualquiera de estos modelos se
+// muestra un cartel de recordatorio para el vendedor (formateo + cartel de
+// pieza cambiada), y las dos baterias llevan la nota de formateo.
+const GAMA_11_REPA = ['iPhone 7', 'iPhone 7 Plus', 'iPhone 8', 'iPhone 8 Plus', 'iPhone X', 'iPhone XR', 'iPhone XS', 'iPhone XS Max', 'iPhone SE 2da', 'iPhone 11', 'iPhone 11 Pro', 'iPhone 11 Pro Max'];
+
+function notaFalla(modelo, falla) {
+  if ((falla === 'Bateria premium' || falla === 'Bateria alternativa') && GAMA_11_REPA.includes(modelo)) return 'hay que formatear el equipo';
+  return '';
+}
+
+// Modelos con solo precios genericos (ej. iPhone 16E, 17 Air): se marcan
+// "(consultar)" en el selector.
+function modeloSinPreciosRepa(modelo) {
+  const p = buscarReparacionesDeModelo(modelo);
+  if (!p) return true;
+  return !Object.keys(p).some(k => p[k] != null && !FALLAS_GENERICAS_REPA.includes(k));
+}
+
+// Texto de fallas para el mensaje de WhatsApp (con la nota de formateo).
+function textoFallasRepa(modelo) {
+  return $('#formReparacion :checkbox:checked').map((i, el) => {
+    const nota = notaFalla(modelo, el.dataset.falla);
+    return etiquetaFalla(el.dataset.falla) + (nota ? ' (' + nota + ')' : '');
+  }).get().join(', ');
+}
+
+// Muestra solo las fallas que tienen precio para el modelo (y sucursal)
+// elegidos; las demas se esconden y se destildan. Tambien pone la nota de
+// cada falla y el aviso de "consultar".
+function actualizarFallasRepa() {
+  const modelo = $('#formReparacion select[name="modeloR"]').val();
+  $('#checksFallasReparacion .my-1').each((i, div) => {
+    const input = div.querySelector('input');
+    const falla = input.dataset.falla;
+    const visible = !modelo || precioFallaArs(modelo, falla) != null;
+    div.style.display = visible ? '' : 'none';
+    if (!visible) input.checked = false;
+    const nota = modelo ? notaFalla(modelo, falla) : '';
+    div.querySelector('.nota-falla').textContent = nota ? ' — ' + nota : '';
+  });
+  const aviso = document.getElementById('avisoSinPreciosRepa');
+  if (aviso) aviso.style.display = (modelo && modeloSinPreciosRepa(modelo)) ? '' : 'none';
+  const cartel11 = document.getElementById('avisoGama11Repa');
+  if (cartel11) cartel11.style.display = GAMA_11_REPA.includes(modelo) ? '' : 'none';
+}
+
 function poblarChecks(contenedorId, formSelector) {
   const contenedor = document.getElementById(contenedorId);
   contenedor.innerHTML = '';
@@ -3554,10 +3617,28 @@ function poblarChecks(contenedorId, formSelector) {
     const id = contenedorId + i;
     const div = document.createElement('div');
     div.className = 'my-1';
-    div.innerHTML = `<input type="checkbox" id="${id}" data-falla="${nombre}"><label for="${id}">${nombre}</label>`;
+    div.innerHTML = `<input type="checkbox" id="${id}" data-falla="${nombre}"><label for="${id}">${etiquetaFalla(nombre)}<span class="nota-falla" style="font-size:12px;color:#b26a00"></span></label>`;
     contenedor.appendChild(div);
   });
-  $(formSelector + ' :checkbox').on('change', PreciosRepa);
+  const cartel11 = document.createElement('div');
+  cartel11.id = 'avisoGama11Repa';
+  cartel11.style.cssText = 'display:none;width:100%;box-sizing:border-box;background:#fff4e0;border:1px solid #f0b95a;color:#7a4a00;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;margin:0 0 8px';
+  cartel11.innerHTML = '<strong>Recordar comunicar al cliente:</strong> el cambio de bateria en la gama iPhone 11 y anteriores requiere formatear el dispositivo, y despues de la reparacion puede aparecer el cartel de "pieza cambiada".';
+  contenedor.insertBefore(cartel11, contenedor.firstChild);
+  const aviso = document.createElement('div');
+  aviso.id = 'avisoSinPreciosRepa';
+  aviso.style.cssText = 'display:none;color:#b26a00;font-size:13px;margin:6px 0';
+  aviso.textContent = 'Este modelo todavia no tiene precios de reparacion cargados: consultar.';
+  contenedor.appendChild(aviso);
+  $(formSelector + ' :checkbox').on('change', function () {
+    // Un solo tipo de modulo a la vez.
+    if (this.checked && MODULOS_EXCLUYENTES.includes(this.dataset.falla)) {
+      $(formSelector + ' :checkbox').each((j, el) => {
+        if (el !== this && MODULOS_EXCLUYENTES.includes(el.dataset.falla)) el.checked = false;
+      });
+    }
+    PreciosRepa();
+  });
 }
 
 function cargarSucursal(sucursal) {
@@ -3571,7 +3652,7 @@ function cargarSucursal(sucursal) {
   equiposParaVenta().forEach(e => $('#formVenta select[name="modeloV"]').append(new Option(e.modelo, e.modelo)));
   // Reparacion tiene su propia lista de modelos (llega mas atras, hasta el
   // iPhone X, no solo los que estan a la venta en esta sucursal).
-  (DATA.reparacionesPorModelo || []).forEach(r => $('#formReparacion select[name="modeloR"]').append(new Option(r.modelo, r.modelo)));
+  (DATA.reparacionesPorModelo || []).forEach(r => $('#formReparacion select[name="modeloR"]').append(new Option(r.modelo + (modeloSinPreciosRepa(r.modelo) ? ' (consultar)' : ''), r.modelo)));
   // Trade In: del iPhone 11 en adelante (no se toman modelos mas viejos).
   modelosTradeIn().forEach(m => $('#formTradeIn select[name="modeloTI"]').append(new Option(m, m)));
 
@@ -3596,6 +3677,7 @@ function cargarSucursal(sucursal) {
   document.getElementById('btnCFinanciacion').classList.toggle('oculto', sucursal !== 'Independencia');
 
   ResetFormCotizador();
+  actualizarFallasRepa();
   actualizarModuloStock('');
   // El carrito sobrevive al cambio de sucursal -- se vuelve a dibujar para
   // que el total muestre (o saque) los dolares segun la sucursal nueva.
@@ -3934,7 +4016,16 @@ function iniciarApp(sesion) {
     promociones_disp(total > 0 ? total : 0);
   });
 
-  $('#formReparacion select[name="modeloR"]').change(PreciosRepa);
+  // Al cambiar de modelo se destildan las fallas elegidas antes: cada modelo
+  // tiene su propia lista de precios y arrastrar la seleccion anterior
+  // mezclaba cotizaciones (o tiraba "No disponible" por fallas que el
+  // vendedor ya no tenia en mente).
+  $('#formReparacion select[name="modeloR"]').change(() => {
+    $('#formReparacion :checkbox').prop('checked', false);
+    $('#formReparacion input[name="totalCotizaRep"]').val('');
+    actualizarFallasRepa();
+    PreciosRepa();
+  });
 
   document.addEventListener('click', e => {
     const node = e.target;
