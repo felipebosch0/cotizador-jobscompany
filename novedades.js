@@ -1,6 +1,11 @@
 // Historial de versiones del cotizador: icono "!" de la barra superior.
 // Para sumar una version nueva, agregarla ARRIBA de todo en VERSIONES.
 const VERSIONES = [
+  { v: '2.9', fecha: '12/11/2026', titulo: 'Apple Pencil y Magic Mouse como equipos', items: [
+    'Apple Pencil (1ra Gen, 2da Gen, USB-C y Pro) y Magic Mouse pasan de Accesorios a Venta de equipos, con los mismos precios y su garantia de 1 año.',
+    'Garantia: el numero de serie del Apple Pencil, Magic Mouse y PlayStation ahora deja escribir letras aunque la venta incluya un iPhone.',
+    'Dino: el iPhone 15 Pro de 256GB vale el de 128GB + USD 50.',
+    'Garantia: QR para escribirle al tecnico por WhatsApp, sin el punto 5 de las condiciones y con un mail de contacto para sugerencias.' ] },
   { v: '2.8', fecha: '11/11/2026', titulo: 'Garantia por mail y cuidado del stock', items: [
     'Garantia nueva: condiciones claras (que cubre y que no), como hacer valida la garantia y contacto de servicio tecnico, con una version para cada tipo de equipo (iPhone, iPad, Watch, Mac, AirPods) y CUIT segun la sucursal.',
     'iPhone Semi-Nuevo: la condicion de bateria sale impresa (se completa sola desde Stock).',

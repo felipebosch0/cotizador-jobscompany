@@ -110,7 +110,8 @@ function otrosEquiposVenta() {
   const watch = (DATA.watchPorSucursal || {})[sucursalActual] || [];
   const macbook = (DATA.macbookPorSucursal || {})[sucursalActual] || [];
   const playstation = (DATA.playstationPorSucursal || {})[sucursalActual] || [];
-  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl, watch, macbook, playstation);
+  const appleVarios = (DATA.appleVariosPorSucursal || {})[sucursalActual] || [];
+  return (DATA.otrosEquiposUniversales || []).concat(ipad, jbl, watch, macbook, playstation, appleVarios);
 }
 
 function equiposParaVenta() {
@@ -680,11 +681,11 @@ function AgregarCarritoEquipo() {
 
   const condicionTexto = NOMBRE_CONDICION[condicion] || condicion;
 
-  // JBL y PlayStation: precio fijo en pesos, no tiene sentido aclarar un
+  // JBL, PlayStation, Apple Pencil y Magic Mouse: precio fijo en pesos, no tiene sentido aclarar un
   // equivalente en USD como el resto de Independencia (ver PreciosVentaE).
   // Marca de fabrica para el papel de garantia -- ver
   // construirContenidoGarantiaAccesorio.
-  const MARCA_POR_MODELO_CON_GARANTIA_PROPIA = { 'JBL': 'JBL', 'PlayStation': 'Sony' };
+  const MARCA_POR_MODELO_CON_GARANTIA_PROPIA = { 'JBL': 'JBL', 'PlayStation': 'Sony', 'Apple Pencil': 'Apple', 'Magic Mouse': 'Apple' };
   const marcaGarantia = equipo && MARCA_POR_MODELO_CON_GARANTIA_PROPIA[equipo.modelo];
   const tieneGarantiaPropia = !!marcaGarantia;
 
@@ -1701,6 +1702,16 @@ function itemsGarantizables() {
 // numero de serie.
 function esTelefono(modelo) {
   return /^iphone/i.test(String(modelo || '').trim());
+}
+
+// El numero de serie de la garantia que se esta cargando en este momento tiene
+// que ser solo digitos? Si: iPhone (IMEI) y JBL (15 digitos). No: todo lo demas
+// (Apple Pencil, Magic Mouse, PlayStation, iPad, Mac, Watch, AirPods).
+function serieGarantiaSoloDigitos() {
+  const actual = colaGarantia && colaGarantia[0];
+  if (!actual) return false;
+  if (actual.tipoGarantia === 'accesorio') return actual.item.marcaGarantia === 'JBL';
+  return esTelefono(actual.equipo.modelo);
 }
 
 // Si al confirmar la garantia el IMEI/Serie no esta en Stock, en vez de
@@ -3709,11 +3720,14 @@ function iniciarApp(sesion) {
   document.getElementById('modalGarantia').addEventListener('click', e => {
     if (e.target.id === 'modalGarantia') CerrarModalGarantia();
   });
-  // Solo restringe a digitos si hay un iPhone en el carrito -- para el
-  // resto (numero de serie) se deja escribir letras y numeros libremente.
+  // Solo restringe a digitos cuando el producto que se esta cargando AHORA es un
+  // iPhone (IMEI de 15 digitos) o un JBL (serie de 15 digitos). Para el resto
+  // (Apple Pencil, Magic Mouse, PlayStation, iPad, Mac, Watch, AirPods) el numero
+  // de serie mezcla letras y numeros y se escribe libremente. Antes se miraba el
+  // equipo principal del carrito: con un iPhone + un Apple Pencil, el Pencil
+  // heredaba la restriccion del iPhone y no dejaba escribir letras.
   document.getElementById('gtImei').addEventListener('input', function () {
-    const equipo = equipoPrincipalDelCarrito();
-    if (equipo && !esTelefono(equipo.modelo)) return;
+    if (!serieGarantiaSoloDigitos()) return;
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
   });
 

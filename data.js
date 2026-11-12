@@ -516,6 +516,39 @@ window.COTIZADOR_DATA = {
   },
 
   // --------------------------------------------------------------
+  // Apple Pencil (4 variantes) y Magic Mouse: antes eran Accesorios, ahora
+  // viven en Venta > Equipo (cuentan como equipos), mismo criterio que JBL:
+  // garantia propia de 1 ano (ver MARCA_POR_MODELO_CON_GARANTIA_PROPIA en
+  // app.js) y precio FIJO en pesos (precioFijoArs), distinto por sucursal. Los
+  // precios son los mismos que tenian como Accesorios. Dino usa los de
+  // Shopping (se copia en derivarDino, igual que sus accesorios).
+  // --------------------------------------------------------------
+  appleVariosPorSucursal: {
+    'Shopping': [
+      { modelo: 'Apple Pencil', capacidades: {
+          '1ra Gen': { seminuevo: null, sellado: 438750, precioFijoArs: true },
+          '2da Gen': { seminuevo: null, sellado: 432000, precioFijoArs: true },
+          'USB-C': { seminuevo: null, sellado: 499500, precioFijoArs: true },
+          'Pro': { seminuevo: null, sellado: 499500, precioFijoArs: true }
+        } },
+      { modelo: 'Magic Mouse', capacidades: {
+          'Magic Mouse': { seminuevo: null, sellado: 459000, precioFijoArs: true }
+        } }
+    ],
+    'Independencia': [
+      { modelo: 'Apple Pencil', capacidades: {
+          '1ra Gen': { seminuevo: null, sellado: 303750, precioFijoArs: true },
+          '2da Gen': { seminuevo: null, sellado: 297000, precioFijoArs: true },
+          'USB-C': { seminuevo: null, sellado: 364500, precioFijoArs: true },
+          'Pro': { seminuevo: null, sellado: 364500, precioFijoArs: true }
+        } },
+      { modelo: 'Magic Mouse', capacidades: {
+          'Magic Mouse': { seminuevo: null, sellado: 324000, precioFijoArs: true }
+        } }
+    ]
+  },
+
+  // --------------------------------------------------------------
   // REPARACIONES: precio por falla. MOCK (mismo precio para cualquier
   // modelo, para poder probar la pantalla). Reemplazar por precios reales
   // por modelo cuando esten disponibles.
@@ -965,15 +998,8 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Magnetic charging Dock', modelo: 'Universal', precio: 80000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 38/40/41', modelo: 'Universal', precio: 31000 },
     { categoria: 'Malla/Correa', descripcion: 'Watch 42-49', modelo: 'Universal', precio: 25000 },
-    // Apple Pencil: mismo criterio que Independencia (4 variantes en vez de
-    // una linea generica), pero con USD 100 mas por sucursal (a pedido del
-    // usuario: "a todo le sumamos 300, menos joystick/pencil/magic mouse,
-    // a esos 100"). Precio fijo en pesos, convertido al dolar de hoy.
-    { categoria: 'Varios', descripcion: 'Apple Pencil (1ra Gen)', modelo: 'Universal', precio: 438750 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 432000 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 499500 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 499500 },
-    { categoria: 'Varios', descripcion: 'Magic Mouse', modelo: 'Universal', precio: 459000 },
+    // Apple Pencil (4 variantes) y Magic Mouse: pasaron a Venta > Equipo (ver
+    // appleVariosPorSucursal), con los mismos precios.
     // PlayStation -- linea nueva, +USD 300 sobre el precio de Independencia.
     { categoria: 'Vidrio templado', descripcion: 'Camara 17', modelo: 'Universal', precio: 13000 },
     { categoria: 'Vidrio templado', descripcion: 'camara 17 pro', modelo: 'Universal', precio: 13000 },
@@ -1282,16 +1308,8 @@ window.COTIZADOR_DATA = {
     { categoria: 'Cargador', descripcion: 'Combo Cargador APPLE + adaptador', modelo: 'Universal', precio: 120000 },
     { categoria: 'Funda', descripcion: 'Antishock transparente', modelo: 'Todos', precio: 0 },
     { categoria: 'Varios', descripcion: 'Adaptador internacional', modelo: 'Universal', precio: 5000 },
-    // Apple Pencil original: antes era una sola linea generica ("Pencil -
-    // APPLE") sin distinguir generacion -- ahora son 4 lineas, una por
-    // modelo, con precio propio (lista pasada en USD, convertida a pesos al
-    // dolar de hoy -- igual que el resto de Accesorios, es un precio FIJO
-    // en pesos, no flota con el dolar despues).
-    { categoria: 'Varios', descripcion: 'Apple Pencil (1ra Gen)', modelo: 'Universal', precio: 303750 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil (2da Gen)', modelo: 'Universal', precio: 297000 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil (USB-C)', modelo: 'Universal', precio: 364500 },
-    { categoria: 'Varios', descripcion: 'Apple Pencil Pro', modelo: 'Universal', precio: 364500 },
-    { categoria: 'Varios', descripcion: 'Magic Mouse', modelo: 'Universal', precio: 324000 },
+    // Apple Pencil (4 variantes) y Magic Mouse: pasaron a Venta > Equipo (ver
+    // appleVariosPorSucursal), con los mismos precios.
     // PlayStation -- linea nueva en Independencia. Lista pasada en USD,
     // convertida a pesos al dolar de hoy (precio fijo, igual criterio que
     // el resto de Accesorios).
@@ -1653,8 +1671,10 @@ window.COTIZADOR_DATA = {
     if (/PorSucursal$/.test(k) && D[k] && D[k].Independencia && !D[k].Dino) D[k].Dino = clonar(D[k].Independencia);
   });
   // Accesorios: Dino usa la misma lista (y las mismas promos del carrito) que
-  // Shopping, no la de Independencia.
+  // Shopping, no la de Independencia. Igual Apple Pencil / Magic Mouse (que
+  // eran accesorios y hoy son equipos).
   D.accesoriosPorSucursal.Dino = clonar(D.accesoriosPorSucursal.Shopping);
+  if (D.appleVariosPorSucursal && D.appleVariosPorSucursal.Shopping) D.appleVariosPorSucursal.Dino = clonar(D.appleVariosPorSucursal.Shopping);
   if (D.promosCarrito && D.promosCarrito.componentes && D.promosCarrito.componentes.Shopping) {
     D.promosCarrito.componentes.Dino = clonar(D.promosCarrito.componentes.Shopping);
   }
