@@ -90,6 +90,13 @@ function usaModoIndependencia(sucursal) {
   return sucursal === 'Independencia';
 }
 
+// Planes de financiacion de la sucursal actual: Dino tiene los suyos (3 y 6
+// cuotas sin interes al mismo valor, ver derivarDino en data.js); el resto usa
+// la lista general.
+function planesFinanciacion() {
+  return (DATA.financiacionPorSucursal || {})[sucursalActual] || DATA.financiacion;
+}
+
 function equiposDeLaSucursal(sucursal) {
   return DATA.equiposPorSucursal[sucursal] || [];
 }
@@ -806,7 +813,7 @@ function ExportarCarrito() {
   // "Precio de lista" = el total del carrito (precio de efectivo) con el
   // recargo del plan de 3 cuotas sin interes, o sea el valor sobre el que se
   // arman las cuotas.
-  const planLista = DATA.financiacion.find(f => f.categoria === 'equipo' && f.cuotas === 3);
+  const planLista = planesFinanciacion().find(f => f.categoria === 'equipo' && f.cuotas === 3);
   const precioLista = Math.round(totalCarrito() * (1 + (planLista ? planLista.interes : 0)));
 
   const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Precio de lista*: ${formatNumberArg(precioLista)}${parrafoTradeIn}${parrafoFinanciacion}${firmaWhatsapp()}`;
@@ -3390,7 +3397,7 @@ function TablaFinancia(value, categoria) {
   // Carrito). Antes, si habia algo cargado en el carrito, se mostraba esa
   // financiacion aunque el vendedor estuviera cotizando otra cosa sin
   // agregarla -- confundia al cliente con un numero que no correspondia.
-  const filas = DATA.financiacion.filter(f => f.categoria === categoria);
+  const filas = planesFinanciacion().filter(f => f.categoria === categoria);
   const table = document.getElementById('tablaResultados');
   table.innerHTML = '';
   infoFinanciacion = '';
@@ -3435,7 +3442,11 @@ function TablaFinancia(value, categoria) {
     const cuota = totalConInteres / f.cuotas;
     infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${f.plan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
+    // etiquetaVendedor / aviso (ver financiacionPorSucursal en data.js): solo se
+    // muestran en pantalla, no van en el mensaje de WhatsApp al cliente.
+    const nombrePlan = f.plan + (f.etiquetaVendedor ? ` <strong>(${f.etiquetaVendedor})</strong>` : '');
+    const avisoPlan = f.aviso ? `<br><span style="font-size:0.8em; font-weight:600; color:#e67e22;">&#9888; ${f.aviso}</span>` : '';
+    tr.innerHTML = `<td>${nombrePlan}${avisoPlan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
     fragm.appendChild(tr);
   });
   table.appendChild(fragm);
@@ -3536,7 +3547,7 @@ function ExportarInfo(actividad) {
     // solo cambia lo que se manda por WhatsApp, no el campo en pantalla ni
     // el calculo de la tabla de Financiacion.
     const totalEfectivo = Number(String($('#formVenta input[name="totalVentaEquipo"]').val()).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-    const plan3Cuotas = DATA.financiacion.find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
+    const plan3Cuotas = planesFinanciacion().find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
     const precioFinalMsj = plan3Cuotas ? totalEfectivo * (1 + plan3Cuotas.interes) : totalEfectivo;
     mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaColor}${lineaBateria}\n\n*Precio final*: ${formatNumberArg(precioFinalMsj)}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   }

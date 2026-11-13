@@ -1725,6 +1725,44 @@ window.COTIZADOR_DATA = {
       if (tBase) t.precio = tBase.precio + r.sumarUsd;
     });
   });
+  // Dino: ajustes puntuales en USD sobre el precio ya calculado (se suman a lo
+  // de arriba). Hoy: iPhone 18 Pro de 256Gb sellado +USD 40.
+  const AJUSTES_DINO_USD = [
+    { modelo: 'iPhone 18 Pro', capacidad: '256Gb', condicion: 'sellado', sumarUsd: 40 }
+  ];
+  AJUSTES_DINO_USD.forEach(a => {
+    const eq = D.equiposPorSucursal.Dino.find(e => e.modelo === a.modelo);
+    const cap = eq && eq.capacidades[a.capacidad];
+    if (!cap) return;
+    if (a.condicion === 'sellado') {
+      if (typeof cap.sellado === 'number') cap.sellado += a.sumarUsd;
+      (cap.coloresSellado || []).forEach(c => { c.precio += a.sumarUsd; });
+    } else {
+      if (typeof cap.seminuevo === 'number') cap.seminuevo += a.sumarUsd;
+      (cap.seminuevoTiers || []).forEach(t => { t.precio += a.sumarUsd; });
+    }
+  });
+
+  // Dino: financiacion con 3 y 6 cuotas "sin interes" al MISMO valor (el del
+  // plan de 3 cuotas de cada categoria). El resto de los planes queda igual.
+  D.financiacionPorSucursal = {
+    Dino: D.financiacion.map(f => {
+      const plan = Object.assign({}, f);
+      if (plan.cuotas === 6 && plan.categoria !== 'reparacion') {
+        const de3 = D.financiacion.find(x => x.categoria === plan.categoria && x.cuotas === 3);
+        if (de3) { plan.interes = de3.interes; plan.plan = '6 cuotas sin interes'; }
+      }
+      // Solo para el vendedor (se ve en la tabla de pantalla, no va en el
+      // WhatsApp al cliente): 3 cuotas es el "Plan Z" y 3 y 6 cuotas se cobran
+      // por el posnet de Mercado Pago.
+      if ((plan.cuotas === 3 || plan.cuotas === 6) && plan.categoria !== 'reparacion') {
+        plan.aviso = 'Se cobra por el posnet de Mercado Pago';
+        if (plan.cuotas === 3) plan.etiquetaVendedor = 'Plan Z';
+      }
+      return plan;
+    })
+  };
+
   // Trade-in: Dino toma los equipos al mismo valor que Independencia (copia
   // sin sumar nada).
 
