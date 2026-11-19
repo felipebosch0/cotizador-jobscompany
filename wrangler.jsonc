@@ -10,6 +10,12 @@
   "kv_namespaces": [
     { "binding": "LOGIN_KV", "id": "d91c87cc71964b08835a095d54d0b6fe" }
   ],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "cotizador-pruebas", "database_id": "caf664d8-8a32-4e2c-b9a6-9e9e6e816aa9" }
+  ],
+  "r2_buckets": [
+    { "binding": "COMPROBANTES", "bucket_name": "cotizador-comprobantes-pruebas" }
+  ],
   "vars": {
     "FORZAR_CAMBIO_CLAVE": "1"
   }

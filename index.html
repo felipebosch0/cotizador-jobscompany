@@ -5945,6 +5945,8 @@
               <button type="button" class="btn-act oculto" id="btnCFinanciacion" data-action="btnCFinanciacion">Financiacion</button>
               <button type="button" class="btn-act oculto" id="btnCIngresoEgreso" data-action="btnCIngresoEgreso">Ingreso / Egreso</button>
               <button type="button" class="btn-act" id="btnCComisiones" data-action="btnCComisiones">Comisiones</button>
+              <!-- Panel de ventas y cobros: solo administracion y oficina (ver iniciarApp). -->
+              <button type="button" class="btn-act oculto" id="btnCVentas" data-action="btnCVentas">Ventas</button>
               <button type="button" class="btn-act oculto" id="btnCReportes" data-action="btnCReportes">Reportes</button>
               </div>
 
@@ -6346,6 +6348,11 @@
                 <div id="comContenido" class="sp-t"></div>
               </div>
 
+              <!-- ============================ PANEL DE VENTAS ============================
+                   Solo admin y oficina. Se arma desde panel.js; el servidor valida el rol en
+                   cada pedido (/api/panel/*), asi que ocultar el boton es solo comodidad. -->
+              <div id="vistaVentas" class="col-12 sp-t sp-l oculto"></div>
+
               <!-- ============================ REPORTES DE GESTION ============================
                    Solo admin. 4 zonas de drag&drop (una por export de Cianbox) que parsean el
                    .xlsx en el navegador con SheetJS y lo mandan a /reportes-write. Los graficos
@@ -6532,6 +6539,10 @@
                   <input type="text" id="totalCarrito" class="total" readonly>
                 </div>
                 <button type="button" class="btn-total oculto" id="btnExportCarrito" data-action="ExportarCarrito">WhatsApp (carrito completo)</button>
+                <!-- Un solo boton para cerrar la venta: guia por pasos (canje -> equipo y
+                     cliente -> pagos). Reemplaza a "Imprimir garantia" y "Imprimir
+                     declaracion jurada", que quedan ocultos (ver CompletarVenta en app.js). -->
+                <button type="button" class="btn-total oculto" id="btnCompletarVenta" style="margin-top:8px;">Completar venta</button>
                 <button type="button" class="btn-total oculto" id="btnImprimirGarantia" style="margin-top:8px; background:#333;">Imprimir garantia</button>
                 <button type="button" class="btn-total oculto" id="btnImprimirDeclaracion" style="margin-top:8px; background:#333;">Imprimir declaracion jurada</button>
                 <button type="button" class="btn-total oculto" id="btnImprimirReserva" style="margin-top:8px; background:#333;">Imprimir reserva</button>
@@ -6647,6 +6658,12 @@
         <label>Email del cliente</label>
         <input type="email" id="gtEmail" placeholder="correo@ejemplo.com" autocomplete="off" inputmode="email">
       </div>
+      <!-- Telefono del cliente: se guarda en su ficha y sirve para el seguimiento
+           posventa (el panel abre WhatsApp directo con este numero). -->
+      <div class="form-group-total sp-t">
+        <label>Teléfono / WhatsApp del cliente</label>
+        <input type="tel" id="gtTelefono" placeholder="Ej. 351 1234567 (con código de área, sin 0 ni 15)" autocomplete="off" inputmode="tel">
+      </div>
       <div class="form-group-total sp-t">
         <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
           <input type="checkbox" id="gtEnviarMail" checked style="width:auto;"> Enviar la garantia por mail
@@ -6720,6 +6737,24 @@
         </label>
       </div>
       <button type="button" class="btn-total sp-t" id="btnConfirmarGarantia">Confirmar e imprimir</button>
+    </div>
+  </div>
+
+  <!-- Paso final de "Completar venta": pagos (opcional). Lo maneja cobro.js; la
+       seccion se oculta sola si la base de datos no esta conectada. Cerrar con la X
+       equivale a "Omitir cobro": la venta ya esta registrada en stock, solo se
+       imprime sin cobro cargado. -->
+  <div id="modalPagos" class="modal">
+    <div class="modal-content" style="max-width:460px;">
+      <span class="close" id="cerrarModalPagos">&times;</span>
+      <h3>Pagos de la venta</h3>
+      <div id="gtCobroContenedor" class="form-group-total">
+        <div id="gtCobroResumen"></div>
+        <div id="gtCobroLineas"></div>
+        <button type="button" class="btn-total sp-t" id="gtCobroAgregar" style="width:auto; padding:0 16px;">+ Agregar pago</button>
+      </div>
+      <button type="button" class="btn-total sp-t" id="btnFinalizarVenta">Finalizar e imprimir</button>
+      <p style="margin:10px 0 0; text-align:center;"><a href="#" id="btnOmitirCobro" style="font-size:13px;">Omitir cobro por ahora (queda “sin cobro registrado”)</a></p>
     </div>
   </div>
 
@@ -6811,6 +6846,8 @@
   <script src="auth.js"></script>
   <script src="stock-data.js"></script>
   <script src="app.js"></script>
+  <script src="cobro.js"></script>
+  <script src="panel.js"></script>
   <script src="cambiar-clave.js"></script>
   <script src="reportes.js"></script>
   <script src="comisiones.js"></script>

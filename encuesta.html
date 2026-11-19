@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Contanos cómo te fue · Jobs Company</title>
+<style>
+  :root { --azul:#0071e3; --texto:#1d1d1f; --suave:#6e6e73; --linea:#d2d2d7; --fondo:#f5f5f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; background:var(--fondo); color:var(--texto); }
+  main { max-width:480px; margin:0 auto; padding:24px 16px 48px; }
+  .tarjeta { background:#fff; border-radius:18px; padding:24px 20px; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  h1 { font-size:22px; margin:0 0 6px; }
+  p { line-height:1.45; margin:8px 0; }
+  .suave { color:var(--suave); font-size:14px; }
+  .estrellas { display:flex; gap:6px; justify-content:center; margin:18px 0 6px; }
+  .estrellas button { border:0; background:none; font-size:44px; line-height:1; cursor:pointer; color:#c7c7cc; padding:2px; }
+  .estrellas button.on { color:#ffb400; }
+  .leyenda { text-align:center; min-height:20px; font-size:14px; color:var(--suave); }
+  label { display:block; font-size:14px; font-weight:600; margin:16px 0 6px; }
+  textarea { width:100%; min-height:84px; border:1px solid var(--linea); border-radius:12px; padding:10px 12px; font:inherit; resize:vertical; }
+  button.principal { width:100%; margin-top:18px; border:0; border-radius:999px; background:var(--azul); color:#fff; font-size:16px; font-weight:600; padding:14px; cursor:pointer; }
+  button.principal:disabled { opacity:.5; cursor:default; }
+  a.boton { display:block; text-align:center; text-decoration:none; margin-top:16px; border-radius:999px; background:var(--azul); color:#fff; font-weight:600; padding:14px; }
+  .error { color:#d70015; font-size:14px; margin-top:10px; min-height:18px; }
+  .oculto { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="tarjeta" id="cargando"><p class="suave">Cargando…</p></div>
+
+  <div class="tarjeta oculto" id="formulario">
+    <h1 id="saludo">¡Hola!</h1>
+    <p id="intro" class="suave"></p>
+    <p style="margin-top:14px;"><strong>¿Cómo fue tu experiencia de compra?</strong></p>
+    <div class="estrellas" id="estrellas" role="radiogroup" aria-label="Puntaje de 1 a 5">
+      <button type="button" data-n="1" aria-label="1 estrella">★</button>
+      <button type="button" data-n="2" aria-label="2 estrellas">★</button>
+      <button type="button" data-n="3" aria-label="3 estrellas">★</button>
+      <button type="button" data-n="4" aria-label="4 estrellas">★</button>
+      <button type="button" data-n="5" aria-label="5 estrellas">★</button>
+    </div>
+    <div class="leyenda" id="leyenda"></div>
+    <label for="comentario">Contanos más (opcional)</label>
+    <textarea id="comentario" maxlength="1000" placeholder="¿Qué te pareció la atención, el equipo, el proceso?"></textarea>
+    <label for="mejora">¿Qué podríamos mejorar? (opcional)</label>
+    <textarea id="mejora" maxlength="1000"></textarea>
+    <div class="error" id="error" role="alert"></div>
+    <button type="button" class="principal" id="enviar" disabled>Enviar</button>
+  </div>
+
+  <div class="tarjeta oculto" id="gracias">
+    <h1>¡Gracias por tu opinión!</h1>
+    <p id="mensajeGracias" class="suave"></p>
+    <a class="boton oculto" id="reseniaLink" rel="noopener noreferrer" target="_blank">Dejanos tu reseña en Google</a>
+  </div>
+
+  <div class="tarjeta oculto" id="aviso"><h1 id="avisoTitulo"></h1><p class="suave" id="avisoTexto"></p></div>
+</main>
+<script>
+(function () {
+  var LEYENDAS = ['', 'Muy mala', 'Mala', 'Regular', 'Buena', '¡Excelente!'];
+  var token = decodeURIComponent((location.pathname.match(/^\/e\/([^/]+)/) || [])[1] || '');
+  var puntaje = 0;
+  var $ = function (id) { return document.getElementById(id); };
+  function mostrar(id) { ['cargando', 'formulario', 'gracias', 'aviso'].forEach(function (x) { $(x).classList.toggle('oculto', x !== id); }); }
+  function aviso(titulo, texto) { $('avisoTitulo').textContent = titulo; $('avisoTexto').textContent = texto; mostrar('aviso'); }
+
+  if (!token) return aviso('Link no válido', 'Pedile a Jobs Company que te vuelva a enviar el link de la encuesta.');
+
+  fetch('/api/encuesta/' + encodeURIComponent(token)).then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); }).then(function (x) {
+    if (!x.j.ok) return aviso(x.status === 404 ? 'Link no válido' : 'No disponible', x.j.error || 'Probá de nuevo en un rato.');
+    if (x.j.respondida) return aviso('¡Ya la respondiste!', 'Gracias por tu opinión, nos ayuda a mejorar.');
+    if (x.j.vencida) return aviso('Este link venció', 'Si querés contarnos cómo te fue, escribinos por WhatsApp.');
+    $('saludo').textContent = x.j.nombre ? '¡Hola, ' + x.j.nombre + '!' : '¡Hola!';
+    $('intro').textContent = 'Gracias por tu compra' + (x.j.producto ? ' (' + x.j.producto + ')' : '') + (x.j.local ? ' en ' + x.j.local : '') + '. Tu opinión nos toma menos de un minuto.';
+    mostrar('formulario');
+  }).catch(function () { aviso('Sin conexión', 'No pudimos cargar la encuesta. Probá de nuevo en un rato.'); });
+
+  $('estrellas').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    puntaje = Number(b.getAttribute('data-n'));
+    Array.prototype.forEach.call($('estrellas').children, function (s) { s.classList.toggle('on', Number(s.getAttribute('data-n')) <= puntaje); });
+    $('leyenda').textContent = LEYENDAS[puntaje];
+    $('enviar').disabled = false;
+  });
+
+  $('enviar').addEventListener('click', function () {
+    if (!puntaje) return;
+    $('enviar').disabled = true; $('error').textContent = '';
+    fetch('/api/encuesta/' + encodeURIComponent(token), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ puntaje: puntaje, comentario: $('comentario').value, mejora: $('mejora').value }) })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
+      .then(function (x) {
+        if (x.j.ok) {
+          $('mensajeGracias').textContent = puntaje >= 4 ? 'Nos alegra que hayas tenido una buena experiencia.' : 'Lamentamos que no haya sido la mejor experiencia: vamos a revisar lo que nos cuentes.';
+          if (x.j.resenia && /^https:\/\//.test(x.j.resenia)) { $('reseniaLink').href = x.j.resenia; $('reseniaLink').classList.remove('oculto'); }
+          return mostrar('gracias');
+        }
+        if (x.j.respondida) return aviso('¡Ya la respondiste!', 'Gracias por tu opinión, nos ayuda a mejorar.');
+        $('error').textContent = x.j.error || 'No se pudo enviar. Probá de nuevo.'; $('enviar').disabled = false;
+      })
+      .catch(function () { $('error').textContent = 'Sin conexión. Probá de nuevo.'; $('enviar').disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

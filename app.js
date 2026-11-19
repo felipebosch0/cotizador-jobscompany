@@ -598,6 +598,7 @@ function renderCarrito() {
     btnExport.classList.add('oculto');
     btnGarantia.classList.add('oculto');
     btnDeclaracion.classList.add('oculto');
+    document.getElementById('btnCompletarVenta').classList.add('oculto');
     btnReserva.classList.add('oculto');
     btnFinanciacion.classList.add('oculto');
     vacio.classList.remove('oculto');
@@ -613,11 +614,13 @@ function renderCarrito() {
   // El boton de garantia solo aparece si hay un equipo en el carrito Y ya
   // esta cargada la plantilla de garantia para la sucursal actual.
   const hayEquipo = !!equipoPrincipalDelCarrito();
-  btnGarantia.classList.toggle('oculto', itemsGarantizables().length === 0);
-
-  // El boton de declaracion jurada solo aparece si hay un canje (Trade In)
-  // en el carrito.
-  btnDeclaracion.classList.toggle('oculto', !tradeInDelCarrito());
+  // "Completar venta" reemplaza a "Imprimir garantia" y "Imprimir declaracion
+  // jurada": un solo boton que guia por pasos (canje -> equipo y cliente ->
+  // pagos). Aparece cuando hay algo con garantia en el carrito. Los dos botones
+  // viejos quedan siempre ocultos (sus funciones siguen existiendo).
+  document.getElementById('btnCompletarVenta').classList.toggle('oculto', itemsGarantizables().length === 0);
+  btnGarantia.classList.add('oculto');
+  btnDeclaracion.classList.add('oculto');
 
   // El boton de reserva solo aparece si hay un equipo en el carrito (misma
   // condicion que garantia, pero sin depender de que exista la plantilla).
@@ -859,6 +862,8 @@ function IngresoEgreso() {
 // Definida en reportes.js -- se llama igual que el resto de las pestanas
 // (ver dispatcher de data-action mas abajo) para no romper el patron.
 function Comisiones() { ResetFormCotizador(); $('#vistaComisiones').removeClass('oculto').addClass('vista'); if (typeof iniciarComisiones === 'function') iniciarComisiones(); }
+// Definida en panel.js: lista de ventas y cobros para administracion y oficina.
+function Ventas() { ResetFormCotizador(); $('#vistaVentas').removeClass('oculto').addClass('vista'); if (typeof iniciarPanelVentas === 'function') iniciarPanelVentas(); }
 function Reportes() { ResetFormCotizador(); $('#vistaReportes').removeClass('oculto').addClass('vista'); if (typeof iniciarReportes === 'function') iniciarReportes(); }
 // Definida en reportes.js (vive junto con el resto del modulo de Reportes,
 // comparten Sheet/Apps Script).
@@ -1465,6 +1470,9 @@ function AbrirModalDeclaracion() {
   if (!tradeIn) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No hay ningun canje (Trade In) en el carrito' });
   $('#djNombre, #djDni, #djDomicilio, #djImei, #djBateria, #djColor, #djCapacidad').val('');
   opIdDeclaracion = nuevoOpId();
+  // Dentro de "Completar venta" este es el paso 1 y el boton sigue al paso 2.
+  document.getElementById('btnConfirmarDeclaracion').textContent = flujoVentaActivo ? 'Siguiente: datos del equipo y del cliente' : 'Confirmar e imprimir';
+  if (flujoVentaActivo) mostrarPasoVenta('modalDeclaracionJurada', 1, pasosVenta, 'Equipo entregado en canje'); else ocultarPasoVenta('modalDeclaracionJurada');
   // Arranca en el primer deposito de la sucursal actual; se puede cambiar.
   const depositoInicial = ((DATA.depositoPorSucursal || {})[sucursalActual] || [])[0];
   if (depositoInicial) $('#djSucursal').val(depositoInicial);
@@ -1473,6 +1481,8 @@ function AbrirModalDeclaracion() {
 
 function CerrarModalDeclaracion() {
   document.getElementById('modalDeclaracionJurada').style.display = 'none';
+  // Cerrarlo a mano antes de confirmar corta el flujo de "Completar venta".
+  if (flujoVentaActivo && !canjeVenta) flujoVentaActivo = false;
 }
 
 async function ConfirmarDeclaracionJurada() {
@@ -1537,8 +1547,20 @@ async function ConfirmarDeclaracionJurada() {
     }
 
     await imprimirDeclaracionJurada({ nombre, dni, domicilio, modelo, imei, valor: descuento });
+    // Los datos del equipo entregado viajan despues con la venta a la base
+    // (cobro.js) -- antes el IMEI del canje quedaba como "SIN DATO".
+    canjeVenta = {
+      imeiSerie: imei, modelo, capacidad, color, falla,
+      bateriaPct: bateria > 0 ? Math.round(bateria * 100) : null,
+      nombre, dni, domicilio
+    };
     CerrarModalDeclaracion();
-    MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
+    if (flujoVentaActivo) {
+      // Dentro de "Completar venta": sigue el paso 2 (equipo que se lleva + cliente).
+      AbrirModalGarantia();
+    } else {
+      MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
+    }
   } catch (error) {
     MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No se pudo agregar al stock: ' + error.message });
   } finally {
@@ -1773,9 +1795,15 @@ function AbrirModalGarantia() {
   garantiaCombinada = [];
   if (!colaGarantia.length) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'No hay ningun producto con garantia en el carrito' });
   poblarSelectVendedor('gtVendedor');
-  $('#gtNombre, #gtDni, #gtEmail').val('');
+  $('#gtNombre, #gtDni, #gtEmail, #gtTelefono').val('');
   document.getElementById('gtEnviarMail').checked = true;
   opIdVenta = nuevoOpId();
+  pautaVenta = false;
+  // Dentro de "Completar venta": el que entrega un equipo en canje ya cargo nombre
+  // y DNI en el paso 1 (es la misma persona), asi que se precargan.
+  if (flujoVentaActivo && canjeVenta) { $('#gtNombre').val(canjeVenta.nombre || ''); $('#gtDni').val(canjeVenta.dni || ''); }
+  document.getElementById('btnConfirmarGarantia').textContent = flujoVentaActivo ? 'Siguiente: pagos' : 'Confirmar e imprimir';
+  if (flujoVentaActivo) mostrarPasoVenta('modalGarantia', pasosVenta - 1, pasosVenta, 'Equipo que se lleva y datos del cliente'); else ocultarPasoVenta('modalGarantia');
   // Local de la venta: Dino e Independencia tienen uno solo (queda elegido y
   // el campo se oculta); Shopping tiene 2: se completa segun el vendedor y se
   // puede cambiar (el deposito del equipo NO sirve: no dice donde se vende).
@@ -2028,6 +2056,84 @@ function CerrarModalGarantia() {
   colaGarantia = [];
   garantiaCombinada = [];
   document.getElementById('modalGarantia').style.display = 'none';
+  // Cerrar a mano (o terminar la venta) corta el flujo de "Completar venta".
+  flujoVentaActivo = false;
+  canjeVenta = null;
+}
+
+// ============================ COMPLETAR VENTA (flujo en pasos) ============================
+// Un solo boton para cerrar la venta, una vez que esta todo en el carrito:
+//   Paso 1 (solo si hay canje): datos del equipo entregado (declaracion jurada)
+//   Paso 2: equipo que se lleva + datos del cliente (garantia)
+//   Paso 3: pagos (opcional)
+// Cada paso es el modal que ya existia; este bloque solo los encadena. La venta
+// se registra en la base y se imprime todo junto al finalizar el ultimo paso.
+let flujoVentaActivo = false;
+let canjeVenta = null;     // datos del equipo entregado (paso 1), viajan con la venta
+let pasosVenta = 2;
+let finalizandoVenta = false;
+
+function mostrarPasoVenta(modalId, paso, total, titulo) {
+  const cont = document.querySelector('#' + modalId + ' .modal-content');
+  if (!cont) return;
+  let p = cont.querySelector('.paso-venta');
+  if (!p) {
+    p = document.createElement('p');
+    p.className = 'paso-venta';
+    p.style.cssText = 'margin:0 0 4px; font-size:13px; font-weight:600; color:var(--ap-accent, #0071e3);';
+    const titulo = cont.querySelector('h3');
+    if (titulo) cont.insertBefore(p, titulo); else cont.appendChild(p);
+  }
+  p.textContent = 'Paso ' + paso + ' de ' + total + ' · ' + titulo;
+  p.style.display = '';
+}
+
+function ocultarPasoVenta(modalId) {
+  const p = document.querySelector('#' + modalId + ' .paso-venta');
+  if (p) p.style.display = 'none';
+}
+
+function CompletarVenta() {
+  if (!itemsGarantizables().length) return MostrarAlerta({ tipo: 'error', title: 'Venta', mnsj: 'No hay ningun producto con garantia en el carrito' });
+  flujoVentaActivo = true;
+  canjeVenta = null;
+  pasosVenta = tradeInDelCarrito() ? 3 : 2;
+  if (pasosVenta === 3) AbrirModalDeclaracion(); else AbrirModalGarantia();
+}
+
+function AbrirModalPagos() {
+  document.getElementById('modalGarantia').style.display = 'none';
+  if (typeof Cobro !== 'undefined') Cobro.iniciar();
+  mostrarPasoVenta('modalPagos', pasosVenta, pasosVenta, 'Pagos');
+  document.getElementById('modalPagos').style.display = 'block';
+}
+
+// omitirCobro = true: la venta se imprime y se registra sin cobro cargado.
+async function FinalizarVenta(omitirCobro) {
+  if (finalizandoVenta) return;
+  if (typeof Cobro !== 'undefined') {
+    if (omitirCobro) Cobro.limpiar(); else if (!Cobro.validar()) return;
+  }
+  finalizandoVenta = true;
+  const boton = document.getElementById('btnFinalizarVenta');
+  boton.disabled = true;
+  try {
+    // El registro en la base no espera y nunca frena la impresion; window.open se
+    // llama dentro de imprimirGarantiaCombinada, antes de cualquier await.
+    if (typeof Cobro !== 'undefined') Cobro.registrarVenta().catch(error => console.log('[cobro] ' + error));
+    await imprimirGarantiaCombinada();
+  } finally {
+    finalizandoVenta = false;
+    boton.disabled = false;
+    document.getElementById('modalPagos').style.display = 'none';
+    CerrarModalGarantia();
+  }
+}
+
+function CerrarModalPagos() {
+  // La venta ya esta registrada en stock: cerrar sin cobro equivale a "omitir".
+  if (!window.confirm('La venta ya salió del stock. ¿Imprimir la garantía sin cargar el cobro?')) return;
+  FinalizarVenta(true);
 }
 
 // Termino el item actual de la cola (ya se registro en reportes/Stock y se
@@ -2038,7 +2144,12 @@ async function avanzarColaGarantia() {
   colaGarantia.shift();
   if (colaGarantia.length) {
     mostrarModalGarantiaItem(colaGarantia[0]);
+  } else if (flujoVentaActivo) {
+    // "Completar venta": falta el paso de pagos; se imprime y registra al finalizarlo.
+    AbrirModalPagos();
   } else {
+    // Camino viejo (sin pasos): se registra sin cobro y se imprime de una.
+    if (typeof Cobro !== 'undefined') Cobro.registrarVenta().catch(error => console.log('[cobro] ' + error));
     await imprimirGarantiaCombinada();
     CerrarModalGarantia();
   }
@@ -2093,7 +2204,10 @@ async function ConfirmarGarantia() {
 // mail con la garantia se manda al final de imprimirGarantiaCombinada.
 let opIdVenta = ''; // ID de la venta completa (evita mandar el mail dos veces)
 let clienteVenta = '';
+let dniVenta = '';
+let pautaVenta = false;
 let emailVenta = '';
+let telefonoVenta = '';
 let enviarMailVenta = false;
 let localVenta = ''; // local donde se hace la venta (sale impreso en la copia del cliente)
 
@@ -2113,6 +2227,13 @@ function datosClienteGarantia() {
     MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa un email valido del cliente (ej. nombre@gmail.com)' });
     return null;
   }
+  // Telefono: se guarda solo con digitos (acepta espacios, guiones, parentesis y "+").
+  // Con codigo de area son 10 digitos (351 1234567); con 54 / 549 delante, hasta 13.
+  const telefono = $('#gtTelefono').val().replace(/[\s().+-]/g, '');
+  if (!/^\d{10,13}$/.test(telefono)) {
+    MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el telefono del cliente con codigo de area (ej. 351 1234567, sin 0 ni 15)' });
+    return null;
+  }
   const local = $('#gtLocal').val() || '';
   if (!local) {
     MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Elegi el local donde se hace la venta' });
@@ -2120,9 +2241,11 @@ function datosClienteGarantia() {
   }
   localVenta = local;
   clienteVenta = cliente;
+  dniVenta = dni;
   emailVenta = email;
+  telefonoVenta = telefono;
   enviarMailVenta = document.getElementById('gtEnviarMail').checked;
-  return { cliente, dni, email };
+  return { cliente, dni, email, telefono };
 }
 
 async function ConfirmarGarantiaAccesorio(item) {
@@ -2181,6 +2304,7 @@ async function ConfirmarGarantiaEquipo(equipo) {
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
   // checkbox esta oculto y siempre destildado.
   const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
+  pautaVenta = pauta;
   if (!garantiaModoManual && !imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Elegi el equipo de la lista, o carga el IMEI a mano' });
   if (!imei || !color) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa IMEI/Serie y color del equipo' });
 
@@ -2849,6 +2973,9 @@ async function imprimirGarantiaCombinada() {
   // plantilla en Excel del negocio), con un bloque por cada producto de la
   // venta y despues los campos comunes (una sola vez) que se completan a
   // mano en el local.
+  // Lo cargado en "Cobro" completa solo los renglones de pago (cobro.js); si no se
+  // cargo nada quedan en blanco, como siempre, para escribirlos a mano.
+  const cobroPlanilla = (typeof Cobro !== 'undefined') ? Cobro.resumenParaPlanilla() : {};
   const filasPlanilla = [
     ['FECHA', fecha],
     ['VENDEDORES', vendedoresVistos.join(' / ')],
@@ -2856,16 +2983,17 @@ async function imprimirGarantiaCombinada() {
     ...bloquesPlanilla.flat(),
     ...(garantiaCombinada.length > 1 ? [['TOTAL PESOS', formatNumberArg(totalPesos)]] : []),
     ['BATERIA', ''],
-    ['USD BILLETE', ''],
+    ['USD BILLETE', cobroPlanilla.usdBillete || ''],
     ['COTIZACION DE USD', formatNumberArg(DATA.dolar.DolarVenta)],
-    ['TRANSFERENCIA EN PESOS', ''],
-    ['CUENTA', ''],
-    ['TRANSFERENCIA EN USD', ''],
-    ['CUENTA', ''],
-    ['CREDITO TOTAL', ''],
-    ['CANTIDAD DE CUOTAS', ''],
-    ['USDT', ''],
-    ['CUENTA', ''],
+    ['TRANSFERENCIA EN PESOS', cobroPlanilla.transfPesos || ''],
+    ['CUENTA', cobroPlanilla.cuentaPesos || ''],
+    ['TRANSFERENCIA EN USD', cobroPlanilla.transfUsd || ''],
+    ['CUENTA', cobroPlanilla.cuentaUsd || ''],
+    ['CREDITO TOTAL', cobroPlanilla.credito || ''],
+    ['CANTIDAD DE CUOTAS', cobroPlanilla.cuotas || ''],
+    ['USDT', cobroPlanilla.usdt || ''],
+    ['CUENTA', cobroPlanilla.cuentaUsdt || ''],
+    ...(cobroPlanilla.otros ? [['OTROS COBROS', cobroPlanilla.otros]] : []),
     ['EQUIPO EN PLAN CANJE', tradeInVenta ? tradeInVenta.modelo : ''],
     ['COTIZACION DEL CANJE', tradeInVenta ? formatNumberArg(tradeInVenta.precio) : '']
   ];
@@ -3706,7 +3834,7 @@ function iniciarApp(sesion) {
   document.getElementById('usuarioActualRol').textContent = ROLES[sesion.rol].nombre;
 
   const selectSucursal = document.getElementById('selectSucursal');
-  if (esAdmin(sesion)) {
+  if (esAdminOOficina(sesion)) {
     // Admin: ve y puede cambiar entre las 2 sucursales.
     DATA.sucursales.forEach(s => selectSucursal.appendChild(new Option(s + (DATA.sucursalesShopping.includes(s) ? ' (shopping)' : ''), s)));
     sucursalActual = DATA.sucursales[0];
@@ -3719,6 +3847,9 @@ function iniciarApp(sesion) {
   selectSucursal.value = sucursalActual;
   selectSucursal.addEventListener('change', () => cargarSucursal(selectSucursal.value));
   cargarSucursal(sucursalActual);
+
+  // Panel de ventas y cobros: administracion y oficina (el servidor igual lo valida).
+  if (esAdminOOficina(sesion)) document.getElementById('btnCVentas').classList.remove('oculto');
 
   // Ingreso/Egreso de stock: solo lo ve el admin.
   if (esAdmin(sesion)) {
@@ -3786,6 +3917,10 @@ function iniciarApp(sesion) {
     this.value = this.value.replace(/\D/g, '').slice(0, 15);
   });
 
+  document.getElementById('btnCompletarVenta').addEventListener('click', CompletarVenta);
+  document.getElementById('cerrarModalPagos').addEventListener('click', CerrarModalPagos);
+  document.getElementById('btnFinalizarVenta').addEventListener('click', () => FinalizarVenta(false));
+  document.getElementById('btnOmitirCobro').addEventListener('click', e => { e.preventDefault(); FinalizarVenta(true); });
   document.getElementById('btnImprimirGarantia').addEventListener('click', AbrirModalGarantia);
   document.getElementById('cerrarModalGarantia').addEventListener('click', CerrarModalGarantia);
   document.getElementById('btnConfirmarGarantia').addEventListener('click', ConfirmarGarantia);
@@ -4052,6 +4187,7 @@ function iniciarApp(sesion) {
         'btnCIngresoEgreso': () => IngresoEgreso(),
         'btnCReportes': () => Reportes(),
         'btnCComisiones': () => Comisiones(),
+        'btnCVentas': () => Ventas(),
         'btnCReservas': () => Reservas(),
         'btnCComparar': () => abrirComparador(),
         'btnCFinanciacion': () => Financiacion(),

@@ -27,6 +27,13 @@ const ROLES = {
     descripcion: 'Acceso completo a todas las funciones y a las 2 sucursales.',
     accesoTotal: true
   },
+  // Oficina: ve todas las sucursales y el panel de Ventas (verifica pagos); no anula
+  // ni toca stock. Los permisos de verdad los hace cumplir el servidor, no esta tabla.
+  oficina: {
+    nombre: 'Oficina',
+    descripcion: 'Panel de ventas y verificacion de pagos, en todas las sucursales.',
+    accesoTotal: false
+  },
   vendedor: {
     nombre: 'Vendedor',
     descripcion: 'Cotizador limitado a su sucursal asignada.',
@@ -183,6 +190,11 @@ async function verificarSesionServidor() {
     return resp;
   };
 })();
+
+// Administracion y oficina ven el panel de Ventas y todas las sucursales.
+function esAdminOOficina(sesion) {
+  return !!sesion && (sesion.rol === 'admin' || sesion.rol === 'oficina');
+}
 
 function esAdmin(sesion) {
   return !!sesion && sesion.rol === 'admin';
