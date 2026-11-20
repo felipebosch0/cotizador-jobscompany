@@ -15,7 +15,7 @@
 // al cliente). El aviso es solo para el vendedor (solo en la tabla de pantalla,
 // no va en el WhatsApp): 3 y 6 cuotas se cobran por el posnet de Mercado Pago.
 // Vale para todas las sucursales.
-const AVISO_POSNET_MP = 'Se cobra por el posnet de Mercado Pago';
+const AVISO_POSNET_MP = 'SE COBRA POR EL POSNET DE MERCADO PAGO';
 
 window.COTIZADOR_DATA = {
 
