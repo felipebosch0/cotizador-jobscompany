@@ -115,7 +115,13 @@ const Cobro = (function () {
           <select data-campo="moneda"><option value="ARS"${l.moneda === 'ARS' ? ' selected' : ''}>$</option><option value="USD"${l.moneda === 'USD' ? ' selected' : ''}>USD</option></select></div>` : ''}
       </div>
       ${l.metodo === 'canje'
-        ? `<p class="detalle">Se descuenta el valor del equipo entregado: <strong>${pesos(num(l.monto))}</strong></p>`
+        ? `<p class="detalle">Se descuenta el valor del equipo entregado: <strong>${pesos(num(l.monto))}</strong></p>
+        <div><label>Captura de ENACOM (verificación del IMEI, recomendada)</label>
+          <p class="detalle">Revisá que el equipo no esté bloqueado en <a href="https://imei.enacom.gob.ar/" target="_blank" rel="noopener">imei.enacom.gob.ar</a> y sacale una captura del resultado.</p>
+          <input type="file" data-campo="archivo" accept="image/jpeg,image/png,image/webp,application/pdf">
+          <button type="button" class="quitar" style="margin-top:6px" data-accion="pegar-captura">📋 Pegar captura del portapapeles</button> <span class="detalle">(o apretá Ctrl+V)</span>
+          ${l.archivo ? `<p class="detalle">${esc(l.archivo.name)} (${Math.round(l.archivo.size / 1024)} KB)</p>` : ''}
+          ${l.archivo ? '' : '<p class="detalle" style="color:#b26a00">Sin captura: queda marcado en el panel como “sin verificar en ENACOM”.</p>'}</div>`
         : `<div class="fila">
             <div><label>Monto${eEnDolares(l) ? ' (' + monedaDe(l) + ')' : ' ($)'}</label>
               <input type="text" inputmode="decimal" data-campo="monto" value="${esc(l.monto)}" placeholder="0" autocomplete="off"></div>
@@ -390,14 +396,48 @@ const Cobro = (function () {
     };
   }
 
+  // ---------- captura de ENACOM pegada desde el portapapeles ----------
+  // Se adjunta al pago del canje (la linea que todavia no tiene archivo).
+  function adjuntarCapturaAlCanje(blob) {
+    const l = lineas.find(x => x.metodo === 'canje');
+    if (!l) return false;
+    const ext = blob.type === 'image/jpeg' ? 'jpg' : (blob.type === 'image/webp' ? 'webp' : 'png');
+    l.archivo = new File([blob], 'captura-enacom.' + ext, { type: blob.type || 'image/png' });
+    render();
+    return true;
+  }
+  async function pegarCapturaDelPortapapeles() {
+    try {
+      if (!navigator.clipboard || !navigator.clipboard.read) throw new Error('sin permiso');
+      for (const item of await navigator.clipboard.read()) {
+        const tipo = item.types.find(t => t.startsWith('image/'));
+        if (tipo) { adjuntarCapturaAlCanje(await item.getType(tipo)); MostrarAlerta({ tipo: 'success', title: 'ENACOM', mnsj: 'Captura pegada' }); return; }
+      }
+      MostrarAlerta({ tipo: 'error', title: 'ENACOM', mnsj: 'No hay ninguna imagen en el portapapeles. Sacá la captura y probá de nuevo.' });
+    } catch (e) {
+      MostrarAlerta({ tipo: 'warning', title: 'ENACOM', mnsj: 'El navegador no dejó leer el portapapeles. Apretá Ctrl+V con esta pantalla abierta, o elegí la imagen con el botón de archivo.' });
+    }
+  }
+
   // ---------- enganche con la pantalla ----------
   function conectar() {
+    // Ctrl+V con la pantalla de pagos abierta: si lo pegado es una imagen, va a la captura del canje.
+    document.addEventListener('paste', ev => {
+      const modal = $id('modalPagos');
+      if (!modal || getComputedStyle(modal).display === 'none') return;
+      const t = ev.target;
+      if (t && /^(INPUT|TEXTAREA)$/.test(t.tagName) && t.type !== 'file') return;   // no pisar el texto de los campos
+      const img = Array.from((ev.clipboardData && ev.clipboardData.items) || []).find(i => i.kind === 'file' && i.type.startsWith('image/'));
+      if (!img) return;
+      if (adjuntarCapturaAlCanje(img.getAsFile())) { ev.preventDefault(); MostrarAlerta({ tipo: 'success', title: 'ENACOM', mnsj: 'Captura pegada' }); }
+    });
     const cont = $id('gtCobroLineas');
     if (!cont) return;
     const agregar = $id('gtCobroAgregar');
     if (agregar) agregar.addEventListener('click', () => { lineas.push(nueva()); render(); });
 
     cont.addEventListener('click', ev => {
+      if (ev.target.getAttribute('data-accion') === 'pegar-captura') { pegarCapturaDelPortapapeles(); return; }
       if (ev.target.getAttribute('data-accion') !== 'quitar') return;
       const l = lineaDe(ev.target);
       if (l) { lineas = lineas.filter(x => x !== l); render(); }

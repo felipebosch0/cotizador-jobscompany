@@ -462,38 +462,21 @@ function renderPromosCarrito() {
 }
 
 // ---------- Cuentas para transferir ----------
-// "horario": hasta las 17 hs (sabados hasta las 14 hs). "fuera": despues de ese
-// horario, domingos y feriados. Los feriados no se detectan solos: si hoy es
-// feriado, mirar la cuenta de "Fuera de horario".
+// Las dos cuentas se pueden usar a cualquier hora y cualquier dia (ya no hay cuentas por horario).
 const CUENTAS_TRANSFERENCIA = [
   {
-    id: 'horario',
-    titulo: 'Hasta las 17 hs',
-    detalle: 'Sabados hasta las 14 hs',
+    id: 'todas',
+    titulo: 'Cuentas para transferir',
+    detalle: 'Se puede usar cualquiera de las dos, a cualquier hora',
     cuentas: [
       { nombre: 'Opcion 1', titular: 'INDUSPAGOS SA', cuit: '30719369150', cvu: '0000084000001042712256', alias: 'CON.PROTEGER.LUX' },
       { nombre: 'Opcion 2', titular: 'Sergio Daniel Navarro', cuit: '30-71868531-8', cbu: '0000391701000000165023', alias: 'DAMA.CRUZ.ORO.CASH' }
-    ]
-  },
-  {
-    id: 'fuera',
-    titulo: 'Fuera de horario',
-    detalle: 'Despues de las 17 hs, sabados despues de las 14 hs, domingos y feriados',
-    cuentas: [
-      { nombre: 'Cuenta unica', titular: 'Nicolas Agustin Aguirre Garcia', cuit: '20385034874', cbu: '0070138530004054554682', cbuMostrar: '00701385-30004054554682', alias: 'Jobscompany.1' }
     ]
   }
 ];
 
 function grupoTransferenciaActual() {
-  const p = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/Argentina/Buenos_Aires', weekday: 'short', hour: 'numeric', hour12: false
-  }).formatToParts(new Date());
-  const dia = p.find(x => x.type === 'weekday').value;
-  const hora = parseInt(p.find(x => x.type === 'hour').value, 10) % 24;
-  if (dia === 'Sun') return 'fuera';
-  if (dia === 'Sat') return hora < 14 ? 'horario' : 'fuera';
-  return hora < 17 ? 'horario' : 'fuera';
+  return 'todas';
 }
 
 function renderCuentasTransferencia() {
@@ -2516,16 +2499,16 @@ function cuitDeSucursal(sucursal) {
 }
 
 // A quien se le escribe para hacer valer la garantia (sale impreso).
-const CONTACTO_GARANTIA = 'Moises (Servicio técnico especializado Jobs Company) al <strong>+54&nbsp;9&nbsp;351&nbsp;787-9711</strong>';
+const CONTACTO_GARANTIA = 'Moises (Servicio técnico especializado Jobs Company) al <strong>+54&nbsp;9&nbsp;3515&nbsp;32-3750</strong>';
 
 // Otra forma de contactar al tecnico: QR (en el papel) o link (en el mail/PDF)
 // que abre un chat de WhatsApp con el mismo numero. El QR es el que armo el
-// negocio en scanned.page (cuenta con estadisticas de escaneos); "trazo" es su
+// negocio en me-qr.com (QR dinamico: el destino se cambia desde su cuenta, sin tocar el codigo); "trazo" es su
 // dibujo ya generado y 'lado' el tamaño en modulos con borde.
 const TECNICO_WA = {
-  url: 'https://scanned.page/p/QN1WYy',
+  url: 'https://q.me-qr.com/nk4mczcd',
   lado: 33,
-  trazo: 'M2 2.5h7m2 0h1m2 0h2m1 0h1m3 0h1m2 0h7m-29 1h1m5 0h1m2 0h3m4 0h1m1 0h2m2 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h1m2 0h1m1 0h4m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m4 0h1m3 0h1m2 0h1m3 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m2 0h1m4 0h3m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h3m5 0h1m1 0h2m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-20 1h1m2 0h1m3 0h4m-19 1h1m2 0h1m1 0h1m1 0h2m1 0h1m5 0h1m1 0h1m1 0h1m1 0h2m1 0h1m-26 1h3m6 0h3m2 0h1m1 0h1m1 0h1m2 0h1m1 0h5m-29 1h1m2 0h7m3 0h4m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m-26 1h2m2 0h1m1 0h2m2 0h2m2 0h1m3 0h1m1 0h1m1 0h1m1 0h2m-28 1h1m2 0h1m1 0h1m1 0h4m5 0h1m1 0h2m2 0h1m1 0h1m2 0h1m-29 1h2m1 0h3m3 0h1m2 0h7m3 0h1m1 0h1m1 0h1m1 0h1m-29 1h1m2 0h1m1 0h3m1 0h1m3 0h1m1 0h3m2 0h1m3 0h1m3 0h1m-29 1h2m1 0h1m4 0h1m3 0h1m3 0h4m3 0h1m1 0h1m1 0h2m-29 1h1m3 0h1m1 0h2m3 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h1m-24 1h2m5 0h2m1 0h1m1 0h3m2 0h2m1 0h2m1 0h2m1 0h1m1 0h1m-25 1h3m3 0h3m1 0h2m2 0h1m5 0h3m1 0h1m-25 1h2m1 0h2m2 0h3m1 0h3m1 0h2m3 0h2m2 0h1m-29 1h4m2 0h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h6m1 0h2m-21 1h1m1 0h2m2 0h2m2 0h1m1 0h1m3 0h1m1 0h3m-29 1h7m2 0h2m1 0h1m1 0h4m1 0h2m1 0h1m1 0h1m3 0h1m-29 1h1m5 0h1m2 0h2m1 0h1m2 0h1m1 0h1m1 0h2m3 0h2m1 0h1m-28 1h1m1 0h3m1 0h1m1 0h1m2 0h1m6 0h7m2 0h2m-29 1h1m1 0h3m1 0h1m5 0h3m1 0h1m1 0h1m4 0h1m2 0h2m-28 1h1m1 0h3m1 0h1m2 0h1m6 0h6m3 0h1m1 0h2m-29 1h1m5 0h1m1 0h3m2 0h1m3 0h2m2 0h3m3 0h2m-29 1h7m2 0h3m3 0h1m1 0h1m2 0h2m2 0h2m1 0h1'
+  trazo: 'M2 2.5h7m8 0h6m1 0h7m-29 1h1m5 0h1m1 0h2m2 0h1m1 0h2m2 0h1m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h2m1 0h2m5 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m4 0h1m1 0h2m2 0h3m2 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m6 0h1m1 0h1m6 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m2 0h6m1 0h5m1 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m1 0h4m1 0h3m1 0h1m-20 1h2m4 0h1m1 0h2m2 0h3m1 0h1m1 0h2m1 0h2m4 0h1m-28 1h6m3 0h1m1 0h1m1 0h1m2 0h2m1 0h5m1 0h4m-27 1h2m1 0h2m1 0h1m1 0h4m1 0h1m2 0h2m2 0h1m1 0h1m1 0h1m-24 1h1m1 0h1m3 0h1m2 0h2m3 0h2m1 0h1m4 0h2m1 0h1m-28 1h3m2 0h3m3 0h1m1 0h1m1 0h1m1 0h5m1 0h2m2 0h1m-29 1h1m2 0h1m3 0h1m1 0h2m1 0h3m3 0h1m1 0h1m2 0h1m3 0h2m-29 1h7m1 0h1m1 0h4m2 0h2m5 0h2m2 0h1m-28 1h1m6 0h2m1 0h2m1 0h4m1 0h1m1 0h5m2 0h1m-28 1h1m1 0h2m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m4 0h1m2 0h2m2 0h1m-26 1h1m9 0h3m1 0h2m1 0h1m3 0h1m3 0h1m-29 1h1m3 0h1m1 0h4m2 0h2m1 0h1m1 0h1m4 0h1m1 0h1m1 0h1m-25 1h1m1 0h1m2 0h3m1 0h1m1 0h1m3 0h3m1 0h6m1 0h1m-28 1h1m1 0h2m1 0h2m4 0h1m1 0h4m2 0h7m-19 1h3m1 0h1m6 0h2m3 0h1m1 0h2m-28 1h7m3 0h4m1 0h1m1 0h1m1 0h2m1 0h1m1 0h1m1 0h1m-27 1h1m5 0h1m3 0h1m3 0h1m2 0h4m3 0h3m-27 1h1m1 0h3m1 0h1m2 0h1m3 0h1m1 0h1m1 0h1m2 0h5m1 0h3m-29 1h1m1 0h3m1 0h1m2 0h5m1 0h3m3 0h1m1 0h1m1 0h3m-28 1h1m1 0h3m1 0h1m3 0h1m4 0h4m1 0h2m3 0h4m-29 1h1m5 0h1m1 0h2m2 0h1m2 0h2m8 0h2m-27 1h7m1 0h1m4 0h1m3 0h2m1 0h1m2 0h1m3 0h1'
 };
 
 // Mail de contacto para sugerencias (sale en el pedido de resena).

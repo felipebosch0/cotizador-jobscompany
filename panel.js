@@ -88,7 +88,8 @@ const PanelVentas = (function () {
         <button type="button" class="pv-tab" data-tab="garantias">Garantías por vencer <b data-cuenta="garantias_por_vencer"></b></button>
         <button type="button" class="pv-tab" data-tab="reclamos">Reclamos <b data-cuenta="reclamos_abiertos"></b></button>
         <button type="button" class="pv-tab" data-tab="encuestas">Encuestas</button>
-        <button type="button" class="pv-tab" data-tab="caja">Caja <b data-cuenta="cierres_pendientes"></b></button>
+        <!-- Caja: oculta por ahora (no se lleva control de caja diario). Para volver a mostrarla, quitar el atributo hidden. -->
+        <button type="button" class="pv-tab" hidden data-tab="caja">Caja <b data-cuenta="cierres_pendientes"></b></button>
         <button type="button" class="pv-tab" data-tab="comisiones">Comisiones</button>
         <button type="button" class="pv-tab" data-tab="stock">Stock</button>
       </div>
@@ -242,7 +243,8 @@ const PanelVentas = (function () {
     const esAdmin = rol === 'admin';
     const filasPagos = d.pagos.map(p => {
       const enMoneda = p.moneda === 'ARS' ? pesos(p.monto_centavos) : p.moneda + ' ' + (p.monto_centavos / 100).toLocaleString('es-AR');
-      const comps = (compPorPago[p.id] || []).map(c => `<a href="/api/panel/comprobantes/${c.id}" target="_blank" rel="noopener">📎 ${esc(c.nombre_original || 'comprobante')}</a>`).join('<br>') || '<span style="opacity:.5">—</span>';
+      const sinCaptura = p.metodo === 'canje' && p.estado === 'vigente' && !(compPorPago[p.id] || []).length;
+      const comps = (compPorPago[p.id] || []).map(c => `<a href="/api/panel/comprobantes/${c.id}" target="_blank" rel="noopener">📎 ${p.metodo === 'canje' ? 'Captura ENACOM · ' : ''}${esc(c.nombre_original || 'comprobante')}</a>`).join('<br>') || (sinCaptura ? '<span class="pv-badge alerta">Sin verificar en ENACOM</span>' : '<span style="opacity:.5">—</span>');
       const vig = p.estado === 'vigente';
       const verif = vig ? `<span class="pv-badge ${p.verificacion === 'verificado' ? 'ok' : (p.verificacion === 'con_diferencia' ? 'error' : 'alerta')}">${NOMBRE_VERIF[p.verificacion]}</span>${p.nota_verificacion ? '<br><span style="opacity:.7">' + esc(p.nota_verificacion) + '</span>' : ''}${p.verificado_por ? '<br><span style="opacity:.6">' + esc(p.verificado_por) + '</span>' : ''}` : `<span class="pv-badge error">Anulado</span><br><span style="opacity:.7">${esc(p.motivo_anulacion || '')}</span>`;
       const acciones = vig && !anulada ? `<div class="pv-acciones">
@@ -265,7 +267,13 @@ const PanelVentas = (function () {
       ${htmlDevoluciones(d)}
       ${htmlPosventa(d)}
       ${aud}
-      ${rol === 'admin' && v.estado_venta === 'registrada' ? `<div class="pv-acciones" style="margin-top:12px;"><button class="pv-btn peligro" data-accion="anular-venta" data-venta="${v.venta_id}">Anular venta</button></div>` : ''}`;
+      ${rol === 'admin' && v.estado_venta === 'registrada' ? `<div class="pv-acciones" style="margin-top:12px;"><button class="pv-btn peligro" data-accion="anular-venta" data-venta="${v.venta_id}" data-local="${esc(v.local || '')}">Anular venta</button></div>` : ''}`;
+  }
+
+  // Deposito al que vuelve el equipo de una venta anulada (con el stock en la base el servidor usa el de origen).
+  function depositoDeLocal(l) {
+    const t = String(l || '').toLowerCase();
+    return /olmos/.test(t) ? 'OLMOS' : /nuevo centro/.test(t) ? 'NUEVO CENTRO' : /dino/.test(t) ? 'DINO' : /independencia/.test(t) ? 'INDEPENDENCIA' : '';
   }
 
   // ---------- acciones ----------
@@ -286,8 +294,9 @@ const PanelVentas = (function () {
       } else if (a === 'anular-venta') {
         const motivo = window.prompt('Motivo de la anulación de la VENTA (también se anulan sus pagos y su garantía):');
         if (motivo === null) return;
-        if (!window.confirm('¿Anular esta venta? No se puede deshacer.')) return;
-        const j = await pApi('POST', '/api/panel/ventas/' + boton.getAttribute('data-venta') + '/anular', { motivo }); aviso('warning', j.aviso || 'Venta anulada');
+        const dep = depositoDeLocal(boton.getAttribute('data-local'));
+        if (!window.confirm('¿Anular esta venta? No se puede deshacer. El equipo vuelve al stock' + (dep ? ' (' + dep + ' si el stock sigue en la planilla)' : '') + '.')) return;
+        const j = await pApi('POST', '/api/panel/ventas/' + boton.getAttribute('data-venta') + '/anular', { motivo, deposito: dep || undefined }); aviso('warning', j.aviso || 'Venta anulada');
       }
     } catch (e) { return aviso('error', e.message); }
     const id = abierta;

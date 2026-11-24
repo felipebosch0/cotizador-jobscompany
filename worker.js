@@ -783,9 +783,12 @@ async function manejarCrearVenta(request, env) {
     const ip = request.headers.get('CF-Connecting-IP') || null;
     let ultimoError = null;
 
-    for (let intento = 0; intento < 5; intento++) {
-      const cuenta = await env.DB.prepare('SELECT COUNT(*) AS n FROM ventas WHERE codigo LIKE ?').bind(prefijo + '%').first();
-      const codigo = prefijo + String((cuenta ? cuenta.n : 0) + 1 + intento).padStart(4, '0');
+    for (let intento = 0; intento < 12; intento++) {
+      // Numero siguiente = mayor del dia + 1. Si otras ventas simultaneas se llevan el mismo numero, se reintenta
+      // saltando un poco al azar para no volver a chocar con las mismas.
+      const cuenta = await env.DB.prepare('SELECT COALESCE(MAX(CAST(SUBSTR(codigo, ?) AS INTEGER)), 0) AS n FROM ventas WHERE codigo LIKE ?').bind(prefijo.length + 1, prefijo + '%').first();
+      const salto = intento === 0 ? 0 : intento + Math.floor(Math.random() * intento * 3);
+      const codigo = prefijo + String((cuenta ? cuenta.n : 0) + 1 + salto).padStart(4, '0');
       const sentencias = armarSentenciasVenta(env, d, { codigo, sucId: suc.id, locId: loc.id, usuario, hoy, ip });
       try {
         await env.DB.batch(sentencias);
@@ -1122,7 +1125,41 @@ async function panelAnularVenta(request, env, ventaId, usuario) {
     env.DB.prepare("INSERT INTO auditoria (usuario_id, rol, accion, entidad, entidad_id, antes_json, despues_json, nota, ip) VALUES (?, ?, 'venta.anular', 'ventas', ?, ?, ?, ?, ?)")
       .bind(usuario.id, usuario.rol, ventaId, JSON.stringify({ estado: 'registrada', total_centavos: venta.total_centavos }), JSON.stringify({ estado: 'anulada' }), venta.codigo + ': ' + motivo, request.headers.get('CF-Connecting-IP') || null)
   ]);
-  return jsonConEstado({ ok: true, aviso: 'La venta quedo anulada. El stock del equipo no se repone solo: hay que reingresarlo a mano.' }, 200);
+  const repuestos = await reponerStockDeVentaAnulada(env, ventaId, venta.codigo, motivo, usuario, textoONull(b.deposito));
+  const hechos = repuestos.filter(r => r.ok), fallos = repuestos.filter(r => !r.ok && !r.omitido);
+  let aviso = 'La venta quedó anulada.';
+  if (hechos.length) aviso += ' ' + (hechos.length === 1 ? 'El equipo volvió al stock' : 'Volvieron al stock ' + hechos.length + ' equipos') + ' (' + hechos.map(r => r.deposito).join(', ') + ').';
+  if (fallos.length) aviso += ' NO se pudo reponer al stock: ' + fallos.map(r => r.imei + ' (' + r.error + ')').join('; ') + '. Hay que reingresarlo a mano.';
+  if (!hechos.length && !fallos.length) aviso += ' Ningún equipo volvió al stock (no estaba cargado en el stock o no se indicó depósito).';
+  return jsonConEstado({ ok: true, aviso, repuestos }, 200);
+}
+
+// Al anular una venta, el equipo vuelve al stock. Con STOCK_EN_BASE=1 se sabe de que deposito salio
+// (solo se repone si realmente salio del stock: un equipo cargado a mano no existe en el). Con el stock
+// en el Sheet no hay forma de saberlo: se repone solo si el panel manda el deposito elegido.
+async function reponerStockDeVentaAnulada(env, ventaId, codigo, motivo, usuario, depositoElegido) {
+  const { results } = await env.DB.prepare("SELECT id, descripcion, modelo, capacidad, color, imei_serie, bateria_pct FROM venta_items WHERE venta_id = ? AND tipo = 'equipo' AND imei_serie IS NOT NULL AND imei_serie <> ''").bind(ventaId).all();
+  const quien = await env.DB.prepare('SELECT nombre FROM usuarios WHERE id = ?').bind(usuario.id).first();
+  const nombre = (quien && quien.nombre) || 'administracion';
+  const enBase = env.STOCK_EN_BASE === '1' && !!env.DB;
+  const salida = [];
+  for (const it of (results || [])) {
+    let deposito = null;
+    if (enBase) {
+      const u = await env.DB.prepare("SELECT d.nombre AS deposito FROM unidades u JOIN depositos d ON d.id = u.deposito_id WHERE u.imei_serie = ? AND u.estado = 'vendido' ORDER BY u.id DESC LIMIT 1").bind(it.imei_serie).first();
+      const yaActivo = await env.DB.prepare("SELECT id FROM unidades WHERE imei_serie = ? AND estado IN ('en_stock', 'reservado')").bind(it.imei_serie).first();
+      if (!u || yaActivo) { salida.push({ ok: false, omitido: true, imei: it.imei_serie }); continue; }
+      deposito = u.deposito;
+    } else {
+      deposito = depositoElegido ? String(depositoElegido).trim().toUpperCase() : null;
+      if (!deposito || DEPOSITOS_STOCK.indexOf(deposito) === -1) { salida.push({ ok: false, omitido: true, imei: it.imei_serie }); continue; }
+    }
+    const r = await reingresarAStock(env, Object.assign({}, it, { id: 'anul-' + it.id, codigo, motivo, etiqueta: 'VENTA ANULADA' }), deposito, nombre, usuario);
+    salida.push({ ok: !!r.ok, imei: it.imei_serie, deposito, error: r.ok ? undefined : r.error });
+    await env.DB.prepare("INSERT INTO auditoria (usuario_id, rol, accion, entidad, entidad_id, nota) VALUES (?, ?, 'venta.anular.reingreso', 'ventas', ?, ?)")
+      .bind(usuario.id, usuario.rol, ventaId, (r.ok ? 'hecho en ' : 'FALLO en ') + deposito + ' · ' + it.imei_serie + (r.ok ? '' : ': ' + r.error)).run();
+  }
+  return salida;
 }
 
 // Sirve el archivo de un comprobante (nunca queda publico: solo admin/oficina con sesion).
@@ -1345,19 +1382,29 @@ const METODOS_REINTEGRO = ['efectivo', 'transferencia', 'usdt', 'credito_a_favor
 // Reingresa el equipo devuelto al stock. Hoy el stock vive en el Sheet, asi que se le
 // pide al mismo Apps Script de siempre (accion "ingreso"); si falla, la devolucion queda
 // registrada igual y se puede repetir el reingreso.
-async function reingresarAStock(env, dev, deposito, nombreUsuario) {
+async function reingresarAStock(env, dev, deposito, nombreUsuario, usuario) {
+  const cuerpo = JSON.stringify({
+    accion: 'ingreso', modelo: dev.modelo || dev.descripcion, capacidad: dev.capacidad || '', color: dev.color || '', imei: dev.imei_serie,
+    bateria: dev.bateria_pct ? dev.bateria_pct / 100 : undefined, sucursal: deposito,
+    observaciones: (dev.etiqueta || 'DEVOLUCION') + ' ' + dev.codigo + ': ' + String(dev.motivo).slice(0, 120), usuario: nombreUsuario, propietario: nombreUsuario,
+    opId: 'devolucion-' + dev.id
+  });
+  // Con STOCK_EN_BASE=1 el stock vive en la base: el reingreso se hace ahi (mismo codigo que /stock-write),
+  // no en el Sheet. Sin el interruptor, se le pide al Apps Script de siempre.
+  if (env.STOCK_EN_BASE === '1' && env.DB) {
+    try {
+      const r = await stockEscribir(new Request('https://interno.local/stock-write', { method: 'POST', body: cuerpo }), env, undefined,
+        { id: usuario && usuario.id || null, rol: usuario && usuario.rol || null, conSesion: true });
+      const j = await r.json();
+      return j.ok ? { ok: true, fila: j.fila } : { ok: false, error: j.error || 'El stock no acepto el reingreso' };
+    } catch (e) {
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  }
   const url = env.APPS_SCRIPT_STOCK_URL;
   if (!url) return { ok: false, error: 'Falta configurar APPS_SCRIPT_STOCK_URL' };
   try {
-    const resp = await fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow',
-      body: JSON.stringify({
-        accion: 'ingreso', modelo: dev.modelo || dev.descripcion, capacidad: dev.capacidad || '', color: dev.color || '', imei: dev.imei_serie,
-        bateria: dev.bateria_pct ? dev.bateria_pct / 100 : undefined, sucursal: deposito,
-        observaciones: 'DEVOLUCION ' + dev.codigo + ': ' + String(dev.motivo).slice(0, 120), usuario: nombreUsuario, propietario: nombreUsuario,
-        opId: 'devolucion-' + dev.id
-      })
-    });
+    const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, redirect: 'follow', body: cuerpo });
     const texto = await resp.text();
     let j; try { j = JSON.parse(texto); } catch (e) { return { ok: false, error: 'Respuesta invalida del Apps Script' }; }
     return j.ok ? { ok: true, fila: j.fila } : { ok: false, error: j.error || 'El stock no acepto el reingreso' };
@@ -1422,7 +1469,7 @@ async function posventaDevolucion(request, env, ventaId, usuario) {
 async function posventaReingreso(env, devId, deposito, usuario) {
   const dev = await panelDatosDevolucion(env, devId);
   const quien = await env.DB.prepare('SELECT nombre FROM usuarios WHERE id = ?').bind(usuario.id).first();
-  const r = await reingresarAStock(env, dev, deposito, (quien && quien.nombre) || 'oficina');
+  const r = await reingresarAStock(env, dev, deposito, (quien && quien.nombre) || 'oficina', usuario);
   await env.DB.batch([
     env.DB.prepare('UPDATE devoluciones SET reingreso_estado = ?, reingreso_detalle = ?, deposito = ? WHERE id = ?').bind(r.ok ? 'hecho' : 'fallo', r.ok ? (r.fila ? 'Fila ' + r.fila : 'ok') : String(r.error).slice(0, 300), deposito, devId),
     env.DB.prepare("INSERT INTO auditoria (usuario_id, rol, accion, entidad, entidad_id, nota) VALUES (?, ?, 'devolucion.reingreso', 'devoluciones', ?, ?)").bind(usuario.id, usuario.rol, devId, (r.ok ? 'hecho en ' : 'FALLO en ') + deposito + (r.ok ? '' : ': ' + r.error))
