@@ -90,6 +90,14 @@ function usaModoIndependencia(sucursal) {
   return sucursal === 'Independencia';
 }
 
+// Precio de venta del equipo editable a mano ("Precio venta" y "Precio pagando
+// en efectivo"): Independencia y Dino. Solo eso -- el resto del modo
+// Independencia (trade-in en USD, financiacion propia, pauta) sigue siendo
+// solo de Independencia.
+function precioVentaEditable(sucursal) {
+  return sucursal === 'Independencia' || sucursal === 'Dino';
+}
+
 function equiposDeLaSucursal(sucursal) {
   return DATA.equiposPorSucursal[sucursal] || [];
 }
@@ -1257,7 +1265,7 @@ function PreciosVentaE() {
   // numero manda -- no se vuelve a tomar el de la lista. Asi, cargar la
   // entrega en efectivo despues de editar el precio no revierte el cambio.
   // No aplica a JBL (precio fijo, no se edita a mano).
-  if (precioVentaEditadoManual && usaModoIndependencia(sucursalActual) && !esFijoArs) {
+  if (precioVentaEditadoManual && precioVentaEditable(sucursalActual) && !esFijoArs) {
     const usdManual = Number(String($('#formVenta input[name="PVentaEquipo"]').val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
     if (usdManual > 0) precioUsd = usdManual;
   }
@@ -3682,7 +3690,7 @@ function cargarSucursal(sucursal) {
   // Precio venta / Precio pagando en efectivo: en Independencia se pueden
   // editar a mano (el vendedor puede sobreescribir el numero calculado); en
   // Shopping quedan como estaban, de solo lectura.
-  const editable = usaModoIndependencia(sucursal);
+  const editable = precioVentaEditable(sucursal);
   $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
   $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
 
