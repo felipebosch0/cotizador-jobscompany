@@ -85,7 +85,21 @@ const ESCALA_EQUIPOS = [
 const MODO_EQUIPOS = 'todos';
 
 // Vendedores que cobran un valor fijo por equipo, sin escala (USD por equipo).
-const COMISION_EQUIPOS_FIJO = { Ludmi: 10, Vicky: 10 };
+const COMISION_EQUIPOS_FIJO = { Ludmi: 10, Vicky: 10, Jose: 10, Ivonne: 10, Cristina: 10 };
+
+// Minimo de equipos del mes para cobrar (solo vendedores de valor fijo): con
+// menos de esa cantidad no cobran nada, con esa cantidad o mas cobran TODOS
+// los equipos a su valor fijo. Dino: 10.
+const COMISION_EQUIPOS_MINIMO = { Jose: 10, Ivonne: 10, Cristina: 10 };
+
+// Vendedores cuyos equipos se suman entre si: cada uno cobra sobre el total
+// del grupo (propios + los de los otros). Ludmi y Vicky (Independencia).
+const COMISION_EQUIPOS_JUNTOS = { Ludmi: ['Vicky'], Vicky: ['Ludmi'] };
+
+// Cantidad de un vendedor en un mapa { nombre: cantidad }, sumando los de su grupo.
+function comEquiposJuntos(nombre, mapa) {
+  return (mapa[nombre] || 0) + (COMISION_EQUIPOS_JUNTOS[nombre] || []).reduce((s, otro) => s + (mapa[otro] || 0), 0);
+}
 
 // Servicio tecnico: premio en pesos por escalon, segun cuantas ordenes sumo
 // la sucursal en el mes. Cada vendedor del grupo cobra el monto completo.
@@ -150,7 +164,13 @@ function comisionEquipos(cantidad, nombreVendedor) {
   const n = Math.max(0, Math.floor(Number(cantidad) || 0));
   // Valor fijo por equipo (sin escala): no hay goal ni proximo tramo.
   const fijo = COMISION_EQUIPOS_FIJO[nombreVendedor];
-  if (fijo != null) return { cantidad: n, goal: null, usdPorEquipo: fijo, usd: n * fijo, proximo: null, fijo: true };
+  if (fijo != null) {
+    const minimo = COMISION_EQUIPOS_MINIMO[nombreVendedor] || 0;
+    if (n < minimo) {
+      return { cantidad: n, goal: null, usdPorEquipo: fijo, usd: 0, minimo, proximo: { minimo: true, faltan: minimo - n, usdPorEquipo: fijo }, fijo: true };
+    }
+    return { cantidad: n, goal: null, usdPorEquipo: fijo, usd: n * fijo, minimo: minimo || null, proximo: null, fijo: true };
+  }
   const tramo = comTramoDesdeIgual(ESCALA_EQUIPOS, n);
   const siguiente = ESCALA_EQUIPOS.find(t => t.goal === tramo.goal + 1) || null;
   let usd = 0;
@@ -376,9 +396,11 @@ function comCalcularMes(mes, corte) {
   Object.keys(grupoAct).forEach(s => { variacionGrupo[s] = per.futuro ? comVariacion(null, null) : comVariacion(grupoAct[s], grupoPrev[s]); });
 
   const dolar = (DATA.dolar && Number(DATA.dolar.DolarVenta)) || 0;
+  const equiposRowsPorNombre = {};
+  COMISION_VENDEDORES.forEach(v => { equiposRowsPorNombre[v.nombre] = porVendedor[v.nombre].equiposRows; });
   const filas = COMISION_VENDEDORES.map(v => {
     const d = porVendedor[v.nombre];
-    const equipos = comisionEquipos(d.equiposRows, v.nombre);
+    const equipos = comisionEquipos(comEquiposJuntos(v.nombre, equiposRowsPorNombre), v.nombre);
     const accesorios = comisionAccesorios(d.accesorios);
     const servicio = servicioPorSucursal[v.sucursal];
     const equiposArs = equipos.usd * dolar;
@@ -387,7 +409,7 @@ function comCalcularMes(mes, corte) {
       vendedor: v, equipos, accesorios, servicio, ordenes: d.ordenes, equiposArs,
       accCorte: accAct[n] == null ? null : accAct[n],
       variacion: {
-        equipos: per.futuro ? comVariacion(null, null) : comVariacion(eqAct[n] || 0, eqPrev[n] || 0),
+        equipos: per.futuro ? comVariacion(null, null) : comVariacion(comEquiposJuntos(n, eqAct), comEquiposJuntos(n, eqPrev)),
         accesorios: comVariacion(accAct[n], accPrev[n]),
         servicio: per.futuro ? comVariacion(null, null) : comVariacion(stAct[n] || 0, stPrev[n] || 0)
       },
@@ -666,10 +688,13 @@ function comHtmlDetalle(calculo, nombre, admin) {
   // --- Equipos
   const e = f.equipos;
   let htmlEquipos = '<div class="com-cifra">' + e.cantidad + ' equipos' + (admin ? comDeltaHtml(f.variacion.equipos) : '') + '</div>' +
-    '<div class="sm-t">' + (e.fijo ? 'Valor fijo' : 'Goal ' + e.goal) + ' &middot; ' + formatNumberUsd(e.usdPorEquipo) + ' por equipo</div>' +
+    '<div class="sm-t">' + (e.fijo ? 'Valor fijo' : 'Goal ' + e.goal) + ' &middot; ' + formatNumberUsd(e.usdPorEquipo) + ' por equipo' + (e.minimo ? ' &middot; minimo ' + e.minimo + ' equipos para cobrar' : '') + '</div>' +
+    (COMISION_EQUIPOS_JUNTOS[nombre] ? '<div class="sm-t">Suma tus equipos y los de ' + comEsc(COMISION_EQUIPOS_JUNTOS[nombre].join(', ')) + '</div>' : '') +
     '<div class="com-total">' + formatNumberUsd(e.usd) + (calculo.dolar ? ' <span class="sm-t">&asymp; ' + comPesos(f.equiposArs) + '</span>' : '') + '</div>';
   if (e.proximo) {
-    htmlEquipos += comBarraProgreso(e.cantidad, e.cantidad + e.proximo.faltan, 'Faltan ' + e.proximo.faltan + ' equipos para goal ' + e.proximo.goal + ' (' + formatNumberUsd(e.proximo.usdPorEquipo) + ' por equipo)');
+    htmlEquipos += e.proximo.minimo
+      ? comBarraProgreso(e.cantidad, e.minimo, 'Faltan ' + e.proximo.faltan + ' equipos para llegar al minimo de ' + e.minimo + ' y cobrar (' + formatNumberUsd(e.proximo.usdPorEquipo) + ' por equipo)')
+      : comBarraProgreso(e.cantidad, e.cantidad + e.proximo.faltan, 'Faltan ' + e.proximo.faltan + ' equipos para goal ' + e.proximo.goal + ' (' + formatNumberUsd(e.proximo.usdPorEquipo) + ' por equipo)');
   }
 
   // --- Accesorios
