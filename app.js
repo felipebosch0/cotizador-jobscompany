@@ -1790,6 +1790,10 @@ function mostrarModalGarantiaItem(item) {
   garantiaGenerarPendienteImei = null;
   $('#gtImei, #gtColor, #gtImeiFiltro, #gtBateria').val('');
   document.getElementById('gtBateriaContenedor').classList.add('oculto');
+  // "Sin numero de serie visible": solo para accesorios con garantia propia.
+  document.getElementById('gtSinSerie').checked = false;
+  document.getElementById('gtImei').disabled = false;
+  document.getElementById('gtSinSerieContenedor').classList.toggle('oculto', item.tipoGarantia !== 'accesorio');
 
   const aviso = document.getElementById('gtColaAviso');
   if (colaGarantia.length > 1) {
@@ -2121,12 +2125,16 @@ function datosClienteGarantia() {
 async function ConfirmarGarantiaAccesorio(item) {
   const datosCliente = datosClienteGarantia();
   if (!datosCliente) return;
-  const imei = $('#gtImei').val().trim();
-  if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie' });
+  // "Sin numero de serie visible": etiqueta danada o producto sin serie. Se
+  // registra "S/N" (sigue contando como venta con garantia en Comisiones, y
+  // nunca se descarta por "IMEI repetido").
+  const sinSerie = document.getElementById('gtSinSerie').checked;
+  const imei = sinSerie ? 'S/N' : $('#gtImei').val().trim();
+  if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie, o marca "Sin numero de serie visible"' });
   // JBL: 15 digitos exactos (a pedido del usuario). El resto (Apple
   // Pencil/Magic Mouse/PlayStation) tiene numero de serie alfanumerico, sin
   // largo fijo -- alcanza con que no este vacio.
-  if (item.marcaGarantia === 'JBL' && !/^\d{15}$/.test(imei)) {
+  if (!sinSerie && item.marcaGarantia === 'JBL' && !/^\d{15}$/.test(imei)) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El numero de serie tiene que tener exactamente 15 digitos' });
   }
 
@@ -3790,6 +3798,11 @@ function iniciarApp(sesion) {
   $('#gtModeloSel').on('change', poblarImeisGarantia);
   $('#gtImeiFiltro').on('input', poblarImeisGarantia);
   $('#gtImeiSel').on('change', elegirImeiGarantia);
+  $('#gtSinSerie').on('change', function () {
+    const sin = this.checked;
+    $('#gtImei').prop('disabled', sin);
+    if (sin) $('#gtImei').val('');
+  });
   $('#gtCambiarModelo').on('click', e => {
     e.preventDefault();
     $('#gtModeloContenedor').removeClass('oculto');

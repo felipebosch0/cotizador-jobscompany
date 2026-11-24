@@ -317,7 +317,8 @@ function comCalcularMes(mes, corte) {
     const v = comVendedorDe(f.Vendedor);
     if (!v) return;
     const imei = String(f.Imei || '').trim();
-    if (imei) { if (imeisVistos[imei]) return; imeisVistos[imei] = true; }
+    // "S/N" = producto sin numero de serie visible: no se puede repetir, cada fila cuenta.
+    if (imei && imei.toUpperCase() !== 'S/N') { if (imeisVistos[imei]) return; imeisVistos[imei] = true; }
     porVendedor[v.nombre].equiposRows++;
   });
 
@@ -406,7 +407,7 @@ function comEquiposPorVendedor(mes, desde, hasta) {
     const v = comVendedorDe(f.Vendedor);
     if (!v) return;
     const imei = String(f.Imei || '').trim();
-    if (imei) { if (vistos[imei]) return; vistos[imei] = true; }
+    if (imei && imei.toUpperCase() !== 'S/N') { if (vistos[imei]) return; vistos[imei] = true; }
     r[v.nombre] = (r[v.nombre] || 0) + 1;
   });
   return r;
