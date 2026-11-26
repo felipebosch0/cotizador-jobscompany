@@ -82,7 +82,7 @@ const Legajo = (function () {
       const g = lienzo.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, lienzo.width, lienzo.height); g.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
       blob = await new Promise(ok => lienzo.toBlob(ok, 'image/jpeg', calidad));
       lienzo.width = lienzo.height = 0;   // libera memoria (importante en el iPad)
-      if (blob && blob.size <= 450 * 1024) break;
+      if (blob && blob.size <= 300 * 1024) break;
       calidad -= 0.08; lado = Math.round(lado * 0.88);
     }
     if (imagen.close) imagen.close();
