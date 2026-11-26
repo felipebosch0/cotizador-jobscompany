@@ -6699,6 +6699,11 @@
           <label id="gtImeiLabel">IMEI / Serie</label>
           <input type="text" id="gtImei" placeholder="15 digitos" autocomplete="off" inputmode="numeric">
         </div>
+        <!-- Solo accesorios con garantia propia (JBL, cargadores, Pencil...): si la
+             etiqueta esta danada o el producto no trae serie, se registra "S/N". -->
+        <label id="gtSinSerieContenedor" class="oculto" style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:14px; cursor:pointer;">
+          <input type="checkbox" id="gtSinSerie" style="width:auto;"> Sin numero de serie visible (etiqueta danada o sin serie)
+        </label>
         <div class="form-group-total sp-t" id="gtColorContenedor">
           <label>Color</label>
           <input type="text" id="gtColor" placeholder="Ej. Negro" autocomplete="off">

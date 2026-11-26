@@ -90,11 +90,12 @@ function usaModoIndependencia(sucursal) {
   return sucursal === 'Independencia';
 }
 
-// Planes de financiacion de la sucursal actual: Dino tiene los suyos (3 y 6
-// cuotas sin interes al mismo valor, ver derivarDino en data.js); el resto usa
-// la lista general.
-function planesFinanciacion() {
-  return (DATA.financiacionPorSucursal || {})[sucursalActual] || DATA.financiacion;
+// Precio de venta del equipo editable a mano ("Precio venta" y "Precio pagando
+// en efectivo"): Independencia y Dino. Solo eso -- el resto del modo
+// Independencia (trade-in en USD, financiacion propia, pauta) sigue siendo
+// solo de Independencia.
+function precioVentaEditable(sucursal) {
+  return sucursal === 'Independencia' || sucursal === 'Dino';
 }
 
 function equiposDeLaSucursal(sucursal) {
@@ -799,7 +800,7 @@ function ExportarCarrito() {
   // "Precio de lista" = el total del carrito (precio de efectivo) con el
   // recargo del plan de 3 cuotas sin interes, o sea el valor sobre el que se
   // arman las cuotas.
-  const planLista = planesFinanciacion().find(f => f.categoria === 'equipo' && f.cuotas === 3);
+  const planLista = DATA.financiacion.find(f => f.categoria === 'equipo' && f.cuotas === 3);
   const precioLista = Math.round(totalCarrito() * (1 + (planLista ? planLista.interes : 0)));
 
   const mensaje = `${saludo}\n*Cotizacion*\n\n${lineas}\n\n*Precio de lista*: ${formatNumberArg(precioLista)}${parrafoTradeIn}${parrafoFinanciacion}${firmaWhatsapp()}`;
@@ -1252,7 +1253,7 @@ function PreciosVentaE() {
   // numero manda -- no se vuelve a tomar el de la lista. Asi, cargar la
   // entrega en efectivo despues de editar el precio no revierte el cambio.
   // No aplica a JBL (precio fijo, no se edita a mano).
-  if (precioVentaEditadoManual && usaModoIndependencia(sucursalActual) && !esFijoArs) {
+  if (precioVentaEditadoManual && precioVentaEditable(sucursalActual) && !esFijoArs) {
     const usdManual = Number(String($('#formVenta input[name="PVentaEquipo"]').val()).replace(/[^0-9.,-]/g, '').replace(',', '.')) || 0;
     if (usdManual > 0) precioUsd = usdManual;
   }
@@ -1808,6 +1809,10 @@ function mostrarModalGarantiaItem(item) {
   garantiaGenerarPendienteImei = null;
   $('#gtImei, #gtColor, #gtImeiFiltro, #gtBateria').val('');
   document.getElementById('gtBateriaContenedor').classList.add('oculto');
+  // "Sin numero de serie visible": solo para accesorios con garantia propia.
+  document.getElementById('gtSinSerie').checked = false;
+  document.getElementById('gtImei').disabled = false;
+  document.getElementById('gtSinSerieContenedor').classList.toggle('oculto', item.tipoGarantia !== 'accesorio');
 
   const aviso = document.getElementById('gtColaAviso');
   if (colaGarantia.length > 1) {
@@ -2234,12 +2239,16 @@ function datosClienteGarantia() {
 async function ConfirmarGarantiaAccesorio(item) {
   const datosCliente = datosClienteGarantia();
   if (!datosCliente) return;
-  const imei = $('#gtImei').val().trim();
-  if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie' });
+  // "Sin numero de serie visible": etiqueta danada o producto sin serie. Se
+  // registra "S/N" (sigue contando como venta con garantia en Comisiones, y
+  // nunca se descarta por "IMEI repetido").
+  const sinSerie = document.getElementById('gtSinSerie').checked;
+  const imei = sinSerie ? 'S/N' : $('#gtImei').val().trim();
+  if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie, o marca "Sin numero de serie visible"' });
   // JBL: 15 digitos exactos (a pedido del usuario). El resto (Apple
   // Pencil/Magic Mouse/PlayStation) tiene numero de serie alfanumerico, sin
   // largo fijo -- alcanza con que no este vacio.
-  if (item.marcaGarantia === 'JBL' && !/^\d{15}$/.test(imei)) {
+  if (!sinSerie && item.marcaGarantia === 'JBL' && !/^\d{15}$/.test(imei)) {
     return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El numero de serie tiene que tener exactamente 15 digitos' });
   }
 
@@ -3508,7 +3517,7 @@ function TablaFinancia(value, categoria) {
   // Carrito). Antes, si habia algo cargado en el carrito, se mostraba esa
   // financiacion aunque el vendedor estuviera cotizando otra cosa sin
   // agregarla -- confundia al cliente con un numero que no correspondia.
-  const filas = planesFinanciacion().filter(f => f.categoria === categoria);
+  const filas = DATA.financiacion.filter(f => f.categoria === categoria);
   const table = document.getElementById('tablaResultados');
   table.innerHTML = '';
   infoFinanciacion = '';
@@ -3551,11 +3560,13 @@ function TablaFinancia(value, categoria) {
   enCuotas.forEach(f => {
     const totalConInteres = value * (1 + f.interes);
     const cuota = totalConInteres / f.cuotas;
-    infoFinanciacion += `${f.plan}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
+    // etiqueta (ej. "Plan Z") va en pantalla y tambien en el WhatsApp al cliente;
+    // aviso (posnet de Mercado Pago) es solo para el vendedor, solo en pantalla
+    // (ver DATA.financiacion en data.js).
+    const sufijoEtiqueta = f.etiqueta ? ` (${f.etiqueta})` : '';
+    infoFinanciacion += `${f.plan}${sufijoEtiqueta}: ${f.cuotas} cuotas de ${formatNumberArg(cuota)}\n`;
     const tr = document.createElement('tr');
-    // etiquetaVendedor / aviso (ver financiacionPorSucursal en data.js): solo se
-    // muestran en pantalla, no van en el mensaje de WhatsApp al cliente.
-    const nombrePlan = f.plan + (f.etiquetaVendedor ? ` <strong>(${f.etiquetaVendedor})</strong>` : '');
+    const nombrePlan = f.plan + (f.etiqueta ? ` <strong>(${f.etiqueta})</strong>` : '');
     const avisoPlan = f.aviso ? `<br><span style="font-size:0.8em; font-weight:600; color:#e67e22;">&#9888; ${f.aviso}</span>` : '';
     tr.innerHTML = `<td>${nombrePlan}${avisoPlan}</td><td>${formatNumberArg(cuota)}</td><td><strong>${formatNumberArg(totalConInteres)}</strong></td>`;
     fragm.appendChild(tr);
@@ -3658,7 +3669,7 @@ function ExportarInfo(actividad) {
     // solo cambia lo que se manda por WhatsApp, no el campo en pantalla ni
     // el calculo de la tabla de Financiacion.
     const totalEfectivo = Number(String($('#formVenta input[name="totalVentaEquipo"]').val()).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-    const plan3Cuotas = planesFinanciacion().find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
+    const plan3Cuotas = DATA.financiacion.find(f => f.categoria === 'equipo' && f.plan === '3 cuotas sin interes');
     const precioFinalMsj = plan3Cuotas ? totalEfectivo * (1 + plan3Cuotas.interes) : totalEfectivo;
     mensaje = `${saludo}\n*Cotizacion de Equipo*\n\n*Modelo*: ${$('#formVenta select[name="modeloV"]').val()}\n*Capacidad*: ${$('#formVenta select[name="capacidadV"]').val()}\n*Condicion*: ${NOMBRE_CONDICION[$('#formVenta select[name="tipoEquipo"]').val()] || $('#formVenta select[name="tipoEquipo"]').val()}${lineaColor}${lineaBateria}\n\n*Precio final*: ${formatNumberArg(precioFinalMsj)}\n*Financiacion*\n${infoFinanciacion}\n${firmaWhatsapp()}`;
   }
@@ -3790,7 +3801,7 @@ function cargarSucursal(sucursal) {
   // Precio venta / Precio pagando en efectivo: en Independencia se pueden
   // editar a mano (el vendedor puede sobreescribir el numero calculado); en
   // Shopping quedan como estaban, de solo lectura.
-  const editable = usaModoIndependencia(sucursal);
+  const editable = precioVentaEditable(sucursal);
   $('#formVenta input[name="PVentaEquipo"]').prop('readonly', !editable);
   $('#formVenta input[name="totalVentaEquipo"]').prop('readonly', !editable);
 
@@ -3913,6 +3924,11 @@ function iniciarApp(sesion) {
   $('#gtModeloSel').on('change', poblarImeisGarantia);
   $('#gtImeiFiltro').on('input', poblarImeisGarantia);
   $('#gtImeiSel').on('change', elegirImeiGarantia);
+  $('#gtSinSerie').on('change', function () {
+    const sin = this.checked;
+    $('#gtImei').prop('disabled', sin);
+    if (sin) $('#gtImei').val('');
+  });
   $('#gtCambiarModelo').on('click', e => {
     e.preventDefault();
     $('#gtModeloContenedor').removeClass('oculto');

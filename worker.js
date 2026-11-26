@@ -1138,7 +1138,7 @@ async function panelAnularVenta(request, env, ventaId, usuario) {
 // (solo se repone si realmente salio del stock: un equipo cargado a mano no existe en el). Con el stock
 // en el Sheet no hay forma de saberlo: se repone solo si el panel manda el deposito elegido.
 async function reponerStockDeVentaAnulada(env, ventaId, codigo, motivo, usuario, depositoElegido) {
-  const { results } = await env.DB.prepare("SELECT id, descripcion, modelo, capacidad, color, imei_serie, bateria_pct FROM venta_items WHERE venta_id = ? AND tipo = 'equipo' AND imei_serie IS NOT NULL AND imei_serie <> ''").bind(ventaId).all();
+  const { results } = await env.DB.prepare("SELECT id, descripcion, modelo, capacidad, color, imei_serie, bateria_pct FROM venta_items WHERE venta_id = ? AND tipo = 'equipo' AND imei_serie IS NOT NULL AND imei_serie <> '' AND upper(imei_serie) <> 'S/N'").bind(ventaId).all();
   const quien = await env.DB.prepare('SELECT nombre FROM usuarios WHERE id = ?').bind(usuario.id).first();
   const nombre = (quien && quien.nombre) || 'administracion';
   const enBase = env.STOCK_EN_BASE === '1' && !!env.DB;
@@ -1447,7 +1447,7 @@ async function posventaDevolucion(request, env, ventaId, usuario) {
   const reingresa = b.reingresaStock ? 1 : 0;
   let deposito = null;
   if (reingresa) {
-    if (!item.imei_serie) return jsonConEstado({ ok: false, error: 'Este producto no tiene IMEI/serie: no se puede reingresar al stock' }, 400);
+    if (!item.imei_serie || String(item.imei_serie).toUpperCase() === 'S/N') return jsonConEstado({ ok: false, error: 'Este producto no tiene IMEI/serie: no se puede reingresar al stock' }, 400);
     deposito = String(b.deposito || '').trim().toUpperCase();
     if (DEPOSITOS_STOCK.indexOf(deposito) === -1) return jsonConEstado({ ok: false, error: 'Elegí el depósito donde vuelve el equipo' }, 400);
   }

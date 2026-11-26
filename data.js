@@ -11,6 +11,12 @@
 // pasaste (precios de shopping, en USD, Semi Nuevos / Sellado).
 // ============================================================
 
+// 3 cuotas es el "Plan Z" (la etiqueta se ve en pantalla y tambien en el WhatsApp
+// al cliente). El aviso es solo para el vendedor (solo en la tabla de pantalla,
+// no va en el WhatsApp): 3 y 6 cuotas se cobran por el posnet de Mercado Pago.
+// Vale para todas las sucursales.
+const AVISO_POSNET_MP = 'SE COBRA POR EL POSNET DE MERCADO PAGO';
+
 window.COTIZADOR_DATA = {
 
   // Cotizacion del dolar. Valor inicial (MOCK) que se pisa apenas carga la
@@ -1620,7 +1626,8 @@ window.COTIZADOR_DATA = {
 
   // --------------------------------------------------------------
   // FINANCIACION: 4 medios de pago sin recargo (precio de lista, 1 pago) +
-  // 3 promos en cuotas con recargo (3 cuotas = 20%, 6 = 30%, 12 = 58%).
+  // 3 promos en cuotas con recargo (3 cuotas = 20%, 6 cuotas = 20% igual que 3
+  // -- "sin interes" al mismo valor --, 12 = 58%).
   // Si hay algo en el carrito, la financiacion se muestra sobre el total
   // sumado del carrito (categoria "equipo"); si el carrito esta vacio, se
   // muestra sobre el producto individual que se esta viendo. Ver TablaFinancia
@@ -1630,8 +1637,8 @@ window.COTIZADOR_DATA = {
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'equipo' },
     { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'equipo' },
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'equipo' },
-    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo' },
-    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'equipo' },
+    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'equipo',    etiqueta: 'Plan Z', aviso: AVISO_POSNET_MP },
+    { plan: '6 cuotas sin interes', interes: 0.20, cuotas: 6,  categoria: 'equipo',    aviso: AVISO_POSNET_MP },
     { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'equipo' },
 
     // Reparacion: solo 2 opciones -- a diferencia de Venta equipo y
@@ -1645,8 +1652,8 @@ window.COTIZADOR_DATA = {
     { plan: 'Debito',               interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'QR',                   interes: 0,    cuotas: 1,  categoria: 'accesorio' },
     { plan: 'Transferencia',        interes: 0,    cuotas: 1,  categoria: 'accesorio' },
-    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio' },
-    { plan: '6 cuotas',             interes: 0.30, cuotas: 6,  categoria: 'accesorio' },
+    { plan: '1 / 3 cuotas sin interes', interes: 0.20, cuotas: 3,  categoria: 'accesorio', etiqueta: 'Plan Z', aviso: AVISO_POSNET_MP },
+    { plan: '6 cuotas sin interes', interes: 0.20, cuotas: 6,  categoria: 'accesorio', aviso: AVISO_POSNET_MP },
     { plan: '12 cuotas',            interes: 0.58, cuotas: 12, categoria: 'accesorio' }
   ],
 
@@ -1742,26 +1749,6 @@ window.COTIZADOR_DATA = {
       (cap.seminuevoTiers || []).forEach(t => { t.precio += a.sumarUsd; });
     }
   });
-
-  // Dino: financiacion con 3 y 6 cuotas "sin interes" al MISMO valor (el del
-  // plan de 3 cuotas de cada categoria). El resto de los planes queda igual.
-  D.financiacionPorSucursal = {
-    Dino: D.financiacion.map(f => {
-      const plan = Object.assign({}, f);
-      if (plan.cuotas === 6 && plan.categoria !== 'reparacion') {
-        const de3 = D.financiacion.find(x => x.categoria === plan.categoria && x.cuotas === 3);
-        if (de3) { plan.interes = de3.interes; plan.plan = '6 cuotas sin interes'; }
-      }
-      // Solo para el vendedor (se ve en la tabla de pantalla, no va en el
-      // WhatsApp al cliente): 3 cuotas es el "Plan Z" y 3 y 6 cuotas se cobran
-      // por el posnet de Mercado Pago.
-      if ((plan.cuotas === 3 || plan.cuotas === 6) && plan.categoria !== 'reparacion') {
-        plan.aviso = 'Se cobra por el posnet de Mercado Pago';
-        if (plan.cuotas === 3) plan.etiquetaVendedor = 'Plan Z';
-      }
-      return plan;
-    })
-  };
 
   // Trade-in: Dino toma los equipos al mismo valor que Independencia (copia
   // sin sumar nada).
