@@ -14,6 +14,7 @@
 // partir de la config "assets" de wrangler.jsonc.
 // ============================================================
 
+import { manejarLegajo, legajoDeVenta, sentenciasPermiso, anotarServicio } from './legajo-db.js';
 import { stockLeer, stockImeis, stockEscribir, stockPanel, stockConteo, stockExportarCsv } from './stock-db.js';
 
 const LIBRO_STOCK_ID = '1WFl9nKbYYyOuz6ZLLzCNpnhrgd5qWqveP_IXmKG_1HE';
@@ -252,7 +253,7 @@ async function manejarReportesRead(tipo, rol) {
 // APPS_SCRIPT_REPORTES_URL, configurada en Cloudflare -- no en este
 // archivo, para no dejarla expuesta en el codigo que baja al navegador).
 
-async function manejarReportesWrite(request, env, rol) {
+async function manejarReportesWrite(request, env, rol, sesion) {
   const url = env.APPS_SCRIPT_REPORTES_URL;
   try {
     const bodyTexto = await request.text();
@@ -271,6 +272,9 @@ async function manejarReportesWrite(request, env, rol) {
     const texto = await response.text();
     let json;
     try { json = JSON.parse(texto); } catch (e) { json = { ok: false, error: 'Respuesta invalida del Apps Script: ' + texto.slice(0, 200) }; }
+    if (json && json.ok) {
+      try { const d = JSON.parse(bodyTexto); if (d.accion === 'comision-servicio-crear') await anotarServicio(env, d, sesion); } catch (e) { console.log('[servicio] ' + e.message); }
+    }
     return jsonResponse(json);
   } catch (error) {
     return jsonResponse({ ok: false, error: String(error.message || error) });
@@ -667,6 +671,83 @@ const textoONull = v => (v === undefined || v === null || String(v).trim() === '
 
 // Valida el cuerpo de la venta. Devuelve { error } o { datos } ya normalizado
 // (dinero en centavos).
+// Lineas de pago: las usan las ventas, las reservas y las cuotas.
+function validarLineasDePago(entrada, cotX100, tradeIn) {
+  const falla = texto => ({ error: texto });
+  const pagosEntrada = Array.isArray(entrada) ? entrada : [];
+  if (pagosEntrada.length > 10) return falla('Demasiadas lineas de pago');
+  const pagos = [];
+  for (const p of pagosEntrada) {
+    const metodo = p.metodo;
+    if (METODOS_PAGO.indexOf(metodo) === -1) return falla('Metodo de pago invalido');
+    const moneda = metodo === 'usdt' ? 'USDT' : (['efectivo', 'transferencia'].indexOf(metodo) !== -1 ? (p.moneda === 'USD' ? 'USD' : 'ARS') : 'ARS');
+    let montoCent = aCentavos(p.monto);
+    if (metodo === 'canje') {
+      if (!tradeIn) return falla('Un pago por canje necesita los datos del equipo entregado');
+      montoCent = tradeIn.valorCent;
+    }
+    if (!(montoCent > 0)) return falla('El monto de cada pago tiene que ser mayor a cero');
+    let cotPagoX100 = null;
+    let equivArs;
+    let equivUsd;
+    if (moneda === 'ARS') {
+      equivArs = p.equivArs !== undefined && p.equivArs !== null && p.equivArs !== '' ? aCentavos(p.equivArs) : montoCent;
+      if (!(equivArs > 0)) return falla('El monto a imputar de un pago tiene que ser mayor a cero');
+      equivUsd = Math.max(1, Math.round(equivArs * 100 / cotX100));
+    } else {
+      cotPagoX100 = p.cotizacion ? Math.round(Number(p.cotizacion) * 100) : cotX100;
+      if (!(cotPagoX100 > 0)) return falla('Cotizacion del pago invalida');
+      equivArs = Math.max(1, Math.round(montoCent * cotPagoX100 / 100));
+      equivUsd = montoCent; // USD y USDT valen 1 a 1
+    }
+    let cuotas = null;
+    if (metodo === 'credito') {
+      cuotas = Number(p.cuotas);
+      if (!(Number.isInteger(cuotas) && cuotas >= 1 && cuotas <= 24)) return falla('Falta la cantidad de cuotas del credito');
+    }
+    const recargo = Math.round(Number(p.recargoPct || 0) * 100);
+    if (!(recargo >= -10000 && recargo <= 20000)) return falla('Recargo fuera de rango');
+    const cuentaId = p.cuentaId ? Number(p.cuentaId) : null;
+    if (['transferencia', 'usdt'].indexOf(metodo) !== -1 && !cuentaId) return falla('Elegi la cuenta a la que entro la ' + (metodo === 'usdt' ? 'transferencia en USDT' : 'transferencia'));
+    pagos.push({ metodo, moneda, montoCent, cotPagoX100, equivArs, equivUsd, cuotas, recargo, cuentaId, referencia: textoONull(p.referencia), nota: textoONull(p.nota) });
+  }
+
+  return { pagos };
+}
+
+// Las cuentas elegidas tienen que existir, estar activas y ser del tipo del pago.
+async function errorDeCuentas(env, pagos) {
+  for (const p of pagos) {
+    if (!p.cuentaId) continue;
+    const cuenta = await env.DB.prepare('SELECT tipo, activa FROM cuentas_cobro WHERE id = ?').bind(p.cuentaId).first();
+    const tipoEsperado = p.metodo === 'usdt' ? 'usdt' : (p.moneda === 'USD' ? 'transferencia_usd' : 'transferencia_ars');
+    if (!cuenta || !cuenta.activa) return 'La cuenta elegida no existe o esta desactivada';
+    if (p.metodo !== 'efectivo' && cuenta.tipo !== tipoEsperado) return 'La cuenta elegida no corresponde al tipo de pago';
+  }
+  return null;
+}
+
+// Para reservas y cuotas (sin canje).
+async function validarPagos(env, entrada, cotizacionUsd, tradeIn) {
+  const cot = Number(cotizacionUsd);
+  if (!(cot > 0)) return { error: 'Falta la cotizacion del dolar' };
+  const v = validarLineasDePago(entrada, Math.round(cot * 100), tradeIn);
+  if (v.error) return v;
+  const e = await errorDeCuentas(env, v.pagos);
+  return e ? { error: e } : v;
+}
+
+// Un pago ligado a una venta, una reserva o una financiacion ("padre").
+function sentenciaPago(env, p, padre, sucursalId, usuarioId, opid) {
+  const canje = p.metodo === 'canje';
+  return env.DB.prepare(
+    'INSERT INTO pagos (' + padre.columna + ', sucursal_id, metodo, moneda, monto_centavos, cotizacion_usd_x100, equiv_ars_centavos, equiv_usd_centavos, cuotas, recargo_pct_x100, cuenta_cobro_id, tradein_id, referencia, nota, registrado_por_id, opid) ' +
+    'VALUES (' + padre.sql + ', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (canje ? '(SELECT id FROM tradeins WHERE opid = ?)' : 'NULL') + ', ?, ?, ?, ?)')
+    .bind(...[padre.valor, sucursalId, p.metodo, p.moneda, p.montoCent, p.cotPagoX100, p.equivArs, p.equivUsd, p.cuotas, p.recargo, p.cuentaId]
+      .concat(canje ? [padre.valor + ':canje'] : [])
+      .concat([p.referencia, p.nota, usuarioId, opid]));
+}
+
 function validarVenta(b) {
   const falla = texto => ({ error: texto });
   if (!b || typeof b !== 'object') return falla('Cuerpo invalido');
@@ -679,7 +760,9 @@ function validarVenta(b) {
   const email = String(c.email || '').trim().toLowerCase();
   if (nombre.length < 3) return falla('Falta el nombre del cliente');
   if (!/^\d{7,8}$/.test(dni)) return falla('El DNI tiene que tener 7 u 8 numeros');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return falla('Email del cliente invalido');
+  // El mail es obligatorio cuando hay garantia; en una venta solo de accesorios puede faltar.
+  const conGarantia = Array.isArray(b.items) && b.items.some(i => i && i.garantiaMeses);
+  if ((email || conGarantia) && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return falla('Email del cliente invalido');
   // Telefono: solo digitos. Es opcional para el servidor (las ventas guardadas en el
   // navegador antes de pedirlo no lo traen), pero si viene tiene que ser un numero real.
   const telefono = String(c.telefono || '').replace(/[\s().+-]/g, '');
@@ -721,47 +804,15 @@ function validarVenta(b) {
     tradeIn = { imeiSerie: textoONull(t.imeiSerie), modelo: textoONull(t.modelo), capacidad: textoONull(t.capacidad), color: textoONull(t.color), bateria: bt >= 1 && bt <= 100 ? bt : null, valorCent: aCentavos(valor), falla: textoONull(t.falla) };
   }
 
-  const pagosEntrada = Array.isArray(b.pagos) ? b.pagos : [];
-  if (pagosEntrada.length > 10) return falla('Demasiadas lineas de pago');
-  const pagos = [];
-  for (const p of pagosEntrada) {
-    const metodo = p.metodo;
-    if (METODOS_PAGO.indexOf(metodo) === -1) return falla('Metodo de pago invalido');
-    const moneda = metodo === 'usdt' ? 'USDT' : (['efectivo', 'transferencia'].indexOf(metodo) !== -1 ? (p.moneda === 'USD' ? 'USD' : 'ARS') : 'ARS');
-    let montoCent = aCentavos(p.monto);
-    if (metodo === 'canje') {
-      if (!tradeIn) return falla('Un pago por canje necesita los datos del equipo entregado');
-      montoCent = tradeIn.valorCent;
-    }
-    if (!(montoCent > 0)) return falla('El monto de cada pago tiene que ser mayor a cero');
-    let cotPagoX100 = null;
-    let equivArs;
-    let equivUsd;
-    if (moneda === 'ARS') {
-      equivArs = p.equivArs !== undefined && p.equivArs !== null && p.equivArs !== '' ? aCentavos(p.equivArs) : montoCent;
-      if (!(equivArs > 0)) return falla('El monto a imputar de un pago tiene que ser mayor a cero');
-      equivUsd = Math.max(1, Math.round(equivArs * 100 / cotX100));
-    } else {
-      cotPagoX100 = p.cotizacion ? Math.round(Number(p.cotizacion) * 100) : cotX100;
-      if (!(cotPagoX100 > 0)) return falla('Cotizacion del pago invalida');
-      equivArs = Math.max(1, Math.round(montoCent * cotPagoX100 / 100));
-      equivUsd = montoCent; // USD y USDT valen 1 a 1
-    }
-    let cuotas = null;
-    if (metodo === 'credito') {
-      cuotas = Number(p.cuotas);
-      if (!(Number.isInteger(cuotas) && cuotas >= 1 && cuotas <= 24)) return falla('Falta la cantidad de cuotas del credito');
-    }
-    const recargo = Math.round(Number(p.recargoPct || 0) * 100);
-    if (!(recargo >= -10000 && recargo <= 20000)) return falla('Recargo fuera de rango');
-    const cuentaId = p.cuentaId ? Number(p.cuentaId) : null;
-    if (['transferencia', 'usdt'].indexOf(metodo) !== -1 && !cuentaId) return falla('Elegi la cuenta a la que entro la ' + (metodo === 'usdt' ? 'transferencia en USDT' : 'transferencia'));
-    pagos.push({ metodo, moneda, montoCent, cotPagoX100, equivArs, equivUsd, cuotas, recargo, cuentaId, referencia: textoONull(p.referencia), nota: textoONull(p.nota) });
-  }
+  const vp = validarLineasDePago(b.pagos, cotX100, tradeIn);
+  if (vp.error) return falla(vp.error);
+  const pagos = vp.pagos;
 
   return {
     datos: {
-      opId, nombre, dni, email,
+      opId, nombre, dni, email: email || null,
+      aceptaOfertas: !!c.aceptaOfertas,
+      reservaId: Number(b.reservaId) || null, financiacionId: Number(b.financiacionId) || null,
       telefono: telefono || null,
       domicilio: textoONull(c.domicilio) && textoONull(c.domicilio).slice(0, 200),
       aceptaMails: c.aceptaMails ? 1 : 0,
@@ -801,13 +852,15 @@ async function manejarCrearVenta(request, env) {
     if (!loc) return jsonConEstado({ ok: false, error: 'Local desconocido para esa sucursal: ' + d.local }, 400);
     if (d.vendedor.length < 2) return jsonConEstado({ ok: false, error: 'Falta el vendedor' }, 400);
 
-    // Las cuentas elegidas tienen que existir, estar activas y ser del tipo del pago.
-    for (const p of d.pagos) {
-      if (!p.cuentaId) continue;
-      const cuenta = await env.DB.prepare('SELECT tipo, activa FROM cuentas_cobro WHERE id = ?').bind(p.cuentaId).first();
-      const tipoEsperado = p.metodo === 'usdt' ? 'usdt' : (p.moneda === 'USD' ? 'transferencia_usd' : 'transferencia_ars');
-      if (!cuenta || !cuenta.activa) return jsonConEstado({ ok: false, error: 'La cuenta elegida no existe o esta desactivada' }, 400);
-      if (p.metodo !== 'efectivo' && cuenta.tipo !== tipoEsperado) return jsonConEstado({ ok: false, error: 'La cuenta elegida no corresponde al tipo de pago' }, 400);
+    const errorCuenta = await errorDeCuentas(env, d.pagos);
+    if (errorCuenta) return jsonConEstado({ ok: false, error: errorCuenta }, 400);
+
+    // Si la venta completa una reserva o un plan, tiene que ser del mismo cliente y de la sucursal.
+    for (const [clase, id] of [['reservas', d.reservaId], ['financiaciones', d.financiacionId]]) {
+      if (!id) continue;
+      const plan = await env.DB.prepare('SELECT t.estado, c.dni, l.sucursal_id FROM ' + clase + ' t JOIN clientes c ON c.id = t.cliente_id JOIN locales l ON l.id = t.local_id WHERE t.id = ?').bind(id).first();
+      if (!plan || plan.sucursal_id !== suc.id || plan.dni !== d.dni) return jsonConEstado({ ok: false, error: 'La reserva o el plan elegido no es de este cliente en esta sucursal' }, 400);
+      if (plan.estado !== 'activa' && plan.estado !== 'activo') return jsonConEstado({ ok: false, error: 'La reserva o el plan elegido ya no está activo' }, 400);
     }
 
     const hoy = hoyCordoba();
@@ -866,7 +919,7 @@ function armarSentenciasVenta(env, d, ctx) {
   s.push(db.prepare('INSERT INTO clientes (nombre, dni, email, telefono, domicilio, acepta_mails, acepta_mails_en) SELECT ?, ?, ?, ?, ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM clientes WHERE dni = ?)')
     .bind(d.nombre, d.dni, d.email, d.telefono, d.domicilio, d.aceptaMails, d.aceptaMails ? ahoraIso : null, d.dni));
   // El telefono y el mail mas recientes son los que valen; un telefono vacio no pisa el que ya habia.
-  s.push(db.prepare('UPDATE clientes SET email = ?, telefono = COALESCE(?, telefono), domicilio = COALESCE(?, domicilio), acepta_mails = MAX(acepta_mails, ?), acepta_mails_en = COALESCE(acepta_mails_en, ?) WHERE dni = ?')
+  s.push(db.prepare('UPDATE clientes SET email = COALESCE(?, email), telefono = COALESCE(?, telefono), domicilio = COALESCE(?, domicilio), acepta_mails = MAX(acepta_mails, ?), acepta_mails_en = COALESCE(acepta_mails_en, ?) WHERE dni = ?')
     .bind(d.email, d.telefono, d.domicilio, d.aceptaMails, d.aceptaMails ? ahoraIso : null, d.dni));
 
   s.push(db.prepare(
@@ -894,13 +947,12 @@ function armarSentenciasVenta(env, d, ctx) {
   });
 
   d.pagos.forEach(p => {
-    s.push(db.prepare(
-      'INSERT INTO pagos (venta_id, sucursal_id, metodo, moneda, monto_centavos, cotizacion_usd_x100, equiv_ars_centavos, equiv_usd_centavos, cuotas, recargo_pct_x100, cuenta_cobro_id, tradein_id, referencia, nota, registrado_por_id) ' +
-      'VALUES (' + ventaDe + ', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (p.metodo === 'canje' ? '(SELECT id FROM tradeins WHERE opid = ?)' : 'NULL') + ', ?, ?, ?)')
-      .bind(...[d.opId, ctx.sucId, p.metodo, p.moneda, p.montoCent, p.cotPagoX100, p.equivArs, p.equivUsd, p.cuotas, p.recargo, p.cuentaId]
-        .concat(p.metodo === 'canje' ? [d.opId + ':canje'] : [])
-        .concat([p.referencia, p.nota, ctx.usuario.id])));
+    // El canje usa el tradein creado arriba con opid "<venta>:canje".
+    s.push(sentenciaPago(env, p, { columna: 'venta_id', sql: ventaDe, valor: d.opId }, ctx.sucId, ctx.usuario.id, null));
   });
+  s.push(...sentenciasPermiso(env, d.dni, d.aceptaOfertas));
+  if (d.reservaId) s.push(db.prepare("UPDATE reservas SET estado = 'cumplida', venta_id = " + ventaDe + " WHERE id = ? AND estado = 'activa'").bind(d.opId, d.reservaId));
+  if (d.financiacionId) s.push(db.prepare("UPDATE financiaciones SET estado = 'completado', venta_id = " + ventaDe + " WHERE id = ? AND estado = 'activo'").bind(d.opId, d.financiacionId));
 
   s.push(db.prepare("INSERT INTO auditoria (usuario_id, rol, accion, entidad, entidad_id, nota, ip) VALUES (?, ?, 'venta.crear', 'ventas', " + ventaDe + ', ?, ?)')
     .bind(ctx.usuario.id, ctx.usuario.rol, d.opId, ctx.codigo + ' · ' + d.items.length + ' item(s) · ' + d.pagos.length + ' pago(s)', ctx.ip));
@@ -952,7 +1004,7 @@ async function manejarSubirComprobante(request, env, pagoId) {
     const usuario = await usuarioDeBase(env, sesion);
     if (!usuario) return jsonConEstado({ ok: false, noConfigurado: true, error: 'Tu usuario todavia no esta en la base' }, 503);
     const pago = await env.DB.prepare(
-      'SELECT p.id, p.estado, v.cargado_por_id FROM pagos p JOIN ventas v ON v.id = p.venta_id WHERE p.id = ?').bind(pagoId).first();
+      'SELECT p.id, p.estado, p.registrado_por_id AS cargado_por_id FROM pagos p WHERE p.id = ?').bind(pagoId).first();
     if (!pago) return jsonConEstado({ ok: false, error: 'Ese pago no existe' }, 404);
     // Un vendedor solo adjunta a las ventas que cargo el; administracion y oficina, a cualquiera.
     if (pago.cargado_por_id !== usuario.id && ['admin', 'oficina'].indexOf(usuario.rol) === -1) {
@@ -1078,7 +1130,7 @@ async function panelDetalleVenta(env, ventaId, usuario) {
     'p.verificacion, p.verificado_en, p.nota_verificacion, p.estado, p.motivo_anulacion, p.creado_en, ' +
     'cc.etiqueta AS cuenta, cc.alias AS cuenta_alias, uv.nombre AS verificado_por, ur.nombre AS registrado_por ' +
     'FROM pagos p LEFT JOIN cuentas_cobro cc ON cc.id = p.cuenta_cobro_id LEFT JOIN usuarios uv ON uv.id = p.verificado_por_id LEFT JOIN usuarios ur ON ur.id = p.registrado_por_id ' +
-    'WHERE p.venta_id = ? ORDER BY p.id').bind(ventaId).all();
+    'WHERE p.venta_id = ?1 OR p.reserva_id IN (SELECT id FROM reservas WHERE venta_id = ?1) OR p.financiacion_id IN (SELECT id FROM financiaciones WHERE venta_id = ?1) ORDER BY p.id').bind(ventaId).all();
   const ids = (pagos || []).map(p => p.id);
   let comprobantes = [];
   if (ids.length) {
@@ -1096,7 +1148,9 @@ async function panelDetalleVenta(env, ventaId, usuario) {
   const devoluciones = (await env.DB.prepare(
     'SELECT d.id, d.venta_item_id, d.fecha_hora, d.tipo, d.motivo, d.monto_reintegrado_centavos, d.metodo_reintegro, d.reingresa_a_stock, d.reingreso_estado, d.reingreso_detalle, d.deposito, u.nombre AS registrado_por ' +
     'FROM devoluciones d LEFT JOIN usuarios u ON u.id = d.registrado_por_id WHERE d.venta_id = ? ORDER BY d.id').bind(ventaId).all()).results || [];
-  return { ok: true, venta: Object.assign({}, venta, extra), items: items || [], pagos: pagos || [], comprobantes, canjes: canjes || [], devoluciones, auditoria, posventa: await panelPosventaDeVenta(env, ventaId) };
+  let legajo = null;
+  try { legajo = await legajoDeVenta(env, ventaId); } catch (e) { console.log('[legajo] detalle: ' + e.message); }
+  return { ok: true, legajo, venta: Object.assign({}, venta, extra), items: items || [], pagos: pagos || [], comprobantes, canjes: canjes || [], devoluciones, auditoria, posventa: await panelPosventaDeVenta(env, ventaId) };
 }
 
 // Verifica un pago contra el banco/billetera: "verificado" o "con diferencia" (con nota).
@@ -1106,7 +1160,7 @@ async function panelVerificarPago(request, env, pagoId, usuario) {
   const nota = textoONull(b.nota);
   if (['verificado', 'con_diferencia'].indexOf(resultado) === -1) return jsonConEstado({ ok: false, error: 'El resultado tiene que ser "verificado" o "con_diferencia"' }, 400);
   if (resultado === 'con_diferencia' && (!nota || nota.length < 3)) return jsonConEstado({ ok: false, error: 'Contanos cual es la diferencia (nota obligatoria)' }, 400);
-  const pago = await env.DB.prepare('SELECT p.id, p.estado, p.verificacion, p.monto_centavos, p.moneda, v.codigo FROM pagos p JOIN ventas v ON v.id = p.venta_id WHERE p.id = ?').bind(pagoId).first();
+  const pago = await env.DB.prepare("SELECT p.id, p.estado, p.verificacion, p.monto_centavos, p.moneda, COALESCE(v.codigo, CASE WHEN p.reserva_id IS NOT NULL THEN 'Reserva ' || p.reserva_id ELSE 'Plan ' || p.financiacion_id END) AS codigo FROM pagos p LEFT JOIN ventas v ON v.id = p.venta_id WHERE p.id = ?").bind(pagoId).first();
   if (!pago) return jsonConEstado({ ok: false, error: 'Ese pago no existe' }, 404);
   if (pago.estado === 'anulado') return jsonConEstado({ ok: false, error: 'Ese pago esta anulado' }, 409);
   const sentencias = [
@@ -1801,6 +1855,9 @@ export default {
     if (url.pathname === '/api/cambiar-clave' && request.method === 'POST') return manejarCambiarClave(request, env);
     if (url.pathname === '/api/admin/resetear-clave' && request.method === 'POST') return manejarResetearClave(request, env);
 
+    const delLegajo = await manejarLegajo(request, env, url, { sesionObligatoria, jsonConEstado, cuerpoJson, auditar, aCentavos, coincideFirma, textoONull, aBase64Url, hoyCordoba, IP_DE, validarPagos, sentenciaPago });
+    if (delLegajo) return delLegajo;
+
     if (url.pathname.startsWith('/api/panel/')) return manejarPanel(request, env, url);
 
     // Encuesta de satisfaccion: lo unico publico (sin sesion). La pagina es estatica
@@ -1847,7 +1904,7 @@ export default {
     }
     if (url.pathname === '/reportes-write' && request.method === 'POST') {
       const quien = await sesionDeRequest(request, env);
-      return manejarReportesWrite(request, env, quien ? quien.rol : null);
+      return manejarReportesWrite(request, env, quien ? quien.rol : null, quien);
     }
 
     // Todo lo demas: archivos estaticos (index.html, app.js, data.js, etc.)
