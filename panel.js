@@ -257,7 +257,7 @@ const PanelVentas = (function () {
           <button class="pv-btn bueno" data-accion="verificar" data-pago="${p.id}">Verificar</button>
           <button class="pv-btn" data-accion="diferencia" data-pago="${p.id}">Con diferencia</button>
           ${esAdmin ? `<button class="pv-btn peligro" data-accion="anular-pago" data-pago="${p.id}">Anular</button>` : ''}</div>` : '';
-      return `<tr><td>${NOMBRE_METODO[p.metodo] || esc(p.metodo)}${p.cuotas ? ' · ' + p.cuotas + ' cuotas' : ''}${p.cuenta ? '<br><span style="opacity:.7">' + esc(p.cuenta) + (p.cuenta_alias ? ' · ' + esc(p.cuenta_alias) : '') + '</span>' : ''}</td>
+      return `<tr><td>${NOMBRE_METODO[p.metodo] || esc(p.metodo)}${p.cuotas ? ' · ' + p.cuotas + ' cuotas' : ''}${p.cuenta ? '<br><span style="opacity:.7">' + esc(p.cuenta) + (p.cuenta_alias ? ' · ' + esc(p.cuenta_alias) : '') + '</span>' : ''}${/^Cargado despues/.test(p.nota || '') ? '<br><span class="pv-badge">Cargado después</span><br><span style="opacity:.7">Pago del ' + new Date(Date.parse(p.creado_en) - 10800000).toISOString().slice(0, 10).split('-').reverse().join('/') + (p.registrado_por ? ' · lo cargó ' + esc(p.registrado_por) : '') + (p.nota.indexOf(': ') !== -1 ? ' · ' + esc(p.nota.slice(p.nota.indexOf(': ') + 2)) : '') + '</span>' : ''}</td>
         <td class="num">${enMoneda}</td><td class="num">${pesos(p.equiv_ars_centavos)}</td><td>${esc(p.referencia || '')}</td><td>${comps}</td><td>${verif}${acciones}</td></tr>`;
     }).join('');
     const filasItems = d.items.map(i => `<tr><td>${esc(i.descripcion)}${i.bateria_pct ? ' · batería ' + i.bateria_pct + '%' : ''}</td><td>${esc(i.imei_serie || '')}</td><td class="num">${pesos(i.precio_centavos)}</td>
@@ -271,10 +271,126 @@ const PanelVentas = (function () {
       ${canje ? '<h4>Equipo recibido en canje</h4>' + canje : ''}
       ${typeof LegajoPanel !== 'undefined' ? LegajoPanel.htmlLegajo(d.legajo) : ''}
       <h4>Pagos</h4>${d.pagos.length ? `<table><thead><tr><th>Forma</th><th class="num">Monto</th><th class="num">Suma a la venta</th><th>N° operación</th><th>Comprobante</th><th>Verificación</th></tr></thead><tbody>${filasPagos}</tbody></table>` : '<p style="margin:2px 0; opacity:.7;">No se cargó ningún cobro.</p>'}
+      ${htmlCargarPago(d)}
       ${htmlDevoluciones(d)}
       ${htmlPosventa(d)}
       ${aud}
       ${rol === 'admin' && v.estado_venta === 'registrada' ? `<div class="pv-acciones" style="margin-top:12px;"><button class="pv-btn peligro" data-accion="anular-venta" data-venta="${v.venta_id}" data-local="${esc(v.local || '')}">Anular venta</button></div>` : ''}`;
+  }
+
+  // ---------- cargar un pago que no se registro al vender ----------
+  let detalleActual = null;
+
+  // Lo que falta cobrar (y si falta cargar el canje).
+  function faltantePago(d) {
+    return {
+      falta: d.venta.total_centavos - d.venta.pagado_centavos,
+      canje: d.canjes.length && !d.pagos.some(p => p.metodo === 'canje' && p.estado === 'vigente') ? d.canjes[0].valor_centavos : 0
+    };
+  }
+
+  function htmlCargarPago(d) {
+    detalleActual = d;
+    const f = faltantePago(d);
+    if (d.venta.estado_venta === 'anulada' || f.falta <= 100) return '';
+    return `<div class="pv-cargar-pago"><div class="pv-acciones" style="margin-top:8px;"><button type="button" class="pv-btn bueno" data-accion="pago-nuevo">+ Cargar un pago</button><span class="pv-suave">Falta registrar ${pesos(f.falta)}</span></div></div>`;
+  }
+
+  async function abrirFormPago(boton) {
+    const d = detalleActual;
+    const cont = boton.closest('.pv-cargar-pago');
+    if (!d || !cont) return;
+    let cuentas = [];
+    try { cuentas = (await pApi('GET', '/api/cuentas-cobro')).cuentas || []; } catch (e) { aviso('warning', 'No se pudieron cargar las cuentas: ' + e.message); }
+    const f = faltantePago(d);
+    const metodos = Object.keys(NOMBRE_METODO).filter(m => m !== 'canje' || f.canje);
+    const campo = (nombre, titulo, control) => `<div data-fila="${nombre}" style="flex:1; min-width:150px;"><label style="display:block; font-size:12px; margin-bottom:2px;">${titulo}</label>${control}</div>`;
+    const entrada = (n, extra) => `<input data-pn="${n}" ${extra || 'type="text"'} style="width:100%; box-sizing:border-box;" autocomplete="off">`;
+    const hoy = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 10);
+    const diaVenta = String(d.venta.fecha_local || '').slice(0, 10);
+    cont.innerHTML = `<div style="border:1px solid var(--ap-line,#ccc); border-radius:10px; padding:10px; margin-top:8px;">
+      <b>Cargar un pago que no se registró</b> <span class="pv-suave">Falta ${pesos(f.falta)}</span>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:6px;">
+        ${campo('metodo', 'Forma de pago', `<select data-pn="metodo" style="width:100%;">${metodos.map(m => `<option value="${m}">${NOMBRE_METODO[m]}</option>`).join('')}</select>`)}
+        ${campo('moneda', 'Moneda', '<select data-pn="moneda" style="width:100%;"><option value="ARS">Pesos</option><option value="USD">Dólares</option></select>')}
+        ${campo('monto', 'Monto', entrada('monto', 'type="text" inputmode="decimal"'))}
+        ${campo('cotizacion', 'Cotización del dólar', entrada('cotizacion', 'type="text" inputmode="decimal"'))}
+        ${campo('cuotas', 'Cuotas', entrada('cuotas', 'type="text" inputmode="numeric"'))}
+        ${campo('recargo', 'Recargo %', entrada('recargo', 'type="text" inputmode="decimal"'))}
+        ${campo('cuenta', 'Cuenta a la que entró', '<select data-pn="cuenta" style="width:100%;"></select>')}
+        ${campo('referencia', 'N° de operación (opcional)', entrada('referencia'))}
+        ${campo('fecha', 'Fecha en que pagó', entrada('fecha', `type="date" value="${diaVenta}" max="${hoy}"`))}
+        ${campo('nota', 'Aclaración (opcional)', entrada('nota'))}
+        ${campo('archivo', 'Comprobante o cupón (opcional)', '<input data-pn="archivo" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style="width:100%; box-sizing:border-box; font-size:12px;">')}
+      </div>
+      <p class="pv-suave" data-pn-ayuda style="margin:6px 0 0;"></p>
+      <div class="pv-acciones"><button type="button" class="pv-btn bueno" data-accion="pago-guardar">Guardar pago</button><button type="button" class="pv-btn" data-accion="pago-cancelar">Cancelar</button></div></div>`;
+    cont.dataset.opid = 'pp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    const el = n => cont.querySelector('[data-pn="' + n + '"]');
+    el('monto').value = f.falta / 100;
+    el('cotizacion').value = (d.venta.cotizacion_usd_x100 || 0) / 100 || '';
+    function ajustar() {
+      const m = el('metodo').value;
+      const conMoneda = m === 'efectivo' || m === 'transferencia';
+      const moneda = m === 'usdt' ? 'USDT' : (conMoneda ? el('moneda').value : 'ARS');
+      const ver = (n, si) => { cont.querySelector('[data-fila="' + n + '"]').style.display = si ? '' : 'none'; };
+      ver('moneda', conMoneda); ver('monto', m !== 'canje'); ver('cotizacion', moneda !== 'ARS');
+      ver('cuotas', m === 'credito'); ver('recargo', m === 'credito'); ver('cuenta', m === 'transferencia' || m === 'usdt');
+      const tipo = m === 'usdt' ? 'usdt' : (moneda === 'USD' ? 'transferencia_usd' : 'transferencia_ars');
+      el('cuenta').innerHTML = '<option value="">Elegí la cuenta…</option>' + cuentas.filter(c => c.tipo === tipo).map(c => `<option value="${c.id}">${esc(c.etiqueta)} — ${esc(c.titular)}</option>`).join('');
+      cont.querySelector('[data-pn-ayuda]').textContent = m === 'canje' ? 'Se carga el valor del equipo entregado: ' + pesos(f.canje) + '.'
+        : (m === 'credito' ? 'En Monto va lo que suma a la venta, sin el recargo.' : (moneda !== 'ARS' ? 'En Monto van los ' + moneda + ' que entregó.' : ''));
+    }
+    el('metodo').addEventListener('change', () => { el('monto').value = el('metodo').value === 'usdt' ? '' : f.falta / 100; ajustar(); });
+    el('moneda').addEventListener('change', () => { el('monto').value = el('moneda').value === 'ARS' ? f.falta / 100 : ''; ajustar(); });
+    ajustar();
+  }
+
+  // "1.234,50", "1234,50" y "1234.50" son el mismo numero; "480.000" son miles.
+  const numero = v => { const t = String(v || '').trim(); const n = Number(t.indexOf(',') !== -1 ? t.replace(/\./g, '').replace(',', '.') : (/^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t)); return isFinite(n) ? n : 0; };
+
+  async function guardarPago(boton) {
+    const cont = boton.closest('.pv-cargar-pago');
+    const el = n => cont.querySelector('[data-pn="' + n + '"]');
+    const m = el('metodo').value;
+    const conMoneda = m === 'efectivo' || m === 'transferencia';
+    const moneda = m === 'usdt' ? 'USD' : (conMoneda ? el('moneda').value : 'ARS');
+    const pago = { metodo: m, moneda, referencia: el('referencia').value.trim(), nota: el('nota').value.trim() };
+    if (m !== 'canje') {
+      const monto = numero(el('monto').value);
+      if (!(monto > 0)) return aviso('error', 'Completá el monto');
+      pago.monto = monto;
+      if (moneda !== 'ARS' || m === 'usdt') pago.cotizacion = numero(el('cotizacion').value);
+      if (m === 'credito') {
+        pago.cuotas = Math.round(numero(el('cuotas').value));
+        pago.recargoPct = numero(el('recargo').value);
+        pago.equivArs = monto;
+        pago.monto = Math.round(monto * (1 + pago.recargoPct / 100) * 100) / 100;
+      }
+      if (m === 'transferencia' || m === 'usdt') {
+        if (!el('cuenta').value) return aviso('error', 'Elegí la cuenta a la que entró');
+        pago.cuentaId = Number(el('cuenta').value);
+      }
+    }
+    if (!window.confirm('¿Guardar este pago? Después no se puede editar: si está mal, administración lo anula y se carga de nuevo.')) return;
+    const archivo = el('archivo').files && el('archivo').files[0];
+    const venta = detalleActual.venta.venta_id;
+    boton.disabled = true;
+    let j;
+    try { j = await pApi('POST', '/api/panel/ventas/' + venta + '/pagos', { opId: cont.dataset.opid, fecha: el('fecha').value || undefined, pago }); }
+    catch (e) { boton.disabled = false; return aviso('error', e.message); }
+    let mensaje = 'Pago cargado. Queda por verificar.';
+    if (archivo) {
+      try {
+        let cuerpo = archivo;
+        if (/^image\//.test(archivo.type) && typeof Legajo !== 'undefined') { try { cuerpo = await Legajo.comprimir(archivo, 1600); } catch (e) { cuerpo = archivo; } }
+        const r = await fetch('/api/pagos/' + j.pagoId + '/comprobante', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': cuerpo.type || archivo.type, 'X-Nombre-Archivo': encodeURIComponent(archivo.name || '') }, body: cuerpo });
+        if (!r.ok) throw new Error('rechazado');
+      } catch (e) { mensaje = 'El pago quedó cargado, pero no se pudo subir el archivo.'; }
+    }
+    aviso(mensaje.indexOf('no se pudo') !== -1 ? 'warning' : 'success', mensaje);
+    await cargar(true);
+    abrirDetalle(venta);
   }
 
   // Deposito al que vuelve el equipo de una venta anulada (con el stock en la base el servidor usa el de origen).
@@ -286,6 +402,9 @@ const PanelVentas = (function () {
   // ---------- acciones ----------
   async function accion(boton) {
     const a = boton.getAttribute('data-accion');
+    if (a === 'pago-nuevo') return abrirFormPago(boton);
+    if (a === 'pago-guardar') return guardarPago(boton);
+    if (a === 'pago-cancelar') { const c = boton.closest('.pv-cargar-pago'); c.outerHTML = htmlCargarPago(detalleActual); return; }
     if (!['verificar', 'diferencia', 'anular-pago', 'anular-venta'].includes(a)) return accionPosventa(boton);
     const pago = boton.getAttribute('data-pago');
     try {

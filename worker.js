@@ -738,14 +738,70 @@ async function validarPagos(env, entrada, cotizacionUsd, tradeIn) {
 }
 
 // Un pago ligado a una venta, una reserva o una financiacion ("padre").
-function sentenciaPago(env, p, padre, sucursalId, usuarioId, opid) {
+// "creadoEn" solo se pasa cuando administracion carga un pago de un dia anterior.
+function sentenciaPago(env, p, padre, sucursalId, usuarioId, opid, creadoEn) {
   const canje = p.metodo === 'canje';
   return env.DB.prepare(
-    'INSERT INTO pagos (' + padre.columna + ', sucursal_id, metodo, moneda, monto_centavos, cotizacion_usd_x100, equiv_ars_centavos, equiv_usd_centavos, cuotas, recargo_pct_x100, cuenta_cobro_id, tradein_id, referencia, nota, registrado_por_id, opid) ' +
-    'VALUES (' + padre.sql + ', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (canje ? '(SELECT id FROM tradeins WHERE opid = ?)' : 'NULL') + ', ?, ?, ?, ?)')
+    'INSERT INTO pagos (' + padre.columna + ', sucursal_id, metodo, moneda, monto_centavos, cotizacion_usd_x100, equiv_ars_centavos, equiv_usd_centavos, cuotas, recargo_pct_x100, cuenta_cobro_id, tradein_id, referencia, nota, registrado_por_id, opid' + (creadoEn ? ', creado_en' : '') + ') ' +
+    'VALUES (' + padre.sql + ', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ' + (canje ? '(SELECT id FROM tradeins WHERE opid = ?)' : 'NULL') + ', ?, ?, ?, ?' + (creadoEn ? ', ?' : '') + ')')
     .bind(...[padre.valor, sucursalId, p.metodo, p.moneda, p.montoCent, p.cotPagoX100, p.equivArs, p.equivUsd, p.cuotas, p.recargo, p.cuentaId]
       .concat(canje ? [padre.valor + ':canje'] : [])
-      .concat([p.referencia, p.nota, usuarioId, opid]));
+      .concat([p.referencia, p.nota, usuarioId, opid])
+      .concat(creadoEn ? [creadoEn] : []));
+}
+
+// Administracion u oficina cargan un pago que no se registro al vender. De a uno por pedido.
+async function panelCargarPago(request, env, ventaId, usuario) {
+  const b = await cuerpoJson(request);
+  const falla = (error, estado) => jsonConEstado({ ok: false, error }, estado || 400);
+  const opId = String(b.opId || '');
+  if (!/^[A-Za-z0-9._:-]{8,100}$/.test(opId)) return falla('Falta el identificador de la operacion');
+  const previo = await env.DB.prepare('SELECT id, venta_id FROM pagos WHERE opid = ?').bind(opId).first();
+  if (previo) return previo.venta_id === ventaId ? jsonConEstado({ ok: true, repetido: true, pagoId: previo.id }, 200) : falla('Ese identificador ya se uso', 409);
+  const venta = await env.DB.prepare(
+    "SELECT v.id, v.codigo, v.opid, v.estado, v.sucursal_id, v.cotizacion_usd_x100, v.fecha_hora, date(v.fecha_hora, '-3 hours') AS dia, c.total_centavos, c.pagado_centavos " +
+    'FROM ventas v JOIN v_ventas_cobro c ON c.venta_id = v.id WHERE v.id = ?').bind(ventaId).first();
+  if (!venta) return falla('Esa venta no existe', 404);
+  if (venta.estado === 'anulada') return falla('Esa venta esta anulada', 409);
+
+  const hoy = hoyCordoba();
+  const dia = String(b.fecha || venta.dia);
+  const desde = new Date(Date.parse(venta.dia + 'T12:00:00Z') - 90 * 86400000).toISOString().slice(0, 10);
+  if (!DIA_RE.test(dia) || isNaN(Date.parse(dia + 'T12:00:00Z'))) return falla('La fecha del pago no es valida');
+  if (dia > hoy) return falla('La fecha del pago no puede ser futura');
+  if (dia < desde) return falla('La fecha del pago es demasiado anterior a la venta');
+
+  const linea = Object.assign({}, b.pago);
+  let tradeIn = null;
+  if (linea.metodo === 'canje') {
+    const t = await env.DB.prepare(
+      "SELECT t.valor_centavos FROM tradeins t WHERE t.venta_id = ?1 AND t.opid = ?2 AND NOT EXISTS (SELECT 1 FROM pagos p WHERE p.tradein_id = t.id AND p.estado = 'vigente')").bind(ventaId, venta.opid + ':canje').first();
+    if (!t) return falla('Esta venta no tiene un canje pendiente de cargar');
+    tradeIn = { valorCent: t.valor_centavos };
+  }
+  const cotizacion = Number(b.cotizacionUsd) || venta.cotizacion_usd_x100 / 100;
+  const v = await validarPagos(env, [linea], cotizacion, tradeIn);
+  if (v.error) return falla(v.error);
+  const p = v.pagos[0];
+  if (venta.pagado_centavos + p.equivArs > venta.total_centavos + 100) return falla('Con ese pago se cobraria mas que el total de la venta');
+  const aclaracion = textoONull(b.pago && b.pago.nota);
+  p.nota = ('Cargado despues de la venta' + (aclaracion ? ': ' + aclaracion : '')).slice(0, 300);
+  p.referencia = p.referencia && p.referencia.slice(0, 120);
+
+  // El pago queda con la fecha en que entro la plata; cuando se cargo, lo dice la auditoria.
+  const creadoEn = dia === hoy ? null : (dia === venta.dia ? venta.fecha_hora : dia + 'T15:00:00.000Z');
+  const padre = { columna: 'venta_id', sql: '(SELECT id FROM ventas WHERE opid = ?)', valor: venta.opid };
+  try {
+    await env.DB.batch([
+      sentenciaPago(env, p, padre, venta.sucursal_id, usuario.id, opId, creadoEn),
+      env.DB.prepare("INSERT INTO auditoria (usuario_id, rol, accion, entidad, entidad_id, despues_json, nota, ip) VALUES (?, ?, 'pago.cargar_despues', 'pagos', (SELECT id FROM pagos WHERE opid = ?), ?, ?, ?)")
+        .bind(usuario.id, usuario.rol, opId, JSON.stringify({ metodo: p.metodo, moneda: p.moneda, monto_centavos: p.montoCent, fecha_pago: dia }), 'Venta ' + venta.codigo + (aclaracion ? ' · ' + aclaracion : ''), request.headers.get('CF-Connecting-IP') || null)
+    ]);
+  } catch (e) {
+    if (!/pagos\.opid/.test(String(e && e.message))) throw e;
+  }
+  const creado = await env.DB.prepare('SELECT id FROM pagos WHERE opid = ?').bind(opId).first();
+  return jsonConEstado({ ok: true, pagoId: creado.id }, 200);
 }
 
 function validarVenta(b) {
@@ -1782,6 +1838,10 @@ async function manejarPanel(request, env, url) {
     }
     // --- escritura ---
     if (metodo === 'POST') {
+      if ((m = ruta.match(/^\/api\/panel\/ventas\/(\d+)\/pagos$/))) {
+        const a = await autorizarPanel(request, env, ADMIN_Y_OFICINA);
+        return a.error || await panelCargarPago(request, env, Number(m[1]), a.usuario);
+      }
       if ((m = ruta.match(/^\/api\/panel\/pagos\/(\d+)\/verificar$/))) {
         const a = await autorizarPanel(request, env, ADMIN_Y_OFICINA);
         return a.error || panelVerificarPago(request, env, Number(m[1]), a.usuario);
