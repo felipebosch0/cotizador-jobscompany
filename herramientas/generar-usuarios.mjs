@@ -17,13 +17,10 @@ import vm from 'node:vm';
 
 const ITERACIONES = Number(process.env.ITERACIONES || 10000);
 
-const fuente = readFileSync(new URL('../auth.js', import.meta.url), 'utf8');
-const bloque = fuente.match(/const USUARIOS = \[[\s\S]*?\n\];/);
-if (!bloque) throw new Error('No encontre const USUARIOS en auth.js');
-const USUARIOS = vm.runInNewContext(bloque[0].replace('const USUARIOS =', 'USUARIOS =') + '; USUARIOS');
-
-const b64url = buf => Buffer.from(buf).toString('base64url');
-
+const fuente = readFileSync(process.argv[2] || 'usuarios.local.json', 'utf8');
+// La lista (con claves) va en un archivo LOCAL que no se sube a git: usuarios.local.json
+//   [{ "usuario": "..", "password": "..", "rol": "vendedor", "nombre": "..", "sucursal": "Dino" }]
+const USUARIOS = JSON.parse(fuente);
 const lista = USUARIOS.map(u => {
   const clave = (u.rol === 'admin' && process.env.ADMIN_CLAVE) ? process.env.ADMIN_CLAVE : u.password;
   const sal = randomBytes(16);

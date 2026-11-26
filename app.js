@@ -1,3 +1,6 @@
+// Los datos escritos a mano van a papeles armados como HTML: se les sacan los signos < y >.
+function textoPlano(v) { return String(v == null ? '' : v).replace(/[<>]/g, ''); }
+
 // ============================================================
 // Cotizador - logica de calculo (harness local).
 // Version simplificada respecto al proyecto original: usa el objeto
@@ -1470,13 +1473,13 @@ function CerrarModalDeclaracion() {
 }
 
 async function ConfirmarDeclaracionJurada() {
-  const nombre = $('#djNombre').val().trim();
-  const dni = $('#djDni').val().trim();
-  const domicilio = $('#djDomicilio').val().trim();
-  const imei = $('#djImei').val().trim();
-  const bateriaTexto = $('#djBateria').val().trim();
-  const color = $('#djColor').val().trim();
-  const capacidad = $('#djCapacidad').val().trim();
+  const nombre = textoPlano($('#djNombre').val()).trim();
+  const dni = textoPlano($('#djDni').val()).trim();
+  const domicilio = textoPlano($('#djDomicilio').val()).trim();
+  const imei = textoPlano($('#djImei').val()).trim();
+  const bateriaTexto = textoPlano($('#djBateria').val()).trim();
+  const color = textoPlano($('#djColor').val()).trim();
+  const capacidad = textoPlano($('#djCapacidad').val()).trim();
   const sucursalTradeIn = $('#djSucursal').val();
   if (!nombre || !dni || !domicilio || !imei) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'Completa nombre, DNI, domicilio e IMEI del cliente' });
   if (!/^\d{15}$/.test(imei)) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El IMEI tiene que tener exactamente 15 digitos' });
@@ -2200,9 +2203,9 @@ let enviarMailVenta = false;
 let localVenta = ''; // local donde se hace la venta (sale impreso en la copia del cliente)
 
 function datosClienteGarantia() {
-  const cliente = $('#gtNombre').val().replace(/\s+/g, ' ').trim();
+  const cliente = textoPlano($('#gtNombre').val()).replace(/\s+/g, ' ').trim();
   const dni = $('#gtDni').val().replace(/[.\s-]/g, '');
-  const email = $('#gtEmail').val().trim().toLowerCase();
+  const email = textoPlano($('#gtEmail').val()).trim().toLowerCase();
   if (cliente.length < 3) {
     MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el nombre y apellido del cliente' });
     return null;
@@ -2243,7 +2246,7 @@ async function ConfirmarGarantiaAccesorio(item) {
   // registra "S/N" (sigue contando como venta con garantia en Comisiones, y
   // nunca se descarta por "IMEI repetido").
   const sinSerie = document.getElementById('gtSinSerie').checked;
-  const imei = sinSerie ? 'S/N' : $('#gtImei').val().trim();
+  const imei = sinSerie ? 'S/N' : textoPlano($('#gtImei').val()).trim();
   if (!imei) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'Completa el numero de serie, o marca "Sin numero de serie visible"' });
   // JBL: 15 digitos exactos (a pedido del usuario). El resto (Apple
   // Pencil/Magic Mouse/PlayStation) tiene numero de serie alfanumerico, sin
@@ -2291,8 +2294,8 @@ async function ConfirmarGarantiaAccesorio(item) {
 async function ConfirmarGarantiaEquipo(equipo) {
   const datosCliente = datosClienteGarantia();
   if (!datosCliente) return;
-  const imei = $('#gtImei').val().trim();
-  const color = $('#gtColor').val().trim();
+  const imei = textoPlano($('#gtImei').val()).trim();
+  const color = textoPlano($('#gtColor').val()).trim();
   // Solo se lee/tiene en cuenta en Independencia -- en Shopping el
   // checkbox esta oculto y siempre destildado.
   const pauta = sucursalActual === 'Independencia' && document.getElementById('gtPauta').checked;
@@ -3062,12 +3065,12 @@ function CerrarModalReserva() {
 }
 
 async function ConfirmarReserva() {
-  const nombre = $('#rsNombre').val().trim();
-  const telefono = $('#rsTelefono').val().trim();
+  const nombre = textoPlano($('#rsNombre').val()).trim();
+  const telefono = textoPlano($('#rsTelefono').val()).trim();
   const senaTexto = $('#rsSena').val().trim();
   const sena = Number(String(senaTexto).replace(/[^0-9,-]/g, '').replace(',', '.')) || 0;
-  const imei = $('#rsImei').val().trim();
-  const observaciones = $('#rsObservaciones').val().trim();
+  const imei = textoPlano($('#rsImei').val()).trim();
+  const observaciones = textoPlano($('#rsObservaciones').val()).trim();
   if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa nombre y telefono del cliente' });
   if (!sena) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'Completa el monto de la sena' });
 
@@ -3244,9 +3247,9 @@ function CerrarModalFinanciacion() {
 }
 
 async function ConfirmarFinanciacion() {
-  const nombre = $('#fpNombre').val().trim();
-  const telefono = $('#fpTelefono').val().trim();
-  const imei = $('#fpImei').val().trim();
+  const nombre = textoPlano($('#fpNombre').val()).trim();
+  const telefono = textoPlano($('#fpTelefono').val()).trim();
+  const imei = textoPlano($('#fpImei').val()).trim();
   if (!nombre || !telefono) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'Completa nombre y telefono del cliente' });
 
   const equipo = equipoPrincipalDelCarrito();

@@ -10,3 +10,6 @@ node_modules
 herramientas
 secretos.local.txt
 .gitignore
+stock-db.js
+legajo-db.js
+*.local.json

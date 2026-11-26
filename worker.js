@@ -208,7 +208,18 @@ async function manejarStockWrite(request, env) {
 // toda la logica de negocio (run-rate, top productos, alertas de stock,
 // etc.) vive en app.js, no aca.
 
-async function manejarReportesRead(tipo) {
+// Los vendedores no ven los reportes de administracion, y en VentasEquipos reciben las
+// columnas con datos del cliente en blanco (se mantiene la posicion de cada columna).
+const REPORTES_DE_VENDEDOR = ['Reservas', 'FinanciacionPropia', 'FinanciacionPagos', 'VentasEquipos', 'ComisionesAccesorios', 'ComisionesServicios'];
+const COLUMNA_DE_CLIENTE = /dni|mail|correo|tel[eé]fono|celular|domicilio|direcci[oó]n|cliente|comprador|^nombre/i;
+const ACCIONES_SOLO_ADMIN = ['reportes-escribir', 'comision-accesorios-guardar', 'comision-servicio-eliminar'];
+
+function ocultarDatosDeCliente(encabezados, filas) {
+  const ocultas = encabezados.map((h, i) => COLUMNA_DE_CLIENTE.test(String(h || '').trim()) ? i : -1).filter(i => i >= 0);
+  return filas.map(f => f.map((c, i) => ocultas.indexOf(i) !== -1 ? '' : c));
+}
+
+async function manejarReportesRead(tipo, rol) {
   if (HOJAS_REPORTES_VALIDAS.indexOf(tipo) === -1) {
     return jsonResponse({ encabezados: [], filas: [], error: 'Tipo de reporte desconocido: ' + tipo });
   }
@@ -227,7 +238,8 @@ async function manejarReportesRead(tipo) {
     }
     const todasLasFilas = parseCsv(texto);
     const encabezados = todasLasFilas[0] || [];
-    const filas = todasLasFilas.slice(1).filter(fila => fila.some(celda => String(celda || '').trim() !== ''));
+    let filas = todasLasFilas.slice(1).filter(fila => fila.some(celda => String(celda || '').trim() !== ''));
+    if (rol === 'vendedor' && tipo === 'VentasEquipos') filas = ocultarDatosDeCliente(encabezados, filas);
     return jsonResponse({ encabezados, filas, error: null });
   } catch (error) {
     return jsonResponse({ encabezados: [], filas: [], error: String(error.message || error) });
@@ -240,12 +252,16 @@ async function manejarReportesRead(tipo) {
 // APPS_SCRIPT_REPORTES_URL, configurada en Cloudflare -- no en este
 // archivo, para no dejarla expuesta en el codigo que baja al navegador).
 
-async function manejarReportesWrite(request, env) {
+async function manejarReportesWrite(request, env, rol) {
   const url = env.APPS_SCRIPT_REPORTES_URL;
-  if (!url) return jsonResponse({ ok: false, error: 'Falta configurar APPS_SCRIPT_REPORTES_URL en Cloudflare' });
-
   try {
     const bodyTexto = await request.text();
+    if (rol && rol !== 'admin') {
+      let accion = '';
+      try { accion = String(JSON.parse(bodyTexto).accion || ''); } catch (e) {}
+      if (ACCIONES_SOLO_ADMIN.indexOf(accion) !== -1) return jsonConEstado({ ok: false, error: 'Solo administracion puede hacer eso' }, 403);
+    }
+    if (!url) return jsonResponse({ ok: false, error: 'Falta configurar APPS_SCRIPT_REPORTES_URL en Cloudflare' });
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -580,15 +596,28 @@ function manejarLogout() {
 }
 
 // Rutas con datos: con REQUIRE_AUTH=1 exigen sesion; sin eso solo se anota.
+// La sesion es obligatoria salvo que se apague a proposito con REQUIRE_AUTH="0".
+const authObligatoria = env => env.REQUIRE_AUTH !== '0';
+
+// Un usuario dado de baja en la base pierde la sesion aunque su cookie siga vigente.
+async function usuarioDadoDeBaja(env, sesion) {
+  if (!env.DB) return false;
+  try {
+    const u = await env.DB.prepare('SELECT activo FROM usuarios WHERE usuario = ?').bind(sesion.usuario).first();
+    return !!u && !u.activo;
+  } catch (e) { return false; }
+}
+
 async function exigirSesion(request, env, url) {
-  const sesion = await sesionDeRequest(request, env);
+  let sesion = await sesionDeRequest(request, env);
+  if (sesion && await usuarioDadoDeBaja(env, sesion)) sesion = null;
   if (sesion && sesion.debeCambiarClave) {
-    if (env.REQUIRE_AUTH === '1') return jsonConEstado({ ok: false, error: 'Tenes que cambiar tu clave antes de seguir', debeCambiarClave: true }, 403);
+    if (authObligatoria(env)) return jsonConEstado({ ok: false, error: 'Tenes que cambiar tu clave antes de seguir', debeCambiarClave: true }, 403);
     console.log('[auth] clave pendiente de cambio: ' + request.method + ' ' + url.pathname);
     return null;
   }
   if (sesion) return null;
-  if (env.REQUIRE_AUTH === '1') {
+  if (authObligatoria(env)) {
     return jsonConEstado({ ok: false, error: 'Sesion vencida o inexistente', sinSesion: true }, 401);
   }
   console.log('[auth] sin sesion: ' + request.method + ' ' + url.pathname);
@@ -610,7 +639,7 @@ const MAX_COMPROBANTE_BYTES = 10 * 1024 * 1024;
 // Una sesion valida (y con la clave ya cambiada) o la respuesta de error.
 async function sesionObligatoria(request, env) {
   const sesion = await sesionDeRequest(request, env);
-  if (!sesion) return { error: jsonConEstado({ ok: false, error: 'Sesion vencida o inexistente', sinSesion: true }, 401) };
+  if (!sesion || await usuarioDadoDeBaja(env, sesion)) return { error: jsonConEstado({ ok: false, error: 'Sesion vencida o inexistente', sinSesion: true }, 401) };
   if (sesion.debeCambiarClave) return { error: jsonConEstado({ ok: false, error: 'Tenes que cambiar tu clave antes de seguir', debeCambiarClave: true }, 403) };
   return { sesion };
 }
@@ -763,6 +792,9 @@ async function manejarCrearVenta(request, env) {
     const previa = await env.DB.prepare('SELECT id, codigo FROM ventas WHERE opid = ?').bind(d.opId).first();
     if (previa) return jsonConEstado(await respuestaVenta(env, previa.id, previa.codigo, true), 200);
 
+    if (usuario.rol === 'vendedor' && sesion.sucursal && String(sesion.sucursal).toLowerCase() !== String(d.sucursal).toLowerCase()) {
+      return jsonConEstado({ ok: false, error: 'Tu usuario es de ' + sesion.sucursal + ': no podés registrar ventas de ' + d.sucursal }, 400);
+    }
     const suc = await env.DB.prepare('SELECT id FROM sucursales WHERE nombre = ? COLLATE NOCASE').bind(d.sucursal).first();
     if (!suc) return jsonConEstado({ ok: false, error: 'Sucursal desconocida: ' + d.sucursal }, 400);
     const loc = await env.DB.prepare('SELECT id FROM locales WHERE nombre = ? AND sucursal_id = ?').bind(d.local, suc.id).first();
@@ -1807,8 +1839,16 @@ export default {
       try { const s = await sesionDeRequest(request, env); if (s) { quien.conSesion = true; const x = await usuarioDeBase(env, s); if (x) quien = Object.assign({ conSesion: true }, x); } } catch (e) { /* sin usuario de la base: queda a nombre del administrador, con el nombre real en la nota */ }
       return stockEscribir(request, env, ctx, quien);
     }
-    if (url.pathname.startsWith('/reportes/')) return manejarReportesRead(url.pathname.slice('/reportes/'.length));
-    if (url.pathname === '/reportes-write' && request.method === 'POST') return manejarReportesWrite(request, env);
+    if (url.pathname.startsWith('/reportes/')) {
+      const quien = await sesionDeRequest(request, env);
+      const tipoReporte = url.pathname.slice('/reportes/'.length);
+      if (quien && quien.rol === 'vendedor' && REPORTES_DE_VENDEDOR.indexOf(tipoReporte) === -1) return jsonConEstado({ encabezados: [], filas: [], error: 'Ese reporte es solo para administracion' }, 403);
+      return manejarReportesRead(tipoReporte, quien ? quien.rol : null);
+    }
+    if (url.pathname === '/reportes-write' && request.method === 'POST') {
+      const quien = await sesionDeRequest(request, env);
+      return manejarReportesWrite(request, env, quien ? quien.rol : null);
+    }
 
     // Todo lo demas: archivos estaticos (index.html, app.js, data.js, etc.)
     return env.ASSETS.fetch(request);

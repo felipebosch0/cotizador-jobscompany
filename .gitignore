@@ -2,3 +2,7 @@ secretos.local.txt
 .wrangler/
 .dev.vars
 node_modules/
+
+# datos locales con claves o personales
+*.local.json
+ENSAYO_ACCESOS.txt

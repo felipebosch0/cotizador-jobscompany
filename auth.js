@@ -1,19 +1,6 @@
 // ============================================================
-// LOGIN / AUTENTICACION (harness local).
-//
-// Esto es una simulacion para poder probar el flujo en el navegador. Las
-// contrasenas estan en texto plano en este archivo, cualquiera que abra
-// el archivo o la consola del navegador las puede ver -- ACEPTABLE ACA
-// porque es un prototipo local que corre en tu maquina, pero NUNCA asi en
-// produccion.
-//
-// En Apps Script (cotizador/Codigo.gs) el login real ya existe y es
-// distinto: usuario/contrasena salen de la hoja CUENTAS del Google Sheet,
-// la contrasena esta cifrada (no en texto plano) y la validacion la hace
-// el servidor, no el navegador. Cuando se porte este login "con roles" a
-// Apps Script, hay que sumarle un campo "rol" a la hoja CUENTAS (ahora
-// mismo esa hoja solo tiene "nivel", un numero) y adaptar IniciarSesion en
-// Codigo.gs para que tambien devuelva el rol.
+// LOGIN. Los usuarios y las claves (hasheadas) viven SOLO en el servidor.
+// Este archivo es publico: nunca poner claves aca.
 // ============================================================
 
 // Estructura de roles preparada para el futuro. Hoy solo 'admin' tiene
@@ -42,32 +29,6 @@ const ROLES = {
   // Agregar mas roles aca (ej. 'supervisor') a medida que haga falta.
 };
 
-// USUARIOS: hardcodeados con la lista real del negocio. Las contrasenas
-// quedan en texto plano en este archivo -- cualquiera que abra la consola
-// del navegador o vea el codigo fuente las puede leer. Aceptado por ahora,
-// pero si en algun momento se necesita mas seguridad hay que mover esto a
-// un backend (ver login real ya armado en cotizador-appscript/Codigo.gs,
-// que cifra la contrasena y la valida en el servidor).
-// sucursal: null = ve todas las sucursales (piensa como el admin).
-const USUARIOS = [
-  { usuario: 'admin',     password: 'Jobscompany468',      rol: 'admin',    nombre: 'Administrador', sucursal: null },
-  { usuario: 'felipe',    password: 'Jobscompany468',      rol: 'admin',    nombre: 'felipe',    sucursal: null },
-  { usuario: 'jose',      password: 'Jobs468',             rol: 'vendedor', nombre: 'jose',      sucursal: 'Dino' },
-  { usuario: 'yoko',      password: 'Shopping123',         rol: 'vendedor', nombre: 'yoko',      sucursal: 'Shopping' },
-  { usuario: 'ele',       password: 'Shopping123',         rol: 'vendedor', nombre: 'ele',       sucursal: 'Shopping' },
-  { usuario: 'flor',      password: 'Shopping123',         rol: 'vendedor', nombre: 'flor',      sucursal: 'Shopping' },
-  { usuario: 'agus',      password: 'Shopping123',         rol: 'vendedor', nombre: 'Agus Mendoza',     sucursal: 'Shopping' },
-  { usuario: 'agustina',  password: 'Shopping123',         rol: 'vendedor', nombre: 'Agus Mendoza',     sucursal: 'Shopping' },
-  { usuario: 'manzanelli', password: 'Shopping123',        rol: 'vendedor', nombre: 'Agus Manzanelli',  sucursal: 'Shopping' },
-  { usuario: 'ivonne',    password: 'Shopping123',         rol: 'vendedor', nombre: 'ivonne',    sucursal: 'Dino' },
-  { usuario: 'cris',      password: 'Shopping123',         rol: 'vendedor', nombre: 'cristina',  sucursal: 'Dino' },
-  { usuario: 'ro',        password: 'Shopping123',         rol: 'vendedor', nombre: 'ro',        sucursal: 'Shopping' },
-  { usuario: 'ludmi',     password: 'Independencia123',    rol: 'vendedor', nombre: 'ludmi',     sucursal: 'Independencia' },
-  // Dino: lista de precios propia (Independencia + USD 30 en iPhone). Usuario de
-  // prueba -- reemplazar/agregar los vendedores reales de Dino aca.
-  { usuario: 'dino',      password: 'Dino123',             rol: 'vendedor', nombre: 'dino',      sucursal: 'Dino' }
-];
-
 const SESION_STORAGE_KEY = 'cotizador_sesion';
 
 // Los nombres de vendedor siempre se muestran (y se guardan en Stock/Reportes)
@@ -76,10 +37,8 @@ function capitalizarNombre(nombre) {
   return String(nombre || '').trim().replace(/(^|\s)(\S)/g, (m, sep, letra) => sep + letra.toUpperCase());
 }
 
-// Login: primero contra el servidor (/api/login, claves hasheadas y cookie
-// firmada). Si el servidor todavia no tiene configurados los usuarios (responde
-// 501) se usa el login viejo de este archivo, asi nada se corta mientras se
-// hace el cambio. Cuando el servidor ande para todos, se borra USUARIOS.
+// Login: siempre contra el servidor (claves hasheadas y cookie firmada). Sin
+// conexion no se puede entrar.
 async function iniciarSesion(usuario, password) {
   const usuarioNormalizado = String(usuario || '').trim().toLowerCase();
   try {
@@ -88,30 +47,15 @@ async function iniciarSesion(usuario, password) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ usuario: usuarioNormalizado, password })
     });
-    if (resp.status !== 501) {
-      const json = await resp.json();
-      if (!json.ok) return { ok: false, error: json.error || 'Usuario o contrasena incorrectos' };
-      const sesion = Object.assign({ origen: 'servidor' }, json.sesion);
-      localStorage.setItem(SESION_STORAGE_KEY, JSON.stringify(sesion));
-      return { ok: true, sesion };
-    }
+    if (resp.status === 501) return { ok: false, error: 'El ingreso no esta configurado en el servidor. Avisale al administrador.' };
+    const json = await resp.json();
+    if (!json.ok) return { ok: false, error: json.error || 'Usuario o contrasena incorrectos' };
+    const sesion = Object.assign({ origen: 'servidor' }, json.sesion);
+    localStorage.setItem(SESION_STORAGE_KEY, JSON.stringify(sesion));
+    return { ok: true, sesion };
   } catch (error) {
-    // Sin conexion con el servidor: se cae al login local (solo si no hay
-    // usuarios en el servidor; con ellos configurados el 501 no aparece).
+    return { ok: false, error: 'No hay conexion con el servidor. Revisa internet y proba de nuevo.' };
   }
-  return iniciarSesionLocal(usuarioNormalizado, password);
-}
-
-function iniciarSesionLocal(usuarioNormalizado, password) {
-  // El usuario no distingue mayusculas (el teclado del celular pone la primera
-  // en mayuscula sola: "Jose" tiene que entrar igual que "jose"); la
-  // contrasena si se compara exacta.
-  const encontrado = USUARIOS.find(u => u.usuario === usuarioNormalizado && u.password === password);
-  if (!encontrado) return { ok: false, error: 'Usuario o contrasena incorrectos' };
-
-  const sesion = { usuario: encontrado.usuario, nombre: encontrado.nombre, rol: encontrado.rol, sucursal: encontrado.sucursal };
-  localStorage.setItem(SESION_STORAGE_KEY, JSON.stringify(sesion));
-  return { ok: true, sesion };
 }
 
 function cerrarSesion() {
@@ -120,22 +64,14 @@ function cerrarSesion() {
   try { fetch('/api/logout', { method: 'POST', keepalive: true }); } catch (error) { /* sin conexion */ }
 }
 
-// Lee la sesion guardada. Una sesion del servidor se toma tal cual (la
-// verdad la tiene la cookie, ver verificarSesionServidor); una del login
-// viejo se confirma contra USUARIOS (por si se lo borro entre una sesion y
-// otra). Devuelve null si no hay sesion valida -- eso dispara el login.
+// Lee la sesion guardada (la verdad la tiene la cookie, ver
+// verificarSesionServidor). Una sesion del login viejo ya no sirve.
 function sesionGuardada() {
   const data = localStorage.getItem(SESION_STORAGE_KEY);
   if (!data) return null;
   try {
     const sesion = JSON.parse(data);
-    if (sesion.origen !== 'servidor') {
-      const actual = USUARIOS.find(u => u.usuario === sesion.usuario && u.rol === sesion.rol);
-      if (!actual) return null;
-      // La sucursal se toma siempre de USUARIOS (no de lo guardado): si se
-      // mueve a alguien de sucursal, la sesion que ya tenia abierta se actualiza.
-      sesion.sucursal = actual.sucursal;
-    }
+    if (sesion.origen !== 'servidor') return null;
     sesion.nombre = capitalizarNombre(sesion.nombre);
     return sesion;
   } catch (error) {
@@ -210,7 +146,7 @@ function esAdmin(sesion) {
 // los usuarios del servidor.
 const VENDEDORES_POR_SUCURSAL = {
   Shopping: ['yoko', 'ele', 'flor', 'Agus Mendoza', 'Agus Manzanelli', 'ro'],
-  Independencia: ['ludmi'],
+  Independencia: ['ludmi', 'Vicky'],
   Dino: ['jose', 'ivonne', 'cristina', 'dino']
 };
 
