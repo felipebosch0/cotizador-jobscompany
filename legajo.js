@@ -33,6 +33,8 @@ const Legajo = (function () {
       .lg-foto.lista { border-style: solid; border-color: #34c759; }
       .lg-foto img { max-width: 100%; max-height: 180px; border-radius: 8px; display: block; margin-top: 8px; }
       .lg-suave { font-size: 12.5px; opacity: .72; margin: 4px 0; }
+      .lg-aprendizaje { font-size: 13px; line-height: 1.4; margin: 10px 0 0; padding: 9px 12px; border-radius: 10px; background: rgba(255,149,0,.18); }
+      #lgAccesos .lg-aprendizaje { flex-basis: 100%; margin: 0; }
       .lg-item { border: 1px solid var(--ap-line, #ddd); border-radius: 14px; padding: 10px 12px; margin-top: 10px; }
       .lg-barra { height: 8px; border-radius: 5px; background: rgba(127,127,127,.25); overflow: hidden; margin: 3px 0 8px; }
       .lg-barra i { display: block; height: 100%; background: #34c759; }
@@ -61,6 +63,13 @@ const Legajo = (function () {
     const lista = (config && config.flujoNuevo) || [];
     const s = String(sucursal || (typeof sucursalActual !== 'undefined' ? sucursalActual : '')).toLowerCase();
     return lista.indexOf('*') !== -1 || lista.indexOf(s) !== -1;
+  }
+
+  // Mientras aprenden: las fotos del DNI y la forma de pago de la seña no frenan la operacion.
+  function enAprendizaje(sucursal) {
+    const lista = (config && config.modoAprendizaje) || [];
+    const s = String(sucursal || (typeof sucursalActual !== 'undefined' ? sucursalActual : '')).toLowerCase();
+    return activo(sucursal) && (lista.indexOf('*') !== -1 || lista.indexOf(s) !== -1);
   }
 
   // ---------- fotos: se achican en el equipo antes de subirlas ----------
@@ -247,6 +256,7 @@ const Legajo = (function () {
     const o = Object.assign({ titulo: 'DNI del cliente' }, opciones);
     return new Promise(resolver => {
       const sesion = sesionGuardada() || {};
+      const practica = enAprendizaje();
       const locales = (typeof LOCALES_VENTA !== 'undefined' && LOCALES_VENTA[sucursalActual]) || [];
       const vendedores = typeof vendedoresDeSucursal === 'function' ? vendedoresDeSucursal(sucursalActual) : [];
       const caja = abrirCaja(`
@@ -254,19 +264,22 @@ const Legajo = (function () {
         <label>Nombre y apellido</label><input type="text" data-c="nombre" autocomplete="off" value="${esc(o.nombre || '')}">
         <label>DNI (solo números)</label><input type="text" data-c="dni" inputmode="numeric" autocomplete="off" value="${esc(o.dni || '')}">
         <div data-ya class="lg-suave"></div>
+        ${practica ? '<p class="lg-aprendizaje">🎓 <b>Modo aprendizaje:</b> si ahora no podés sacar las fotos, seguí y cargalas después en “Documentos y papeles”.</p>' : ''}
         ${campoFoto('frente', 'Foto del DNI: frente')}
         ${campoFoto('dorso', 'Foto del DNI: dorso')}
         ${o.pedirContacto ? `<label>Teléfono (con código de área, sin 0 ni 15)</label><input type="tel" data-c="telefono" autocomplete="off" value="${esc(o.telefono || '')}"><label>Email (opcional)</label><input type="email" data-c="email" autocomplete="off" value="${esc(o.email || '')}">` : ''}
         ${o.pedirLocal ? `<label>Vendedor</label><select data-c="vendedor">${vendedores.map(v => `<option${v.toLowerCase() === String(sesion.nombre || '').toLowerCase() ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>
           ${locales.length > 1 ? `<label>Local</label><select data-c="local"><option value="">Elegí el local…</option>${locales.map(l => `<option>${esc(l.nombre)}</option>`).join('')}</select>` : ''}` : ''}
         ${o.pago ? `<label>${o.pago.obligatorio ? 'Cómo pagó la seña' : 'Entrega inicial (opcional)'}</label>
-          <select data-c="metodo">${o.pago.obligatorio ? '' : '<option value="">No entrega nada ahora</option>'}<option value="efectivo">Efectivo en pesos</option><option value="efectivo_usd">Efectivo en dólares</option><option value="transferencia">Transferencia en pesos</option><option value="debito">Débito</option><option value="qr">QR</option></select>
+          <select data-c="metodo">${o.pago.obligatorio ? '' : '<option value="">No entrega nada ahora</option>'}<option value="efectivo">Efectivo en pesos</option><option value="efectivo_usd">Efectivo en dólares</option><option value="transferencia">Transferencia en pesos</option><option value="debito">Débito</option><option value="qr">QR</option>${o.pago.obligatorio && practica ? '<option value="">No cargar ahora</option>' : ''}</select>
           <div data-montoin${o.pago.obligatorio ? ' hidden' : ' hidden'}><label>Monto (en la moneda elegida)</label><input type="text" data-c="monto" inputmode="decimal" autocomplete="off"></div>
           <div data-cuentain hidden><label>Cuenta a la que entró</label><select data-c="cuenta"><option value="">Elegí la cuenta…</option></select>${campoFoto('comprobante', 'Comprobante (opcional)')}</div>
           <div data-cuponin hidden>${campoFoto('cupon', 'Foto del cupón firmado por el cliente')}</div>` : ''}
         <label style="display:flex; gap:10px; align-items:center; font-weight:400;"><input type="checkbox" data-c="ofertas" style="width:22px; height:22px;"> El cliente acepta recibir ofertas de recambio y novedades</label>
         <p class="lg-suave">Los datos y las fotos se usan para registrar la operación y la garantía. El cliente puede pedir verlos, corregirlos o darlos de baja.</p>
+        <p class="lg-aprendizaje" data-faltan hidden></p>
         <button type="button" class="lg-boton principal" data-seguir>Siguiente</button>`);
+      let avisado = false;
       const fotos = {};
       let yaEnSistema = { frente: false, dorso: false };
       const c = n => caja.querySelector(`[data-c="${n}"]`);
@@ -309,7 +322,8 @@ const Legajo = (function () {
         const nombre = val('nombre').replace(/\s+/g, ' '), dni = dniLimpio();
         if (nombre.length < 3) return aviso('error', 'Completá el nombre y apellido del cliente');
         if (!/^\d{7,8}$/.test(dni)) return aviso('error', 'El DNI tiene que tener 7 u 8 números');
-        if ((!fotos.frente && !yaEnSistema.frente) || (!fotos.dorso && !yaEnSistema.dorso)) return aviso('error', 'Faltan las fotos del DNI (frente y dorso)');
+        const sinFotos = (!fotos.frente && !yaEnSistema.frente) || (!fotos.dorso && !yaEnSistema.dorso);
+        if (sinFotos && !practica) return aviso('error', 'Faltan las fotos del DNI (frente y dorso)');
         const salida = { nombre, dni, aceptaOfertas: c('ofertas').checked, telefono: val('telefono').replace(/[\s().+-]/g, ''), email: val('email').toLowerCase(), vendedor: val('vendedor') };
         if (o.pedirContacto && !/^\d{10,13}$/.test(salida.telefono)) return aviso('error', 'Completá el teléfono con código de área, sin 0 ni 15');
         if (salida.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(salida.email)) return aviso('error', 'El email no es válido');
@@ -332,6 +346,16 @@ const Legajo = (function () {
               try { salida.comprobante = await prepararAdjunto(adjunto); } catch (e) { return aviso('error', e.message); }
             }
           } else salida.pagos = [];
+        }
+        const sinSenia = !!(o.pago && o.pago.obligatorio && !val('metodo'));
+        if ((sinFotos || sinSenia) && !avisado) {
+          avisado = true;
+          const nota = caja.querySelector('[data-faltan]');
+          nota.innerHTML = [sinFotos ? 'Faltan las <b>fotos del DNI</b>: van a quedar pendientes en “Documentos y papeles”.' : '', sinSenia ? 'La <b>seña no va a quedar registrada</b>: cuando completes la venta, cargala como un pago más.' : ''].filter(Boolean).join('<br>');
+          nota.hidden = false;
+          boton.textContent = 'Seguir igual';
+          nota.scrollIntoView({ block: 'nearest' });
+          return;
         }
         // La ventana de impresion se abre ACA, dentro del toque: Safari bloquea las que se abren despues.
         if (o.imprime && typeof prepararVentanaImpresion === 'function') prepararVentanaImpresion();
@@ -505,7 +529,8 @@ const Legajo = (function () {
     if (!cont) { cont = document.createElement('div'); cont.id = 'lgAccesos'; ref.parentElement.insertAdjacentElement('afterend', cont); }
     cont.innerHTML = (activo() ? '<button type="button" class="lg-boton" id="lgBtnPendientes">📎 Documentos y papeles <b hidden></b></button>' : '') +
       (config && config.delegadoDe ? '<button type="button" class="lg-boton" id="lgBtnEquipo">👥 Mi equipo</button>' : '') +
-      (activo() ? '<button type="button" class="lg-boton" id="lgBtnCambiar">🔁 Cambiar de vendedor</button>' : '');
+      (activo() ? '<button type="button" class="lg-boton" id="lgBtnCambiar">🔁 Cambiar de vendedor</button>' : '') +
+      (enAprendizaje() ? '<p class="lg-aprendizaje">🎓 <b>Modo aprendizaje:</b> si te trabás con las fotos o los pagos, podés seguir. Lo que puedas, completalo después.</p>' : '');
     if ($id('lgBtnPendientes')) $id('lgBtnPendientes').addEventListener('click', abrirPendientes);
     if ($id('lgBtnEquipo')) $id('lgBtnEquipo').addEventListener('click', abrirMiEquipo);
     if ($id('lgBtnCambiar')) $id('lgBtnCambiar').addEventListener('click', () => cambiarDeVendedor('¿Cerrar tu sesión para que entre otra persona?'));
@@ -540,5 +565,5 @@ const Legajo = (function () {
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   });
 
-  return { cargarConfig, activo, pedirDatos, guardarFoto, guardarImpresion, retenerComprobantes, asignarPagos, sincronizar, pendientesEnEquipo, registrarOperacion, planesAbiertos, anotarCuotaDePlanilla, abrirPendientes, abrirMiEquipo, campoFoto, conectarFoto, comprimir, nuevoId, pintarAccesos, NOMBRE_DOC };
+  return { cargarConfig, activo, enAprendizaje, pedirDatos, guardarFoto, guardarImpresion, retenerComprobantes, asignarPagos, sincronizar, pendientesEnEquipo, registrarOperacion, planesAbiertos, anotarCuotaDePlanilla, abrirPendientes, abrirMiEquipo, campoFoto, conectarFoto, comprimir, nuevoId, pintarAccesos, NOMBRE_DOC };
 })();

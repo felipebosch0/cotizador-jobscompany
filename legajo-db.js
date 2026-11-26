@@ -33,6 +33,12 @@ export function flujoNuevoPara(env, sucursal) {
   return l.indexOf('*') !== -1 || (!!sucursal && l.indexOf(String(sucursal).toLowerCase()) !== -1);
 }
 
+// Modo aprendizaje (mismo formato): en esas sucursales las fotos del DNI y la forma de pago de la
+// seña se pueden cargar despues. Lo que falta queda en "Documentos pendientes". Se apaga sacando la variable.
+export function sucursalesEnAprendizaje(env) {
+  return String(env.MODO_APRENDIZAJE || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+}
+
 // ---------- quien es (rol y sucursal salen de la base) ----------
 async function quienEs(request, env, h, roles) {
   const s = await h.sesionObligatoria(request, env);
@@ -634,7 +640,7 @@ async function configuracion(request, env, h) {
       if (u) { const l = await localDelegado(env, u.id); delegadoDe = l ? l.nombre : null; }
     } catch (e) { /* base sin las tablas nuevas */ }
   }
-  return h.jsonConEstado({ ok: true, flujoNuevo: sucursalesFlujoNuevo(env), flujoEnMiSucursal: flujoNuevoPara(env, sucursal), delegadoDe, textoPermisoOfertas: TEXTO_PERMISO_OFERTAS }, 200);
+  return h.jsonConEstado({ ok: true, flujoNuevo: sucursalesFlujoNuevo(env), flujoEnMiSucursal: flujoNuevoPara(env, sucursal), modoAprendizaje: sucursalesEnAprendizaje(env), delegadoDe, textoPermisoOfertas: TEXTO_PERMISO_OFERTAS }, 200);
 }
 
 // Devuelve la respuesta si la ruta es de este modulo; null si no.
