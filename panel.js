@@ -90,9 +90,15 @@ const PanelVentas = (function () {
         <button type="button" class="pv-tab" data-tab="encuestas">Encuestas</button>
         <!-- Caja: oculta por ahora (no se lleva control de caja diario). Para volver a mostrarla, quitar el atributo hidden. -->
         <button type="button" class="pv-tab" hidden data-tab="caja">Caja <b data-cuenta="cierres_pendientes"></b></button>
+        <button type="button" class="pv-tab" data-tab="planes">Reservas y planes</button>
+        <button type="button" class="pv-tab" data-tab="clientes">Clientes</button>
+        <button type="button" class="pv-tab" data-tab="equipo" ${(sesionGuardada() || {}).rol === 'admin' ? '' : 'hidden'}>Equipo y objetivos</button>
         <button type="button" class="pv-tab" data-tab="comisiones">Comisiones</button>
         <button type="button" class="pv-tab" data-tab="stock">Stock</button>
       </div>
+      <div id="pvVista_planes" style="display:none;"></div>
+      <div id="pvVista_clientes" style="display:none;"></div>
+      <div id="pvVista_equipo" style="display:none;"></div>
       <div id="pvVista_stock" style="display:none;"></div>
       <div id="pvVista_caja" style="display:none;"></div>
       <div id="pvVista_comisiones" style="display:none;"></div>
@@ -263,6 +269,7 @@ const PanelVentas = (function () {
       ${anulada ? `<p style="margin:6px 0;"><span class="pv-badge error">Venta anulada</span> ${esc(v.motivo_anulacion || '')}</p>` : ''}
       <h4>Productos</h4><table><thead><tr><th>Producto</th><th>IMEI / Serie</th><th class="num">Precio</th><th>Garantía</th></tr></thead><tbody>${filasItems}</tbody></table>
       ${canje ? '<h4>Equipo recibido en canje</h4>' + canje : ''}
+      ${typeof LegajoPanel !== 'undefined' ? LegajoPanel.htmlLegajo(d.legajo) : ''}
       <h4>Pagos</h4>${d.pagos.length ? `<table><thead><tr><th>Forma</th><th class="num">Monto</th><th class="num">Suma a la venta</th><th>N° operación</th><th>Comprobante</th><th>Verificación</th></tr></thead><tbody>${filasPagos}</tbody></table>` : '<p style="margin:2px 0; opacity:.7;">No se cargó ningún cobro.</p>'}
       ${htmlDevoluciones(d)}
       ${htmlPosventa(d)}
@@ -502,9 +509,10 @@ const PanelVentas = (function () {
   function irA(tab) {
     tabActual = tab;
     document.querySelectorAll('#pvTabs .pv-tab').forEach(b => b.classList.toggle('activa', b.getAttribute('data-tab') === tab));
-    ['ventas', 'seguimiento', 'garantias', 'reclamos', 'encuestas', 'caja', 'comisiones', 'stock'].forEach(t => { $id('pvVista_' + t).style.display = t === tab ? '' : 'none'; });
+    ['ventas', 'seguimiento', 'garantias', 'reclamos', 'encuestas', 'caja', 'comisiones', 'stock', 'planes', 'clientes', 'equipo'].forEach(t => { $id('pvVista_' + t).style.display = t === tab ? '' : 'none'; });
     resumen().catch(() => {});
-    if (tab === 'stock') cargarStock();
+    if (tab === 'planes' || tab === 'clientes' || tab === 'equipo') LegajoPanel.cargar(tab);
+    else if (tab === 'stock') cargarStock();
     else if (tab === 'caja') cargarCaja();
     else if (tab === 'comisiones') cargarComisiones();
     else if (tab === 'seguimiento') cargarSeguimientos();

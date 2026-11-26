@@ -14,7 +14,6 @@ const Cobro = (function () {
   const CLAVE_PENDIENTES = 'ventasPendientes';
   const CLAVE_CON_ERROR = 'ventasConError';
   const MAX_PENDIENTES = 50;
-  const MAX_EDAD_PENDIENTE_MS = 7 * 24 * 3600 * 1000;
   const MAX_BYTES_COMPROBANTE = 10 * 1024 * 1024;
 
   const METODOS = [
@@ -24,6 +23,8 @@ const Cobro = (function () {
 
   let cuentas = null;     // null = sin cargar | false = no disponible | [] = cargadas
   let lineas = [];
+  let planes = [];          // reservas y planes abiertos del cliente
+  let planElegido = null;   // el que esta venta completa (lo ya pagado cuenta como cobrado)
   let secuencia = 0;
 
   const $id = id => document.getElementById(id);
@@ -89,7 +90,8 @@ const Cobro = (function () {
     const m = num(l.monto);
     return l.metodo === 'credito' ? m * (1 + num(l.recargo) / 100) : m;
   }
-  const cobradoArs = () => lineas.reduce((s, l) => s + imputadoArs(l), 0);
+  const creditoArs = () => planElegido ? planElegido.pagado : 0;
+  const cobradoArs = () => lineas.reduce((s, l) => s + imputadoArs(l), 0) + creditoArs();
 
   function cuentasPara(l) {
     if (!cuentas) return [];
@@ -115,13 +117,13 @@ const Cobro = (function () {
           <select data-campo="moneda"><option value="ARS"${l.moneda === 'ARS' ? ' selected' : ''}>$</option><option value="USD"${l.moneda === 'USD' ? ' selected' : ''}>USD</option></select></div>` : ''}
       </div>
       ${l.metodo === 'canje'
-        ? `<p class="detalle">Se descuenta el valor del equipo entregado: <strong>${pesos(num(l.monto))}</strong></p>
+        ? (typeof Legajo !== 'undefined' && Legajo.activo() ? `<p class="detalle">Se descuenta el valor del equipo entregado: <strong>${pesos(num(l.monto))}</strong></p>` : `<p class="detalle">Se descuenta el valor del equipo entregado: <strong>${pesos(num(l.monto))}</strong></p>
         <div><label>Captura de ENACOM (verificación del IMEI, recomendada)</label>
           <p class="detalle">Revisá que el equipo no esté bloqueado en <a href="https://imei.enacom.gob.ar/" target="_blank" rel="noopener">imei.enacom.gob.ar</a> y sacale una captura del resultado.</p>
           <input type="file" data-campo="archivo" accept="image/jpeg,image/png,image/webp,application/pdf">
           <button type="button" class="quitar" style="margin-top:6px" data-accion="pegar-captura">📋 Pegar captura del portapapeles</button> <span class="detalle">(o apretá Ctrl+V)</span>
           ${l.archivo ? `<p class="detalle">${esc(l.archivo.name)} (${Math.round(l.archivo.size / 1024)} KB)</p>` : ''}
-          ${l.archivo ? '' : '<p class="detalle" style="color:#b26a00">Sin captura: queda marcado en el panel como “sin verificar en ENACOM”.</p>'}</div>`
+          ${l.archivo ? '' : '<p class="detalle" style="color:#b26a00">Sin captura: queda marcado en el panel como “sin verificar en ENACOM”.</p>'}</div>`)
         : `<div class="fila">
             <div><label>Monto${eEnDolares(l) ? ' (' + monedaDe(l) + ')' : ' ($)'}</label>
               <input type="text" inputmode="decimal" data-campo="monto" value="${esc(l.monto)}" placeholder="0" autocomplete="off"></div>
@@ -151,7 +153,7 @@ const Cobro = (function () {
     const cobrado = cobradoArs();
     const falta = total - cobrado;
     let clase = '', texto;
-    if (!lineas.length) {
+    if (!lineas.length && !planElegido) {
       texto = `Total <strong>${pesos(total)}</strong> · Sin cobro cargado (podés dejarlo para después; en administración figura “sin cobro registrado”).`;
     } else if (Math.abs(falta) <= 100) {
       clase = 'ok'; texto = `Total <strong>${pesos(total)}</strong> · Cobrado <strong>${pesos(cobrado)}</strong> · ✔ Cobro completo`;
@@ -160,14 +162,29 @@ const Cobro = (function () {
     } else {
       clase = 'error'; texto = `Total <strong>${pesos(total)}</strong> · Cobrado <strong>${pesos(cobrado)}</strong> · <strong>Se cobró de más: ${pesos(-falta)}</strong>`;
     }
+    if (planElegido) texto += ` <br><span style="font-size:12px">Incluye ${pesos(planElegido.pagado)} ya pagados en ${esc(planElegido.nombre)}.</span>`;
     el.className = clase;
     el.innerHTML = texto;
+  }
+
+  function htmlPlanes() {
+    if (!planes.length) return '';
+    return `<div class="cobro-linea" data-id="plan"><label>¿Esta venta completa una reserva o un plan de este cliente?</label><select data-plan><option value="">No</option>${planes.map(p => `<option value="${p.clave}"${planElegido && planElegido.clave === p.clave ? ' selected' : ''}>${esc(p.nombre)} · ${esc(p.equipo)} · ya pagó ${pesos(p.pagado)}</option>`).join('')}</select></div>`;
+  }
+
+  async function cargarPlanes() {
+    planes = []; planElegido = null;
+    if (typeof Legajo === 'undefined' || !Legajo.activo() || !dniVenta) return;
+    const j = await Legajo.planesAbiertos(dniVenta);
+    planes = j.reservas.map(r => ({ clave: 'reserva:' + r.id, id: r.id, tipo: 'reserva', nombre: 'Reserva ' + r.id, equipo: r.equipo, pagado: r.pagado_centavos / 100 }))
+      .concat(j.financiaciones.map(f => ({ clave: 'financiacion:' + f.id, id: f.id, tipo: 'financiacion', nombre: 'Plan ' + f.id, equipo: f.equipo, pagado: f.pagado_centavos / 100 })));
+    if (planes.length) render();
   }
 
   function render() {
     const cont = $id('gtCobroLineas');
     if (!cont) return;
-    cont.innerHTML = lineas.map(renderLinea).join('');
+    cont.innerHTML = htmlPlanes() + lineas.map(renderLinea).join('');
     renderResumen();
   }
 
@@ -199,8 +216,10 @@ const Cobro = (function () {
     const cont = $id('gtCobroContenedor');
     if (!cont) return;
     cont.classList.remove('oculto');
+    planes = []; planElegido = null;
     render();
     cargarCuentas();
+    cargarPlanes();
   }
 
   // ---------- validacion (antes de tocar stock o reportes) ----------
@@ -248,13 +267,19 @@ const Cobro = (function () {
         versionTexto: VERSION_TEXTO_GARANTIA
       };
     });
-    // Lo que se vende y no tiene garantia propia (fundas, vidrios, cargadores…) va en un solo renglon.
-    const resto = totalBruto() - items.reduce((s, i) => s + i.precio, 0);
-    if (resto > 0) {
-      const nombres = (typeof carrito !== 'undefined' ? carrito : [])
-        .filter(it => it.precio > 0 && !it.esEquipoPrincipal && !it.tieneGarantiaPropia && it.tipo !== 'Trade In').map(it => it.descripcion);
-      items.push({ tipo: 'accesorio', categoria: 'accesorio', descripcion: nombres.join(' + ').slice(0, 300) || 'Otros productos del carrito', precio: resto });
-    }
+    // Lo que no tiene garantia propia (fundas, vidrios, cargadores…) va un renglon por producto.
+    const conGarantiaEquipo = garantiaCombinada.some(g => g.tipo !== 'accesorio');
+    const sueltos = (typeof carrito !== 'undefined' ? carrito : [])
+      .filter(it => it.precio > 0 && !it.tieneGarantiaPropia && !(conGarantiaEquipo && it.esEquipoPrincipal) && it.tipo !== 'Trade In');
+    let resto = Math.round((totalBruto() - items.reduce((s, i) => s + i.precio, 0)) * 100) / 100;
+    const cupo = 20 - items.length;
+    sueltos.slice(0, Math.max(0, sueltos.length > cupo ? cupo - 1 : cupo)).forEach(it => {
+      const precio = Math.min(resto, it.precio);
+      if (precio <= 0) return;
+      items.push({ tipo: 'accesorio', categoria: categoriaAccesorio({ nombreProducto: it.nombreProducto || it.descripcion || '' }), descripcion: String(it.descripcion || it.tipo).slice(0, 300), modelo: it.nombreProducto || null, precio });
+      resto = Math.round((resto - precio) * 100) / 100;
+    });
+    if (resto > 0) items.push({ tipo: 'accesorio', categoria: 'accesorio', descripcion: sueltos.length ? 'Otros productos del carrito' : 'Ajuste de la venta', precio: resto });
     return items;
   }
 
@@ -276,12 +301,14 @@ const Cobro = (function () {
     const cv = typeof canjeVenta !== 'undefined' ? canjeVenta : null;   // datos del paso "equipo en canje"
     return {
       opId: opIdVenta,
-      cliente: { nombre: clienteVenta, dni: dniVenta, email: emailVenta, aceptaMails: !!enviarMailVenta, telefono: telefonoVenta, domicilio: cv && cv.domicilio },
+      cliente: { nombre: clienteVenta, dni: dniVenta, email: emailVenta, aceptaMails: !!enviarMailVenta, aceptaOfertas: !!(typeof legajoVenta !== 'undefined' && legajoVenta && legajoVenta.aceptaOfertas), telefono: telefonoVenta, domicilio: cv && cv.domicilio },
       sucursal: sucursalActual, local: localVenta,
-      vendedor: (garantiaCombinada[0] && garantiaCombinada[0].vendedor) || (sesion && sesion.nombre) || '',
+      vendedor: (garantiaCombinada[0] && garantiaCombinada[0].vendedor) || (typeof legajoVenta !== 'undefined' && legajoVenta && legajoVenta.vendedor) || (sesion && sesion.nombre) || '',
+      reservaId: planElegido && planElegido.tipo === 'reserva' ? planElegido.id : undefined,
+      financiacionId: planElegido && planElegido.tipo === 'financiacion' ? planElegido.id : undefined,
       // Total BRUTO: el canje y las entregas en efectivo no se restan, se cargan como pagos.
       cotizacionUsd: dolar(), totalPesos: totalBruto(),
-      pauta: !!pautaVenta, garantiaImpresa: true,
+      pauta: !!pautaVenta, garantiaImpresa: garantiaCombinada.length > 0,
       items: itemsDeLaVenta(),
       tradeIn: ti ? {
         imeiSerie: (cv && cv.imeiSerie) || 'SIN DATO', modelo: ti.modelo, valor: -ti.precio,
@@ -349,7 +376,11 @@ const Cobro = (function () {
     if (resp.status === 503 && resp.j && resp.j.noConfigurado) return;   // la base no esta conectada: todo sigue como antes
     encolar(payload);
     if (resp.status === 401) return;   // sesion del login viejo o vencida: se reintenta sola, sin avisar a cada venta
-    const sinComprobante = archivos.some(Boolean) ? ' Los comprobantes adjuntos no se guardan en esta cola: cargalos después.' : '';
+    let sinComprobante = '';
+    if (archivos.some(Boolean)) {
+      try { await Legajo.retenerComprobantes(payload.opId, archivos); sinComprobante = ' Los comprobantes también quedan guardados y se suben solos.'; }
+      catch (e) { sinComprobante = ' Los comprobantes adjuntos no se pudieron guardar: cargalos después.'; }
+    }
     MostrarAlerta({ tipo: 'warning', title: 'Venta', mnsj: 'La venta salió y se imprimió. No se pudo registrar en la base ahora: queda guardada en este equipo y se reintenta sola.' + sinComprobante });
   }
 
@@ -362,9 +393,8 @@ const Cobro = (function () {
     try {
       const quedan = [];
       for (const item of cola) {
-        if (Date.now() - item.desde > MAX_EDAD_PENDIENTE_MS) continue;       // muy vieja: se descarta
         const resp = await enviar(item.payload);
-        if (resp.j && resp.j.ok) continue;                                    // ya esta en la base
+        if (resp.j && resp.j.ok) { if (typeof Legajo !== 'undefined') Legajo.asignarPagos(item.payload.opId, resp.j.pagoIds || []); continue; }   // ya esta en la base
         if (resp.status === 400) { guardarCola(CLAVE_CON_ERROR, leerCola(CLAVE_CON_ERROR).concat([{ payload: item.payload, error: resp.j && resp.j.error, desde: item.desde }]).slice(-MAX_PENDIENTES)); continue; }
         quedan.push(item);
       }
@@ -451,6 +481,7 @@ const Cobro = (function () {
       if (campo === 'monto' && l.metodo === 'credito') { const p = ev.target.closest('.cobro-linea').querySelector('p.detalle'); if (p) p.innerHTML = `El cliente paga ${pesos(cobradoEnSuMoneda(l))}; a la venta se le suman ${pesos(num(l.monto))}.`; }
     });
     cont.addEventListener('change', ev => {
+      if (ev.target.hasAttribute('data-plan')) { planElegido = planes.find(p => p.clave === ev.target.value) || null; render(); return; }
       const campo = ev.target.getAttribute('data-campo');
       const l = lineaDe(ev.target);
       if (!campo || !l) return;

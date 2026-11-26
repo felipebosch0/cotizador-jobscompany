@@ -605,9 +605,17 @@ function renderCarrito() {
   // jurada": un solo boton que guia por pasos (canje -> equipo y cliente ->
   // pagos). Aparece cuando hay algo con garantia en el carrito. Los dos botones
   // viejos quedan siempre ocultos (sus funciones siguen existiendo).
-  document.getElementById('btnCompletarVenta').classList.toggle('oculto', itemsGarantizables().length === 0);
-  btnGarantia.classList.add('oculto');
-  btnDeclaracion.classList.add('oculto');
+  if (flujoNuevoActivo()) {
+    // Flujo nuevo: todo (tambien un accesorio solo) pasa por "Completar venta".
+    document.getElementById('btnCompletarVenta').classList.toggle('oculto', itemsGarantizables().length === 0 && !carrito.some(i => i.precio > 0 && i.tipo !== 'Trade In'));
+    btnGarantia.classList.add('oculto');
+    btnDeclaracion.classList.add('oculto');
+  } else {
+    // Sucursales sin el flujo nuevo: los botones de siempre.
+    document.getElementById('btnCompletarVenta').classList.add('oculto');
+    btnGarantia.classList.toggle('oculto', itemsGarantizables().length === 0);
+    btnDeclaracion.classList.toggle('oculto', !tradeInDelCarrito());
+  }
 
   // El boton de reserva solo aparece si hay un equipo en el carrito (misma
   // condicion que garantia, pero sin depender de que exista la plantilla).
@@ -1459,7 +1467,9 @@ function AbrirModalDeclaracion() {
   opIdDeclaracion = nuevoOpId();
   // Dentro de "Completar venta" este es el paso 1 y el boton sigue al paso 2.
   document.getElementById('btnConfirmarDeclaracion').textContent = flujoVentaActivo ? 'Siguiente: datos del equipo y del cliente' : 'Confirmar e imprimir';
-  if (flujoVentaActivo) mostrarPasoVenta('modalDeclaracionJurada', 1, pasosVenta, 'Equipo entregado en canje'); else ocultarPasoVenta('modalDeclaracionJurada');
+  if (flujoVentaActivo) mostrarPasoVenta('modalDeclaracionJurada', legajoVenta ? 2 : 1, pasosVenta, 'Equipo entregado en canje'); else ocultarPasoVenta('modalDeclaracionJurada');
+  if (flujoVentaActivo && legajoVenta) { $('#djNombre').val(legajoVenta.nombre); $('#djDni').val(legajoVenta.dni); }
+  prepararCampoEnacom();
   // Arranca en el primer deposito de la sucursal actual; se puede cambiar.
   const depositoInicial = ((DATA.depositoPorSucursal || {})[sucursalActual] || [])[0];
   if (depositoInicial) $('#djSucursal').val(depositoInicial);
@@ -1470,6 +1480,21 @@ function CerrarModalDeclaracion() {
   document.getElementById('modalDeclaracionJurada').style.display = 'none';
   // Cerrarlo a mano antes de confirmar corta el flujo de "Completar venta".
   if (flujoVentaActivo && !canjeVenta) flujoVentaActivo = false;
+}
+
+// Captura de ENACOM en el paso del canje (antes de que el equipo entre al stock).
+let capturaEnacom = null;
+function prepararCampoEnacom() {
+  capturaEnacom = null;
+  const anterior = document.getElementById('lgEnacom');
+  if (anterior) anterior.remove();
+  const boton = document.getElementById('btnConfirmarDeclaracion');
+  if (!flujoNuevoActivo() || !boton) return;
+  const caja = document.createElement('div');
+  caja.id = 'lgEnacom';
+  caja.innerHTML = Legajo.campoFoto('enacom', 'Captura de ENACOM', 'Revisá en <a href="https://imei.enacom.gob.ar/" target="_blank" rel="noopener">imei.enacom.gob.ar</a> que no esté bloqueado y subí la captura. Si no la tenés ahora, queda como pendiente.');
+  boton.parentElement.insertBefore(caja, boton);
+  Legajo.conectarFoto(caja, 'enacom', f => { capturaEnacom = f; });
 }
 
 async function ConfirmarDeclaracionJurada() {
@@ -1503,7 +1528,9 @@ async function ConfirmarDeclaracionJurada() {
 
   const boton = document.getElementById('btnConfirmarDeclaracion');
   boton.disabled = true;
+  prepararVentanaImpresion();   // dentro del toque, antes de esperar a la red
   try {
+    if (capturaEnacom) await Legajo.guardarFoto({ opid: flujoVentaActivo ? opIdVenta : opIdDeclaracion, tipo: 'enacom', archivo: capturaEnacom });
     const resp = await llamarStockWrite({
       accion: 'ingreso', modelo, capacidad, bateria, color, imei,
       sucursal: sucursalTradeIn, observaciones: 'Trade-in', falla, propietario,
@@ -1543,12 +1570,13 @@ async function ConfirmarDeclaracionJurada() {
     };
     CerrarModalDeclaracion();
     if (flujoVentaActivo) {
-      // Dentro de "Completar venta": sigue el paso 2 (equipo que se lleva + cliente).
-      AbrirModalGarantia();
+      // Dentro de "Completar venta": sigue el equipo que se lleva (o los pagos si no hay garantia).
+      if (legajoVenta) seguirDespuesDelCanje(); else AbrirModalGarantia();
     } else {
       MostrarAlerta({ tipo: 'success', title: 'Declaracion jurada', mnsj: `${modelo} agregado al stock como Trade-in` });
     }
   } catch (error) {
+    cerrarVentanaPreparada();
     MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'No se pudo agregar al stock: ' + error.message });
   } finally {
     boton.disabled = false;
@@ -1592,11 +1620,34 @@ async function logoBase64(sucursal) {
   return logoBase64Cache[sucursal];
 }
 
+// Safari (iPad) bloquea una ventana que se abre despues de esperar a la red. Por eso se abre
+// en el mismo toque (prepararVentanaImpresion) y despues se escribe el papel en ella.
+let ventanaPreparada = null;
+function prepararVentanaImpresion() {
+  if (ventanaPreparada && !ventanaPreparada.closed) return;
+  ventanaPreparada = window.open('', '_blank');
+  if (ventanaPreparada) { try { ventanaPreparada.document.write('<p style="font:18px sans-serif;padding:20px">Preparando el papel…</p>'); } catch (e) {} }
+}
+function abrirVentanaImpresion() {
+  const v = ventanaPreparada;
+  ventanaPreparada = null;
+  if (v && !v.closed) { try { v.document.close(); v.document.open(); } catch (e) {} return v; }
+  return window.open('', '_blank');
+}
+function cerrarVentanaPreparada() {
+  if (ventanaPreparada && !ventanaPreparada.closed) { try { ventanaPreparada.close(); } catch (e) {} }
+  ventanaPreparada = null;
+}
+// Guarda una copia del papel para poder reimprimirlo.
+function guardarPapel(opid, tipo, titulo, html) {
+  if (typeof Legajo !== 'undefined') Legajo.guardarImpresion(opid, tipo, titulo, html);
+}
+
 async function imprimirDeclaracionJurada(datos) {
   // window.open tiene que llamarse ANTES de cualquier await -- si no, el
   // navegador ya no lo considera parte del gesto de click del usuario y
   // bloquea la ventana como si fuera un popup no solicitado.
-  const ventana = window.open('', '_blank');
+  const ventana = abrirVentanaImpresion();
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Declaracion jurada', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
@@ -1655,6 +1706,7 @@ async function imprimirDeclaracionJurada(datos) {
 </body></html>`;
 
   ventana.document.write(html);
+  guardarPapel((flujoVentaActivo ? opIdVenta : opIdDeclaracion), 'declaracion', 'declaración jurada', html);
   ventana.document.close();
 }
 
@@ -1784,11 +1836,14 @@ function AbrirModalGarantia() {
   poblarSelectVendedor('gtVendedor');
   $('#gtNombre, #gtDni, #gtEmail, #gtTelefono').val('');
   document.getElementById('gtEnviarMail').checked = true;
-  opIdVenta = nuevoOpId();
+  if (!flujoVentaActivo) opIdVenta = nuevoOpId();
   pautaVenta = false;
   // Dentro de "Completar venta": el que entrega un equipo en canje ya cargo nombre
   // y DNI en el paso 1 (es la misma persona), asi que se precargan.
   if (flujoVentaActivo && canjeVenta) { $('#gtNombre').val(canjeVenta.nombre || ''); $('#gtDni').val(canjeVenta.dni || ''); }
+  // El nombre y el DNI del paso 1 son los del comprador: no se vuelven a escribir.
+  if (flujoVentaActivo && legajoVenta) { $('#gtNombre').val(legajoVenta.nombre); $('#gtDni').val(legajoVenta.dni); $('#gtEmail').val(legajoVenta.email || ''); }
+  $('#gtDni').prop('readonly', !!(flujoVentaActivo && legajoVenta));
   document.getElementById('btnConfirmarGarantia').textContent = flujoVentaActivo ? 'Siguiente: pagos' : 'Confirmar e imprimir';
   if (flujoVentaActivo) mostrarPasoVenta('modalGarantia', pasosVenta - 1, pasosVenta, 'Equipo que se lleva y datos del cliente'); else ocultarPasoVenta('modalGarantia');
   // Local de la venta: Dino e Independencia tienen uno solo (queda elegido y
@@ -2084,12 +2139,34 @@ function ocultarPasoVenta(modalId) {
   if (p) p.style.display = 'none';
 }
 
-function CompletarVenta() {
-  if (!itemsGarantizables().length) return MostrarAlerta({ tipo: 'error', title: 'Venta', mnsj: 'No hay ningun producto con garantia en el carrito' });
-  flujoVentaActivo = true;
+function flujoNuevoActivo() { return typeof Legajo !== 'undefined' && Legajo.activo(); }
+
+// Flujo nuevo: DNI (una vez) -> canje si hay -> equipo y garantia si corresponde -> pagos.
+let legajoVenta = null;
+async function CompletarVenta() {
+  const conGarantia = itemsGarantizables().length > 0;
+  const hayProductos = carrito.some(i => i.precio > 0 && i.tipo !== 'Trade In');
+  if (!conGarantia && !hayProductos) return MostrarAlerta({ tipo: 'error', title: 'Venta', mnsj: 'No hay productos en el carrito' });
+  if (flujoVentaActivo || document.querySelector('.lg-modal')) return;   // evita abrirlo dos veces con un doble toque
   canjeVenta = null;
-  pasosVenta = tradeInDelCarrito() ? 3 : 2;
-  if (pasosVenta === 3) AbrirModalDeclaracion(); else AbrirModalGarantia();
+  legajoVenta = null;
+  opIdVenta = nuevoOpId();
+  const hayCanje = !!tradeInDelCarrito();
+  pasosVenta = 1 + (hayCanje ? 1 : 0) + (conGarantia ? 1 : 0) + 1;
+  const datos = await Legajo.pedirDatos({ opid: opIdVenta, titulo: 'Paso 1 de ' + pasosVenta + ' · DNI del cliente', pedirContacto: !conGarantia, pedirLocal: !conGarantia });
+  if (!datos) return;
+  legajoVenta = datos;
+  flujoVentaActivo = true;
+  if (hayCanje) AbrirModalDeclaracion(); else seguirDespuesDelCanje();
+}
+
+function seguirDespuesDelCanje() {
+  if (itemsGarantizables().length) return AbrirModalGarantia();
+  // Venta sin garantia (solo accesorios): los datos del cliente ya se cargaron en el paso 1.
+  garantiaCombinada = [];
+  clienteVenta = legajoVenta.nombre; dniVenta = legajoVenta.dni; emailVenta = legajoVenta.email || ''; telefonoVenta = legajoVenta.telefono;
+  localVenta = legajoVenta.local; enviarMailVenta = false; pautaVenta = false;
+  AbrirModalPagos();
 }
 
 function AbrirModalPagos() {
@@ -2108,11 +2185,13 @@ async function FinalizarVenta(omitirCobro) {
   finalizandoVenta = true;
   const boton = document.getElementById('btnFinalizarVenta');
   boton.disabled = true;
+  const conPapel = garantiaCombinada.length > 0;
   try {
     // El registro en la base no espera y nunca frena la impresion; window.open se
     // llama dentro de imprimirGarantiaCombinada, antes de cualquier await.
     if (typeof Cobro !== 'undefined') Cobro.registrarVenta().catch(error => console.log('[cobro] ' + error));
     await imprimirGarantiaCombinada();
+    MostrarAlerta({ tipo: 'info', title: 'Venta', mnsj: conPapel ? 'Hacé firmar los papeles y después sacales foto en “Documentos y papeles”.' : 'Venta registrada.' });
   } finally {
     finalizandoVenta = false;
     boton.disabled = false;
@@ -2122,7 +2201,13 @@ async function FinalizarVenta(omitirCobro) {
 }
 
 function CerrarModalPagos() {
-  // La venta ya esta registrada en stock: cerrar sin cobro equivale a "omitir".
+  // Con garantia la venta ya salio del stock: cerrar sin cobro equivale a "omitir".
+  if (!garantiaCombinada.length) {
+    if (!window.confirm('¿Cancelar esta venta? No se registra nada.')) return;
+    document.getElementById('modalPagos').style.display = 'none';
+    flujoVentaActivo = false;
+    return;
+  }
   if (!window.confirm('La venta ya salió del stock. ¿Imprimir la garantía sin cargar el cobro?')) return;
   FinalizarVenta(true);
 }
@@ -2139,8 +2224,7 @@ async function avanzarColaGarantia() {
     // "Completar venta": falta el paso de pagos; se imprime y registra al finalizarlo.
     AbrirModalPagos();
   } else {
-    // Camino viejo (sin pasos): se registra sin cobro y se imprime de una.
-    if (typeof Cobro !== 'undefined') Cobro.registrarVenta().catch(error => console.log('[cobro] ' + error));
+    // Camino de siempre (sucursales sin el flujo nuevo): se imprime de una.
     await imprimirGarantiaCombinada();
     CerrarModalGarantia();
   }
@@ -2929,7 +3013,7 @@ async function imprimirGarantiaCombinada() {
 
   // window.open antes de los await de abajo (logo) -- mismo motivo que en
   // imprimirDeclaracionJurada, si no el navegador bloquea el popup.
-  const ventana = window.open('', '_blank');
+  const ventana = abrirVentanaImpresion();
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Garantia', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
@@ -3010,6 +3094,7 @@ async function imprimirGarantiaCombinada() {
 </body></html>`;
 
   ventana.document.write(html);
+  guardarPapel(opIdVenta, 'garantia', 'garantía', html);
   ventana.document.close();
 
   // Mail al cliente: va despues de abrir la impresion y nunca la bloquea.
@@ -3095,6 +3180,14 @@ async function ConfirmarReserva() {
   // el cliente que ese descuento ya esta incluido en el total a pagar.
   const tradeIn = tradeInDelCarrito();
 
+  // Flujo nuevo: DNI y forma de pago de la sena. La ventana de impresion se abre en ese toque.
+  let legajo = null;
+  const opidReserva = nuevoOpId();
+  if (flujoNuevoActivo()) {
+    legajo = await Legajo.pedirDatos({ opid: opidReserva, titulo: 'Reserva · DNI y seña', nombre, telefono, pedirLocal: true, pago: { monto: sena, obligatorio: true }, imprime: true });
+    if (!legajo) return;
+  } else prepararVentanaImpresion();
+
   // Se guarda en el Sheet de Reportes (pestana Reservas) para que aparezca
   // en el modulo de Reservas -- si esto falla (Apps Script no configurado
   // todavia, sin conexion, etc.) no bloquea la impresion del papel, que es
@@ -3138,15 +3231,23 @@ async function ConfirmarReserva() {
     capacidad: equipo.capacidad,
     condicion: NOMBRE_CONDICION[equipo.condicion] || equipo.condicion,
     vendedor,
-    tradeIn: tradeIn ? { modelo: tradeIn.modelo, valor: tradeIn.precio } : null
+    tradeIn: tradeIn ? { modelo: tradeIn.modelo, valor: tradeIn.precio } : null,
+    opid: legajo ? opidReserva : null
   });
+  if (legajo) {
+    Legajo.registrarOperacion('/api/reservas', {
+      opId: opidReserva, cliente: { nombre: legajo.nombre, dni: legajo.dni, telefono: telefono.replace(/\D/g, ''), aceptaOfertas: legajo.aceptaOfertas },
+      sucursal: sucursalActual, local: legajo.local, vendedor: legajo.vendedor || vendedor, equipo: equipoTexto, imei, observaciones,
+      total, cotizacionUsd: DATA.dolar.DolarVenta, pagos: legajo.pagos
+    }, legajo.comprobante);
+  }
   CerrarModalReserva();
 }
 
 async function imprimirReserva(datos) {
   // window.open antes del await del logo -- mismo motivo que garantia y
   // declaracion jurada (si no, el navegador bloquea el popup).
-  const ventana = window.open('', '_blank');
+  const ventana = abrirVentanaImpresion();
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Reserva', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
@@ -3208,6 +3309,7 @@ async function imprimirReserva(datos) {
 </body></html>`;
 
   ventana.document.write(html);
+  guardarPapel(datos.opid, 'reserva', 'reserva', html);
   ventana.document.close();
 }
 
@@ -3264,6 +3366,13 @@ async function ConfirmarFinanciacion() {
   const vendedor = $('#fpVendedor').val() || (sesion ? sesion.nombre : '');
   const equipoTexto = `${equipo.modelo} ${equipo.capacidad} (${NOMBRE_CONDICION[equipo.condicion] || equipo.condicion})`;
 
+  let legajo = null;
+  const opidPlan = nuevoOpId();
+  if (flujoNuevoActivo()) {
+    legajo = await Legajo.pedirDatos({ opid: opidPlan, titulo: 'Financiación · DNI del cliente', nombre, telefono, pedirLocal: true, pago: { obligatorio: false }, imprime: true });
+    if (!legajo) return;
+  } else prepararVentanaImpresion();
+
   let respuesta;
   try {
     respuesta = await llamarReportesWrite({
@@ -3275,6 +3384,7 @@ async function ConfirmarFinanciacion() {
     });
     if (!respuesta.ok) throw new Error(respuesta.error || 'Error desconocido');
   } catch (error) {
+    cerrarVentanaPreparada();
     return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo iniciar el plan: ' + error.message });
   }
 
@@ -3298,8 +3408,16 @@ async function ConfirmarFinanciacion() {
     vendedor, cliente: nombre, telefono,
     equipo: equipoTexto,
     montoTotalUsd,
-    montoTotalArs: totalCarrito()
+    montoTotalArs: totalCarrito(),
+    opid: legajo ? opidPlan : null
   });
+  if (legajo) {
+    Legajo.registrarOperacion('/api/financiaciones', {
+      opId: opidPlan, cliente: { nombre: legajo.nombre, dni: legajo.dni, telefono: telefono.replace(/\D/g, ''), aceptaOfertas: legajo.aceptaOfertas },
+      sucursal: sucursalActual, local: legajo.local, vendedor: legajo.vendedor || vendedor, equipo: equipoTexto, imei,
+      totalUsd: montoTotalUsd, cotizacionUsd: DATA.dolar.DolarVenta, pagos: legajo.pagos
+    }, legajo.comprobante);
+  }
 
   MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Plan iniciado para ${nombre} -- USD ${montoTotalUsd}` });
   CerrarModalFinanciacion();
@@ -3318,7 +3436,7 @@ const FINANCIACION_POLITICAS = 'El cliente elige cuanto y cada cuanto paga, con 
 // plan y las condiciones (mismo criterio que Reserva: 2 copias, cliente y
 // local).
 async function imprimirFinanciacion(datos) {
-  const ventana = window.open('', '_blank');
+  const ventana = abrirVentanaImpresion();
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
@@ -3350,6 +3468,7 @@ async function imprimirFinanciacion(datos) {
   </div>`;
 
   ventana.document.write(paginaFinanciacionHtml('Financiacion propia', contenido));
+  guardarPapel(datos.opid, 'financiacion', 'plan', paginaFinanciacionHtml('Financiacion propia', contenido));
   ventana.document.close();
 }
 
@@ -3415,6 +3534,7 @@ async function ConfirmarPagoFinanciacion() {
   const sesion = sesionGuardada();
   const vendedor = sesion ? sesion.nombre : '';
 
+  prepararVentanaImpresion();
   try {
     const resp = await llamarReportesWrite({
       accion: 'financiacion-pago',
@@ -3424,8 +3544,10 @@ async function ConfirmarPagoFinanciacion() {
     });
     if (!resp.ok) throw new Error(resp.error || 'Error desconocido');
   } catch (error) {
+    cerrarVentanaPreparada();
     return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'No se pudo registrar el pago: ' + error.message });
   }
+  if (typeof Legajo !== 'undefined') Legajo.anotarCuotaDePlanilla(financiacionPagoDatos, montoArs);
 
   // Papel para el cliente con cuanto pago hoy y cuanto le queda -- a pedido
   // del usuario, para poder entregarselo/mandarselo en cada pago. Si por
@@ -3443,7 +3565,7 @@ async function ConfirmarPagoFinanciacion() {
       saldoRestanteUsd,
       saldoRestanteArs: saldoRestanteUsd * dolarDelDia
     });
-  }
+  } else cerrarVentanaPreparada();
 
   MostrarAlerta({ tipo: 'success', title: 'Financiacion', mnsj: `Pago registrado: ${formatNumberArg(montoArs)} (USD ${montoUsd.toFixed(2)})` });
   CerrarModalPagoFinanciacion();
@@ -3454,7 +3576,7 @@ async function ConfirmarPagoFinanciacion() {
 // hoy y cuanto le queda para terminar el plan, con las mismas politicas
 // que el papel inicial para que las tenga siempre a mano.
 async function imprimirPagoFinanciacion(datos) {
-  const ventana = window.open('', '_blank');
+  const ventana = abrirVentanaImpresion();
   if (!ventana) return MostrarAlerta({ tipo: 'error', title: 'Financiacion', mnsj: 'El navegador bloqueo la ventana de impresion -- permiti popups para este sitio' });
 
   const logo = await logoBase64(sucursalActual);
@@ -3842,8 +3964,9 @@ function iniciarApp(sesion) {
     sucursalActual = sesion.sucursal;
   }
   selectSucursal.value = sucursalActual;
-  selectSucursal.addEventListener('change', () => cargarSucursal(selectSucursal.value));
+  selectSucursal.addEventListener('change', () => { cargarSucursal(selectSucursal.value); if (typeof Legajo !== 'undefined') { Legajo.pintarAccesos(); renderCarrito(); } });
   cargarSucursal(sucursalActual);
+  if (typeof Legajo !== 'undefined') Legajo.cargarConfig();
 
   // Panel de ventas y cobros: administracion y oficina (el servidor igual lo valida).
   if (esAdminOOficina(sesion)) document.getElementById('btnCVentas').classList.remove('oculto');
