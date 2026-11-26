@@ -99,6 +99,7 @@ const Cobro = (function () {
     return cuentas.filter(c => c.tipo === tipo);
   }
   const cuentaPorId = id => (cuentas || []).find(c => String(c.id) === String(id));
+  const esTarjeta = l => l.metodo === 'debito' || l.metodo === 'credito';
 
   // ---------- pantalla ----------
   function renderLinea(l) {
@@ -134,6 +135,8 @@ const Cobro = (function () {
           <div><label>Recargo %</label><input type="text" inputmode="decimal" data-campo="recargo" value="${esc(l.recargo)}" placeholder="0" autocomplete="off"></div>
         </div>
         <p class="detalle">El cliente paga ${pesos(cobradoEnSuMoneda(l))}; a la venta se le suman ${pesos(num(l.monto))}.</p>` : ''}
+      ${esTarjeta(l) ? `<div><label>Foto del cupón firmado por el cliente</label><input type="file" data-campo="archivo" accept="image/jpeg,image/png,image/webp,application/pdf">
+          ${l.archivo ? `<p class="detalle">✔ Adjunto: ${esc(l.archivo.name)}</p>` : `<p class="detalle" style="color:#b26a00">Sin foto del cupón${typeof Legajo !== 'undefined' && Legajo.activo() ? ': queda pendiente en “Documentos y papeles”' : ''}.</p>`}</div>` : ''}
       ${necesitaCuenta ? `<div><label>Cuenta a la que entró</label>
           <select data-campo="cuentaId"><option value="">Elegí la cuenta…</option>${lista.map(c => `<option value="${c.id}"${String(l.cuentaId) === String(c.id) ? ' selected' : ''}>${esc(c.etiqueta)} — ${esc(c.titular)}${c.alias ? ' · ' + esc(c.alias) : ''}</option>`).join('')}</select>
           ${cuentas === false ? '<p class="detalle">No se pudieron cargar las cuentas. Probá de nuevo más tarde o dejá el cobro para después.</p>'
@@ -338,6 +341,14 @@ const Cobro = (function () {
     guardarCola(CLAVE_PENDIENTES, cola.slice(-MAX_PENDIENTES));
   }
 
+  async function achicar(f) {
+    if (!f || !/^image\//.test(f.type) || typeof Legajo === 'undefined') return f;
+    try {
+      const blob = await Legajo.comprimir(f, 1600);
+      return blob.size < f.size ? new File([blob], String(f.name || 'foto').replace(/\.[^.]*$/, '') + '.jpg', { type: 'image/jpeg' }) : f;
+    } catch (e) { return f; }   // si no se puede achicar, sube la original
+  }
+
   async function subirComprobantes(pagoIds, archivos) {
     const fallidos = [];
     for (let i = 0; i < archivos.length; i++) {
@@ -359,8 +370,9 @@ const Cobro = (function () {
   async function registrarVenta() {
     let payload;
     try { payload = armarPayload(); } catch (e) { console.log('[cobro] no se pudo armar la venta', e); return; }
-    const archivos = lineas.map(l => l.archivo || null);
+    const originales = lineas.map(l => l.archivo || null);
     const resp = await enviar(payload);
+    const archivos = await Promise.all(originales.map(achicar));
 
     if (resp.j && resp.j.ok) {
       const fallidos = await subirComprobantes(resp.j.pagoIds || [], archivos);
@@ -422,7 +434,10 @@ const Cobro = (function () {
       cuotas: credito.map(l => l.cuotas).filter(Boolean).join(' / '),
       usdt: suma(l => l.metodo === 'usdt') ? 'USDT ' + formatNumberArg(suma(l => l.metodo === 'usdt')) : '',
       cuentaUsdt: cuentasDe(l => l.metodo === 'usdt'),
-      otros
+      otros,
+      cupones: lineas.filter(esTarjeta).map(l => l.metodo === 'credito'
+        ? 'Crédito · ' + (l.cuotas || '?') + (Number(l.cuotas) === 1 ? ' cuota' : ' cuotas') + ' · ' + pesos(cobradoEnSuMoneda(l))
+        : 'Débito · ' + pesos(num(l.monto)))
     };
   }
 

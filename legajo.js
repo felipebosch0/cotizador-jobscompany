@@ -14,7 +14,7 @@ const Legajo = (function () {
   const $id = id => document.getElementById(id);
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const aviso = (tipo, mnsj, titulo) => MostrarAlerta({ tipo, title: titulo || 'Legajo', mnsj });
-  const NOMBRE_DOC = { dni_frente: 'DNI (frente)', dni_dorso: 'DNI (dorso)', enacom: 'Captura de ENACOM', garantia_firmada: 'Garantía firmada', declaracion_firmada: 'Declaración jurada firmada', reserva_firmada: 'Reserva firmada', financiacion_firmada: 'Plan firmado', recibo_firmado: 'Recibo firmado' };
+  const NOMBRE_DOC = { dni_frente: 'DNI (frente)', dni_dorso: 'DNI (dorso)', enacom: 'Captura de ENACOM', garantia_firmada: 'Garantía firmada', declaracion_firmada: 'Declaración jurada firmada', reserva_firmada: 'Reserva firmada', financiacion_firmada: 'Plan firmado', recibo_firmado: 'Recibo firmado', cupon_tarjeta: 'Cupón de tarjeta firmado' };
   const nuevoId = () => 'lg-' + Date.now().toString(36) + '-' + Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(36)).join('').slice(0, 12);
 
   (function estilos() {
@@ -88,6 +88,12 @@ const Legajo = (function () {
     if (imagen.close) imagen.close();
     if (!blob) throw new Error('No se pudo preparar la foto');
     return blob;
+  }
+
+  // Foto de un comprobante o cupon, achicada, lista para la cola.
+  async function prepararAdjunto(archivo) {
+    const blob = await comprimir(archivo, 1600);
+    return { mime: blob.type || 'image/jpeg', nombre: archivo.name, datos: await blob.arrayBuffer() };
   }
 
   // ---------- cola en el equipo (IndexedDB) ----------
@@ -256,7 +262,8 @@ const Legajo = (function () {
         ${o.pago ? `<label>${o.pago.obligatorio ? 'Cómo pagó la seña' : 'Entrega inicial (opcional)'}</label>
           <select data-c="metodo">${o.pago.obligatorio ? '' : '<option value="">No entrega nada ahora</option>'}<option value="efectivo">Efectivo en pesos</option><option value="efectivo_usd">Efectivo en dólares</option><option value="transferencia">Transferencia en pesos</option><option value="debito">Débito</option><option value="qr">QR</option></select>
           <div data-montoin${o.pago.obligatorio ? ' hidden' : ' hidden'}><label>Monto (en la moneda elegida)</label><input type="text" data-c="monto" inputmode="decimal" autocomplete="off"></div>
-          <div data-cuentain hidden><label>Cuenta a la que entró</label><select data-c="cuenta"><option value="">Elegí la cuenta…</option></select>${campoFoto('comprobante', 'Comprobante (opcional)')}</div>` : ''}
+          <div data-cuentain hidden><label>Cuenta a la que entró</label><select data-c="cuenta"><option value="">Elegí la cuenta…</option></select>${campoFoto('comprobante', 'Comprobante (opcional)')}</div>
+          <div data-cuponin hidden>${campoFoto('cupon', 'Foto del cupón firmado por el cliente')}</div>` : ''}
         <label style="display:flex; gap:10px; align-items:center; font-weight:400;"><input type="checkbox" data-c="ofertas" style="width:22px; height:22px;"> El cliente acepta recibir ofertas de recambio y novedades</label>
         <p class="lg-suave">Los datos y las fotos se usan para registrar la operación y la garantía. El cliente puede pedir verlos, corregirlos o darlos de baja.</p>
         <button type="button" class="lg-boton principal" data-seguir>Siguiente</button>`);
@@ -269,10 +276,12 @@ const Legajo = (function () {
       conectarFoto(caja, 'dorso', f => { fotos.dorso = f; });
       if (o.pago) {
         conectarFoto(caja, 'comprobante', f => { fotos.comprobante = f; });
+        conectarFoto(caja, 'cupon', f => { fotos.cupon = f; });
         const alCambiar = async () => {
           const m = val('metodo');
           caja.querySelector('[data-montoin]').hidden = !m || (o.pago.obligatorio && m !== 'efectivo_usd');
           caja.querySelector('[data-cuentain]').hidden = m !== 'transferencia';
+          caja.querySelector('[data-cuponin]').hidden = m !== 'debito';
           if (m === 'transferencia') {
             const lista = (await cargarCuentas()).filter(x => x.tipo === 'transferencia_ars');
             c('cuenta').innerHTML = '<option value="">Elegí la cuenta…</option>' + lista.map(x => `<option value="${x.id}">${esc(x.etiqueta)} — ${esc(x.titular)}</option>`).join('');
@@ -318,7 +327,10 @@ const Legajo = (function () {
             const p = m === 'efectivo_usd' ? { metodo: 'efectivo', moneda: 'USD', monto, cotizacion: dolar } : { metodo: m, moneda: 'ARS', monto };
             if (m === 'transferencia') { if (!val('cuenta')) return aviso('error', 'Elegí la cuenta a la que entró la transferencia'); p.cuentaId = Number(val('cuenta')); }
             salida.pagos = [p];
-            if (fotos.comprobante) salida.comprobante = { mime: fotos.comprobante.type, nombre: fotos.comprobante.name, datos: await fotos.comprobante.arrayBuffer() };
+            const adjunto = m === 'transferencia' ? fotos.comprobante : (m === 'debito' ? fotos.cupon : null);
+            if (adjunto) {
+              try { salida.comprobante = await prepararAdjunto(adjunto); } catch (e) { return aviso('error', e.message); }
+            }
           } else salida.pagos = [];
         }
         // La ventana de impresion se abre ACA, dentro del toque: Safari bloquea las que se abren despues.
@@ -366,7 +378,7 @@ const Legajo = (function () {
         const j = await (await fetch('/api/pendientes?sucursal=' + encodeURIComponent(sucursalActual) + (vista === 'todas' ? '&todas=1' : ''), { credentials: 'same-origin' })).json();
         if (!j.ok) throw new Error(j.error || 'No se pudo leer');
         lista.innerHTML = cabecera + (j.operaciones.length ? j.operaciones.map(op => `<div class="lg-item"><b>${esc(op.referencia)} · ${esc(op.cliente)}</b><br>${esc(op.producto || '')}<br><span class="lg-suave">${new Date(op.fecha).toLocaleString('es-AR')}</span>
-          <div class="lg-fila" style="margin-top:6px;">${op.faltan.map(t => `<button type="button" class="lg-boton" data-subir="${t}" data-opid="${esc(op.opid)}">📷 ${esc(NOMBRE_DOC[t] || t)}</button>`).join('') || '<span class="lg-suave">✔ Documentación completa</span>'}</div>
+          <div class="lg-fila" style="margin-top:6px;">${op.faltan.filter(t => t !== 'cupon_tarjeta').map(t => `<button type="button" class="lg-boton" data-subir="${t}" data-opid="${esc(op.opid)}">📷 ${esc(NOMBRE_DOC[t] || t)}</button>`).join('') + (op.cupones || []).map(c => c.puede ? `<button type="button" class="lg-boton" data-cupon="${c.pagoId}">📷 Cupón ${esc(textoCupon(c))}</button>` : `<span class="lg-suave">Falta el cupón ${esc(textoCupon(c))}: lo sube quien cargó la venta o administración.</span>`).join('') || '<span class="lg-suave">✔ Documentación completa</span>'}</div>
           <div class="lg-fila" style="margin-top:6px;">${op.papeles.map(p => `<a class="lg-boton" target="_blank" rel="noopener" href="/api/impresiones/${encodeURIComponent(op.opid)}/${p.tipo}">🖨️ Reimprimir ${esc(p.titulo)}</a>`).join('')}</div></div>`).join('') : '<p class="lg-suave">No hay nada pendiente. 🎉</p>') +
           '<p class="lg-suave">Para reimprimir: se abre el papel y desde ahí usás Compartir → Imprimir.</p>';
       } catch (e) { lista.innerHTML = cabecera + '<p class="lg-suave">No se pudo cargar: ' + esc(e.message) + '</p>'; }
@@ -374,6 +386,7 @@ const Legajo = (function () {
     caja.addEventListener('click', ev => {
       const v = ev.target.closest('[data-ver]'); if (v) { vista = v.getAttribute('data-ver'); return pintar(); }
       const s = ev.target.closest('[data-subir]'); if (s) return subirFaltante(s.getAttribute('data-opid'), s.getAttribute('data-subir'), pintar);
+      const k = ev.target.closest('[data-cupon]'); if (k) return subirCupon(Number(k.getAttribute('data-cupon')), pintar);
       const q = ev.target.closest('[data-cuota]'); if (q) return cargarCuota(Number(q.getAttribute('data-cuota')), pintar);
     });
     pintar();
@@ -399,19 +412,47 @@ const Legajo = (function () {
     });
   }
 
+  const textoCupon = c => (c.metodo === 'credito' ? 'crédito' : 'débito') + ' $' + formatNumberArg(c.monto_centavos / 100).replace(/^\$\s*/, '');
+
+  // El cupon firmado se adjunta al pago con tarjeta (queda al lado del pago en el panel).
+  function subirCupon(pagoId, alTerminar) {
+    const caja = abrirCaja(`<div class="lg-fila" style="justify-content:space-between;"><h3>${esc(NOMBRE_DOC.cupon_tarjeta)}</h3><button type="button" class="lg-boton" data-cerrar>✕</button></div>
+      ${campoFoto('doc', 'Foto', 'Que se lea el importe y se vea la firma.')}
+      <button type="button" class="lg-boton principal" data-guardar disabled>Guardar</button>`);
+    let archivo = null;
+    const boton = caja.querySelector('[data-guardar]');
+    conectarFoto(caja, 'doc', f => { archivo = f; boton.disabled = false; });
+    caja.querySelector('[data-cerrar]').addEventListener('click', () => caja.cerrar());
+    boton.addEventListener('click', async () => {
+      boton.disabled = true;
+      try { await encolar(Object.assign({ id: nuevoId(), clase: 'comprobante', pagoId }, await prepararAdjunto(archivo))); }
+      catch (e) { boton.disabled = false; return aviso('error', e.message); }
+      caja.cerrar(); aviso('success', 'Foto guardada');
+      setTimeout(alTerminar, 1200);
+    });
+  }
+
   function cargarCuota(finId, alTerminar) {
     const caja = abrirCaja(`<div class="lg-fila" style="justify-content:space-between;"><h3>Registrar cuota</h3><button type="button" class="lg-boton" data-cerrar>✕</button></div>
       <p class="lg-suave">Esto la anota en la base. Si el plan también está en la planilla, registrá el pago desde Reservas/Financiación (se anota en los dos lados).</p>
       <label>Cómo pagó</label><select data-c="metodo"><option value="efectivo">Efectivo en pesos</option><option value="efectivo_usd">Efectivo en dólares</option><option value="debito">Débito</option><option value="qr">QR</option></select>
-      <label>Monto (en la moneda elegida)</label><input type="text" data-c="monto" inputmode="decimal"><button type="button" class="lg-boton principal" data-guardar>Guardar cuota</button>`);
+      <label>Monto (en la moneda elegida)</label><input type="text" data-c="monto" inputmode="decimal">
+      <div data-cuponin hidden>${campoFoto('cupon', 'Foto del cupón firmado por el cliente')}</div>
+      <button type="button" class="lg-boton principal" data-guardar>Guardar cuota</button>`);
     const opId = nuevoId();
+    let cupon = null;
+    conectarFoto(caja, 'cupon', f => { cupon = f; });
+    const metodo = caja.querySelector('[data-c=metodo]');
+    metodo.addEventListener('change', () => { caja.querySelector('[data-cuponin]').hidden = metodo.value !== 'debito'; });
     caja.querySelector('[data-cerrar]').addEventListener('click', () => caja.cerrar());
     caja.querySelector('[data-guardar]').addEventListener('click', async () => {
       const m = caja.querySelector('[data-c=metodo]').value;
       const monto = Number(caja.querySelector('[data-c=monto]').value.replace(/\./g, '').replace(',', '.')) || 0;
       if (!(monto > 0)) return aviso('error', 'Completá el monto');
       const pago = m === 'efectivo_usd' ? { metodo: 'efectivo', moneda: 'USD', monto, cotizacion: DATA.dolar.DolarVenta } : { metodo: m, moneda: 'ARS', monto };
-      await registrarOperacion('/api/financiaciones/' + finId + '/pagos', { opId, cotizacionUsd: DATA.dolar.DolarVenta, pagos: [pago] });
+      let adjunto = null;
+      if (m === 'debito' && cupon) { try { adjunto = await prepararAdjunto(cupon); } catch (e) { return aviso('error', e.message); } }
+      await registrarOperacion('/api/financiaciones/' + finId + '/pagos', { opId, cotizacionUsd: DATA.dolar.DolarVenta, pagos: [pago] }, adjunto);
       caja.cerrar(); setTimeout(alTerminar, 1200);
     });
   }

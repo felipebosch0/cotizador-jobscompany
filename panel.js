@@ -249,9 +249,9 @@ const PanelVentas = (function () {
     const esAdmin = rol === 'admin';
     const filasPagos = d.pagos.map(p => {
       const enMoneda = p.moneda === 'ARS' ? pesos(p.monto_centavos) : p.moneda + ' ' + (p.monto_centavos / 100).toLocaleString('es-AR');
-      const sinCaptura = p.metodo === 'canje' && p.estado === 'vigente' && !(compPorPago[p.id] || []).length;
-      const comps = (compPorPago[p.id] || []).map(c => `<a href="/api/panel/comprobantes/${c.id}" target="_blank" rel="noopener">📎 ${p.metodo === 'canje' ? 'Captura ENACOM · ' : ''}${esc(c.nombre_original || 'comprobante')}</a>`).join('<br>') || (sinCaptura ? '<span class="pv-badge alerta">Sin verificar en ENACOM</span>' : '<span style="opacity:.5">—</span>');
       const vig = p.estado === 'vigente';
+      const sinCaptura = p.metodo === 'canje' && p.estado === 'vigente' && !(compPorPago[p.id] || []).length;
+      const comps = (compPorPago[p.id] || []).map(c => `<a href="/api/panel/comprobantes/${c.id}" target="_blank" rel="noopener">📎 ${p.metodo === 'canje' ? 'Captura ENACOM · ' : ''}${esc(c.nombre_original || 'comprobante')}</a>`).join('<br>') || (sinCaptura ? '<span class="pv-badge alerta">Sin verificar en ENACOM</span>' : (vig && (p.metodo === 'debito' || p.metodo === 'credito') ? '<span class="pv-badge alerta">Sin foto del cupón</span>' : '<span style="opacity:.5">—</span>'));
       const verif = vig ? `<span class="pv-badge ${p.verificacion === 'verificado' ? 'ok' : (p.verificacion === 'con_diferencia' ? 'error' : 'alerta')}">${NOMBRE_VERIF[p.verificacion]}</span>${p.nota_verificacion ? '<br><span style="opacity:.7">' + esc(p.nota_verificacion) + '</span>' : ''}${p.verificado_por ? '<br><span style="opacity:.6">' + esc(p.verificado_por) + '</span>' : ''}` : `<span class="pv-badge error">Anulado</span><br><span style="opacity:.7">${esc(p.motivo_anulacion || '')}</span>`;
       const acciones = vig && !anulada ? `<div class="pv-acciones">
           <button class="pv-btn bueno" data-accion="verificar" data-pago="${p.id}">Verificar</button>

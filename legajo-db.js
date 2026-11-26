@@ -205,7 +205,21 @@ export async function faltantesDe(env, ops) {
   const tiene = new Set(docs.map(d => d.opid + '|' + d.tipo));
   enPago.forEach(r => tiene.add(r.opid + '|enacom'));
   const dniTiene = new Set(dniDocs.map(d => d.dni + '|' + d.tipo));
-  return ops.map(o => Object.assign(o, { faltan: documentosRequeridos(o).filter(t => !tiene.has(o.opid + '|' + t) && !dniTiene.has((o.dni || '-') + '|' + t)) }));
+  // Pagos con tarjeta sin la foto del cupon firmado (va adjunta al pago, como cualquier comprobante).
+  const cupones = (await env.DB.prepare(
+    `SELECT o.opid, p.id AS pagoId, p.metodo, p.monto_centavos, p.registrado_por_id
+       FROM (SELECT opid, id AS venta_id, NULL AS reserva_id, NULL AS financiacion_id FROM ventas WHERE opid IN (SELECT value FROM json_each(?1))
+             UNION ALL SELECT opid, NULL, id, NULL FROM reservas WHERE opid IN (SELECT value FROM json_each(?1))
+             UNION ALL SELECT opid, NULL, NULL, id FROM financiaciones WHERE opid IN (SELECT value FROM json_each(?1))) o
+       JOIN pagos p ON (p.venta_id = o.venta_id OR p.reserva_id = o.reserva_id OR p.financiacion_id = o.financiacion_id)
+      WHERE p.estado = 'vigente' AND p.metodo IN ('debito', 'credito') AND NOT EXISTS (SELECT 1 FROM comprobantes c WHERE c.pago_id = p.id)
+      ORDER BY p.id`).bind(JSON.stringify(opids)).all()).results || [];
+  return ops.map(o => {
+    const sinCupon = cupones.filter(c => c.opid === o.opid);
+    const faltan = documentosRequeridos(o).filter(t => !tiene.has(o.opid + '|' + t) && !dniTiene.has((o.dni || '-') + '|' + t));
+    if (sinCupon.length) faltan.push('cupon_tarjeta');
+    return Object.assign(o, { faltan, cupones: sinCupon });
+  });
 }
 
 async function listaPendientes(request, env, h, url) {
@@ -230,7 +244,8 @@ async function listaPendientes(request, env, h, url) {
   const ops = await faltantesDe(env, results || []);
   const impresas = ops.length ? ((await env.DB.prepare('SELECT opid, tipo, titulo FROM impresiones WHERE opid IN (' + ops.map(() => '?').join(',') + ')').bind(...ops.map(o => o.opid)).all()).results || []) : [];
   // Al vendedor no se le manda el DNI: le alcanza con el nombre y el producto.
-  const salida = ops.map(o => ({ clase: o.clase, opid: o.opid, referencia: o.referencia, fecha: o.fecha_hora, cliente: o.nombre, producto: o.producto, faltan: o.faltan, papeles: impresas.filter(i => i.opid === o.opid).map(i => ({ tipo: i.tipo, titulo: i.titulo })) }));
+  const salida = ops.map(o => ({ clase: o.clase, opid: o.opid, referencia: o.referencia, fecha: o.fecha_hora, cliente: o.nombre, producto: o.producto, faltan: o.faltan,
+    cupones: o.cupones.map(c => ({ pagoId: c.pagoId, metodo: c.metodo, monto_centavos: c.monto_centavos, puede: ROLES_PANEL.indexOf(a.usuario.rol) !== -1 || c.registrado_por_id === a.usuario.id })), papeles: impresas.filter(i => i.opid === o.opid).map(i => ({ tipo: i.tipo, titulo: i.titulo })) }));
   const soloFaltantes = url.searchParams.get('todas') !== '1';
   return h.jsonConEstado({ ok: true, sucursal: suc.nombre, operaciones: soloFaltantes ? salida.filter(o => o.faltan.length) : salida }, 200);
 }

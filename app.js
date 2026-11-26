@@ -2959,6 +2959,12 @@ const ESTILOS_GARANTIA = `
   .planilla td { border: 1px solid #999; padding: 8px 10px; }
   .planilla td.etiqueta { font-weight: bold; width: 45%; background: #f7f7f7; }
   .planilla td.valor { min-height: 20px; }
+  .con-cupones .planilla { margin-top: 8px; }
+  .con-cupones .planilla td { padding: 3px 10px; font-size: 12.5px; line-height: 1.35; }
+  .cupones { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 10px; }
+  .cupon { box-sizing: border-box; width: 49%; height: 300px; margin-bottom: 10px; border: 1.5px dashed #555; border-radius: 6px; padding: 6px 8px; text-align: center; page-break-inside: avoid; break-inside: avoid; }
+  .cupon strong { display: block; font-size: 11.5px; }
+  .cupon span { display: block; font-size: 10px; color: #777; margin-top: 4px; }
   /* Texto legal nuevo: mas largo, asi que va mas compacto para entrar en una hoja A4 */
   @page { size: A4; margin: 10mm 12mm; }
   .legal p, .legal li { font-size: 10.5px; line-height: 1.3; margin: 3px 0; text-align: justify; }
@@ -2991,7 +2997,8 @@ const ESTILOS_GARANTIA = `
   .resena-tabla td.qr svg { margin-left: auto; }
   /* A4 con margen de 10mm deja ~1046px utiles: la hoja mide menos que eso (con border-box y
      sin padding) para que no se desborde y mande la firma o una hoja en blanco a otra pagina */
-  @media print { .pagina { box-sizing: border-box; margin: 0 auto; padding-bottom: 0; min-height: 0; height: 1000px; overflow: hidden; } }
+  @media print { .pagina { box-sizing: border-box; margin: 0 auto; padding-bottom: 0; min-height: 0; height: 1000px; overflow: hidden; }
+    .pagina.con-cupones { display: block; height: auto; overflow: visible; } }
 `;
 
 // Para el PDF del mail: el conversor de Apps Script es mas viejo que Chrome y
@@ -3076,19 +3083,25 @@ async function imprimirGarantiaCombinada() {
     ['EQUIPO EN PLAN CANJE', tradeInVenta ? tradeInVenta.modelo : ''],
     ['COTIZACION DEL CANJE', tradeInVenta ? formatNumberArg(tradeInVenta.precio) : '']
   ];
+  // Con tarjeta, la planilla se compacta y suma al pie un recuadro por pago para pegar el cupon firmado.
+  const cupones = cobroPlanilla.cupones || [];
+  const recuadrosCupones = cupones.length ? `
+  <div class="cupones">
+    ${cupones.map((texto, i) => `<div class="cupon"><strong>Cupón ${i + 1} · ${texto}</strong><span>Pegar acá el cupón firmado por el cliente</span></div>`).join('')}
+  </div>` : '';
   const contenidoPlanilla = `
   ${encabezadoLogo}
   <h1>Planilla de pagos</h1>
   <table class="planilla">
     ${filasPlanilla.map(([label, valor]) => `<tr><td class="etiqueta">${label}</td><td class="valor">${valor}</td></tr>`).join('')}
-  </table>`;
+  </table>${recuadrosCupones}`;
 
   const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Garantia</title>
 <style>${ESTILOS_GARANTIA}</style></head>
 <body>
   ${paginasGarantia.map(p => `<div class="pagina">${p}</div>`).join('\n  ')}
-  <div class="pagina">${contenidoPlanilla}</div>
+  <div class="pagina${cupones.length ? ' con-cupones' : ''}">${contenidoPlanilla}</div>
 
   <script>window.onload = () => window.print();</script>
 </body></html>`;
